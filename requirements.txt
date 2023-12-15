@@ -1,0 +1,1 @@
+cartesi @ git+https://github.com/prototyp3-dev/python-cartesi@cdf14b1365ea3bbbae5530a70d52303a5a93fbfe
