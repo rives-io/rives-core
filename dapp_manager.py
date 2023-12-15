@@ -23,73 +23,33 @@ class EmptyClass(BaseModel):
 # DappManager
 
 class DappManager(object):
-    REQUIRED_FILES = ['__init__.py','settings.py','model.py','queries.py','mutations.py']
+    dapp = DApp()
+    abi_router = ABIRouter()
+    url_router = URLRouter()
+    storage = Storage()
+    modules_to_add = []
 
-    _instance = None
-    def __new__(class_, *args, **kwargs):
-        if not isinstance(class_._instance, class_):
-            class_._instance = object.__new__(class_, *args, **kwargs)
-        return class_._instance
+    def __new__(cls):
+        return cls
+    
+    @classmethod
+    def add_module(cls,mod):
+        cls.modules_to_add.append(mod)
 
-    def __init__(self):
-        self.dapp = DApp()
-        self.abi_router = ABIRouter()
-        self.url_router = URLRouter()
-        self.dapp.add_router(self.abi_router)
-        self.dapp.add_router(self.url_router)
-        self.storage = Storage()
-
-        self.queries = []
-        self.mutations = []
-
-    def import_apps(self):
+    @classmethod
+    def import_apps(cls):
         # TODO: add standard wallet
 
-        # add modules
-        dirs = [d for d in os.listdir() if os.path.isdir(d) and not d.startswith('.') and not d.startswith('_')]
-        modules_to_add = []
-        for possible_module in dirs:
-            files = [f for f in os.listdir(possible_module) if os.path.isfile(f"{possible_module}/{f}") and not f.startswith('.')]
-            has_required = True
-            for required in DappManager.REQUIRED_FILES:
-                if required not in files: 
-                    has_required = False
-                    break
-            if not has_required: continue
-            modules_to_add.append(possible_module)
-
-        if len(modules_to_add) == 0:
+        if len(cls.modules_to_add) == 0:
             raise Exception("No modules detected")
 
-        for module_name in modules_to_add:
+        for module_name in cls.modules_to_add:
             module = importlib.import_module(module_name)
-
-        def make_qry(func,model,has_param):
-            @helpers.db_session
-            def qry(rollup: Rollup, params: URLParameters) -> bool:
-                ctx = Context()
-                ctx.set_context(rollup,None)
-                param_list = []
-                if has_param:
-                    fields = []
-                    values = []
-                    for k in model.__fields__.keys():
-                        if k in params.query_params:
-                            fields.append(k)
-                            values.append(params.query_params[k][0])
-
-                    kwargs = dict(zip(fields, values))
-                    param_list.append(model.parse_obj(kwargs)) #,packed=True)
-                try:
-                    res = func(*param_list)
-                finally:
-                    ctx.clear_context()
-                return res
-            return qry
+            print(module)
 
         for query_fn in Query().queries:
             query_name = query_fn.__name__
-            self.queries.append((query_name,query_fn))
+            
             sig = signature(query_fn)
 
             if len(sig.parameters) > 1:
@@ -104,23 +64,7 @@ class DappManager(object):
 
             # using url router
             path = f"{module_name}/{query_name}"
-            self.url_router.inspect(path=path)(make_qry(query_fn,model,param is not None))
-
-        def make_mut(func,model,has_param):
-            @helpers.db_session
-            def mut(rollup: Rollup, data: RollupData) -> bool:
-                ctx = Context()
-                ctx.set_context(rollup,data.metadata)
-                payload = data.bytes_payload()[4:]
-                param_list = []
-                if has_param:
-                    param_list.append(abi.decode_to_model(data=payload, model=model)) #,packed=True)
-                try:
-                    res = func(*param_list)
-                finally:
-                    ctx.clear_context()
-                return res
-            return mut
+            cls.url_router.inspect(path=path)(_make_qry(query_fn,model,param is not None))
 
         for mutation_fn in Mutation().mutations:
             mutation_name = mutation_fn.__name__
@@ -142,12 +86,15 @@ class DappManager(object):
                 function=f"{module_name}.{mutation_name}",
                 argument_types=abi.get_abi_types_from_model(model)
             )
-            self.abi_router.advance(header=header)(make_mut(mutation_fn,model,param is not None))
+            cls.abi_router.advance(header=header)(_make_mut(mutation_fn,model,param is not None))
 
-    def run(self):
-        self.import_apps()
-        self.storage.initialize_storage()
-        self.dapp.run()
+    @classmethod
+    def run(cls):
+        cls.dapp.add_router(cls.abi_router)
+        cls.dapp.add_router(cls.url_router)
+        cls.import_apps()
+        cls.storage.initialize_storage()
+        cls.dapp.run()
 
 
 
@@ -337,6 +284,45 @@ def str2bytes(strtxt):
 
 def str2hex(strtxt):
     return bytes2hex(str2bytes(strtxt))
+
+def _make_qry(func,model,has_param):
+    @helpers.db_session
+    def qry(rollup: Rollup, params: URLParameters) -> bool:
+        ctx = Context()
+        ctx.set_context(rollup,None)
+        param_list = []
+        if has_param:
+            fields = []
+            values = []
+            for k in model.__fields__.keys():
+                if k in params.query_params:
+                    fields.append(k)
+                    values.append(params.query_params[k][0])
+
+            kwargs = dict(zip(fields, values))
+            param_list.append(model.parse_obj(kwargs)) #,packed=True)
+        try:
+            res = func(*param_list)
+        finally:
+            ctx.clear_context()
+        return res
+    return qry
+
+def _make_mut(func,model,has_param):
+    @helpers.db_session
+    def mut(rollup: Rollup, data: RollupData) -> bool:
+        ctx = Context()
+        ctx.set_context(rollup,data.metadata)
+        payload = data.bytes_payload()[4:]
+        param_list = []
+        if has_param:
+            param_list.append(abi.decode_to_model(data=payload, model=model)) #,packed=True)
+        try:
+            res = func(*param_list)
+        finally:
+            ctx.clear_context()
+        return res
+    return mut
 
 
 ###
