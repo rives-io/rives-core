@@ -1,4 +1,3 @@
-
 import pony.orm
 from enum import Enum
 from typing import Optional, List
@@ -21,7 +20,7 @@ class OutputType(Enum):
 ###
 # Storage
 
-class Storage():
+class Storage:
     db = pony.orm.Database()
     seeds = []
     
@@ -47,12 +46,12 @@ def _make_seed_function(f):
 
 def seed(**kwargs):
     def decorator(func):
-        Storage().add_seed(func)
+        Storage.add_seed(func)
         return func
     return decorator
 
 
-Entity = Storage().db.Entity
+Entity = Storage.db.Entity
 
 
 ###
@@ -61,10 +60,10 @@ Entity = Storage().db.Entity
 class Output(Entity):
     id              = helpers.PrimaryKey(int, auto=True)
     output_type     = helpers.Required(str) # helpers.Required(OutputType)
-    msg_sender      = helpers.Required(str)
-    block_number    = helpers.Required(int)
-    timestamp       = helpers.Required(int)
-    epoch_index     = helpers.Required(int)
+    msg_sender      = helpers.Required(str, lazy=True, index=True)
+    block_number    = helpers.Required(int, lazy=True)
+    timestamp       = helpers.Required(int, lazy=True, index=True)
+    epoch_index     = helpers.Required(int, lazy=True)
     input_index     = helpers.Required(int)
     output_index    = helpers.Required(int)
     output_class    = helpers.Required(str)
@@ -72,15 +71,15 @@ class Output(Entity):
 
 class OutputTag(Entity):
     id              = helpers.PrimaryKey(int, auto=True)
-    name            = helpers.Required(str)
+    name            = helpers.Required(str, index=True)
     output          = helpers.Required(Output)
 
 
 def add_output_index(metadata,output_type,output_index,output_class,tags=None):
     o = Output(
-        output_type     = output_type.name,
+        output_type     = output_type.name.lower(),
         output_class    = output_class,
-        msg_sender      = metadata.msg_sender,
+        msg_sender      = metadata.msg_sender.lower(),
         block_number    = metadata.block_number,
         timestamp       = metadata.timestamp,
         epoch_index     = metadata.epoch_index,
@@ -96,34 +95,44 @@ def add_output_index(metadata,output_type,output_index,output_class,tags=None):
 
 def get_output_indexes(**kwargs):
     tags = kwargs.get('tags')
-    tags_filter = lambda t: True
+
+    output_query = Output.select()
+
+    tag_query = OutputTag.select()
+
     if tags is not None and len(tags) > 0:
-        tags_filter = lambda t: t.name in tags
+        tag_query = tag_query.filter(lambda t: t.name in tags)
 
-    output_filter = lambda o: True
     if kwargs.get('output_type') is not None:
-        prev_filter = output_filter
-        output_filter = lambda o: prev_filter_filter(o) and o.output_type == kwargs.get('output_type')
+        output_query = output_query.filter(lambda o: o.output_type == kwargs.get('output_type').lower())
     if kwargs.get('msg_sender') is not None:
-        prev_filter = output_filter
-        output_filter = lambda o: prev_filter_filter(o) and o.msg_sender == kwargs.get('msg_sender')
+        output_query = output_query.filter(lambda o: o.msg_sender == kwargs.get('msg_sender').lower())
     if kwargs.get('timestamp_gte') is not None:
-        prev_filter = output_filter
-        output_filter = lambda o: prev_filter_filter(o) and o.timestamp >= kwargs.get('timestamp_gte')
+        output_query = output_query.filter(lambda o: o.timestamp >= kwargs.get('timestamp_gte'))
     if kwargs.get('timestamp_lte') is not None:
-        prev_filter = output_filter
-        output_filter = lambda o: prev_filter_filter(o) and o.timestamp <= kwargs.get('timestamp_lte')
+        output_query = output_query.filter(lambda o: o.timestamp <= kwargs.get('timestamp_lte'))
 
-    qry = helpers.distinct(
+    query = helpers.distinct(
         [o.output_type,o.output_class,o.input_index,o.output_index]
-        for o in Output for t in OutputTag 
-        if t.output == o and tags_filter(t) and output_filter(o)
+        for o in output_query for t in tag_query if t.output == o
     )
 
-    res = [{'output_type':r[0],'output_class':r[1],'input_index':r[2],'output_index':r[3]} for r in qry]
+    res = [{'output_type':r[0],'output_class':r[1],'input_index':r[2],'output_index':r[3]} for r in query]
     
     return res
 
+
+
+
+
+
+
+
+# import pony.orm
+# from enum import Enum
+# from typing import Optional, List
+
+# from cartesi.abi import String, Bytes, Int, UInt
 
 # # class EnumConverter(pony.orm.dbapiprovider.Converter):
 # #     def sql_type(self):
@@ -151,33 +160,35 @@ def get_output_indexes(**kwargs):
 # #         elif isinstance(y, int): y = converter.py_type(y).name
 # #         return x == y
 
+# helpers = pony.orm
+# pony.orm.set_sql_debug(True)
 # db = pony.orm.Database()
 # Entity = db.Entity
 
 # # helpers.Required(OutputType)
 # class Output(Entity):
 #     id              = helpers.PrimaryKey(int, auto=True)
-#     output_type     = helpers.Required(str)
-#     msg_sender      = helpers.Required(str)
-#     block_number    = helpers.Required(int)
-#     timestamp       = helpers.Required(int)
-#     epoch_index     = helpers.Required(int)
+#     output_type     = helpers.Required(str) # helpers.Required(OutputType)
+#     msg_sender      = helpers.Required(str, lazy=True, index=True)
+#     block_number    = helpers.Required(int, lazy=True)
+#     timestamp       = helpers.Required(int, lazy=True, index=True)
+#     epoch_index     = helpers.Required(int, lazy=True)
 #     input_index     = helpers.Required(int)
 #     output_index    = helpers.Required(int)
+#     output_class    = helpers.Required(str)
 #     tags            = helpers.Set("OutputTag")
 
 # class OutputTag(Entity):
 #     id              = helpers.PrimaryKey(int, auto=True)
-#     name            = helpers.Required(str)
+#     name            = helpers.Required(str, index=True)
 #     output          = helpers.Required(Output)
-
 
 # db.bind(provider="sqlite", filename=":memory:")
 # # db.provider.converter_classes.append((Enum, EnumConverter))
 # db.generate_mapping(create_tables=True)
 
 
-# o = Output(output_type='report',msg_sender="0x0000",timestamp=16000,block_number=0,epoch_index=0,input_index=0,output_index=0)
+# o = Output(output_type='report',msg_sender="0x0000",timestamp=16000,block_number=0,epoch_index=0,input_index=0,output_index=0,output_class='hex')
 
 # t1 = OutputTag(name='game',output=o)
 # t2 = OutputTag(name='log',output=o)
@@ -189,3 +200,19 @@ def get_output_indexes(**kwargs):
 # output_filter = lambda o: prev_filter_filter(o) and o.timestamp <= 
 
 # helpers.select(o for o in Output for t in OutputTag if t.output == o and t.name in ['log'] and o.output_type == 'report' and output_filter(o))[:]
+
+# tags = ['log']
+
+# output_query = Output.select()
+
+# tag_query = OutputTag.select()
+
+# if tags is not None and len(tags) > 0:
+#     tag_query = tag_query.filter(lambda t: t.name in tags)
+
+# output_query = output_query.filter(lambda o: o.msg_sender == '0x0000')
+
+# q = helpers.distinct(
+#     [o.output_type,o.output_class,o.input_index,o.output_index]
+#     for o in output_query for t in tag_query if t.output == o
+# )

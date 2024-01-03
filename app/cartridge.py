@@ -1,16 +1,17 @@
 from pydantic import BaseModel
 import logging
-import datetime
-import tempfile
 from hashlib import sha256
 from typing import Optional, List
+import tempfile
+import json
+import base64
 
 from cartesi.abi import String, Bytes, UInt, encode_model
 
-from pytesi.storage import Entity, helpers, seed # TODO: create repo to avoid this relative import hassle
-from pytesi.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call, hex2bytes, str2bytes, bytes2str # TODO: create repo to avoid this relative import hassle
+from cartesapp.storage import Entity, helpers, seed
+from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call, hex2bytes, str2bytes, bytes2str
 
-from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot
+from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path
 from .setup import AppSettings
 
 LOGGER = logging.getLogger(__name__)
@@ -20,9 +21,10 @@ LOGGER = logging.getLogger(__name__)
 ###
 # Model
 
-# TODO: define cartridge class
+# TODO: TypeError: unhashable type: 'ABIType' allow python cartesi types
 class Cartridge(Entity):
     id              = helpers.PrimaryKey(str)
+    name            = helpers.Required(str, index=True, unique=True)
     user_address    = helpers.Required(str)
     info            = helpers.Optional(helpers.Json)
     created_at      = helpers.Required(int)
@@ -44,6 +46,14 @@ class SaveCartridgePayload(BaseModel):
 class CartridgePayload(BaseModel):
     id: String
 
+# TODO: TypeError: unhashable type: 'ABIType' allow python cartesi types
+class CartridgesPayload(BaseModel):
+    name:       Optional[str]
+    tags:       Optional[List[str]]
+    page:       Optional[int]
+    page_size:  Optional[int]
+
+
 # Outputs
 
 @event()
@@ -52,30 +62,44 @@ class AddCartridge(BaseModel):
     user_address:   String
     timestamp:      UInt
 
+class Author(BaseModel):
+    name:           str
+    link:           str
+
+class Info(BaseModel):
+    name:           str
+    summary:        Optional[str]
+    description:    Optional[str]
+    version:        Optional[str]
+    status:         Optional[str]
+    tags:           List[str]
+    authors:        Optional[List[Author]]
+    url:            Optional[str]
+
 @output()
 class CartridgeInfo(BaseModel):
     id: String
     user_address: String
-    info: String
+    info: Info
     created_at: UInt
-    cover: Bytes
+    cover: String # encode to base64
 
 @output()
 class CartridgesOutput(BaseModel):
-    cartridges: List[CartridgeInfo]
+    data:   List[CartridgeInfo]
+    total:  UInt
+    page:   UInt
 
+class Test(BaseModel):
+    cover: String
 
 ###
 # Mutations
 
-# @chunked # TODO: decorator to allow chunked and compressed mutations
 @mutation(chunk=True,compress=True)
 def save_cartridge(payload: SaveCartridgePayload) -> bool:
-    LOGGER.info(get_metadata())
-
-    if helpers.count(c for c in Cartridge if c.id == payload.id) > 0:
-        add_output(f"Cartridge already added",tags=['error'])
-        return False
+    
+    LOGGER.info("Saving Cartridge...")
 
     try:
         cartridge_id = create_cartridge(payload.data,**get_metadata().dict())
@@ -107,10 +131,10 @@ def cartridge_info(payload: CartridgePayload) -> bool:
 
     LOGGER.info(cartridge)
 
-    # TODO: convert to json output
     if cartridge is not None:
-        out = CartridgeInfo.parse_obj(cartridge.to_dict())
-        # add_output(ctg_out) # TODO: allow objs, str, hex and bytes. obj would create decoder
+        cartridge_dict = cartridge.to_dict()
+        cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
+        out = CartridgeInfo.parse_obj(cartridge_dict)
         add_output(out)
     else:
         add_output("null")
@@ -121,10 +145,10 @@ def cartridge_info(payload: CartridgePayload) -> bool:
 def cartridge(payload: CartridgePayload) -> bool:
     LOGGER.info(payload)
 
-    qry = helpers.select(c for c in Cartridge if c.id == payload.id)
+    query = helpers.select(c for c in Cartridge if c.id == payload.id)
 
-    if qry.count() > 0:
-        cartridge_file = open(f"{AppSettings.cartridges_path}/{payload.id}",'rb')
+    if query.count() > 0:
+        cartridge_file = open(f"{riv_get_cartridges_path()}/{payload.id}",'rb')
         cartridge_data = cartridge_file.read()
 
         add_output(cartridge_data)
@@ -134,13 +158,38 @@ def cartridge(payload: CartridgePayload) -> bool:
     return True
 
 @query()
-def all_cartridges() -> bool:
-    cartridges = Cartridge.select()[:]
-    
-    LOGGER.info(cartridges)
+def cartridges(payload: CartridgesPayload) -> bool:
+    cartridges_query = Cartridge.select()
 
-    dict_list_result = [r.to_dict() for r in cartridges]
-    out = CartridgesOutput.parse_obj({'cartridges':dict_list_result})
+    if payload.name is not None:
+        cartridges_query = cartridges_query.filter(lambda c: payload.name in c.name)
+
+    if payload.tags is not None and len(payload.tags) > 0:
+        for tag in payload.tags:
+            cartridges_query = cartridges_query.filter(lambda c: tag in c.info['tags'])
+    
+    total = cartridges_query.count()
+
+    page = 1
+    if payload.page is not None:
+        page = payload.page
+        if payload.page_size is not None:
+            cartridges = cartridges_query.page(payload.page,payload.page_size)
+        else:
+            cartridges = cartridges_query.page(payload.page)
+    else:
+        cartridges = cartridges_query.fetch()
+    
+
+    dict_list_result = []
+    for cartridge in cartridges:
+        cartridge_dict = cartridge.to_dict()
+        cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
+        dict_list_result.append(cartridge_dict)
+
+    LOGGER.info(f"Returning {len(dict_list_result)} of {total} cartridges")
+    
+    out = CartridgesOutput.parse_obj({'data':dict_list_result,'total':total,'page':page})
     
     add_output(out)
 
@@ -155,40 +204,31 @@ def generate_cartridge_id(bin_data: bytes) -> str:
 
 def create_cartridge(cartridge_data,**metadata):
     data_hash = generate_cartridge_id(cartridge_data)
-    LOGGER.info(data_hash)
+    
+    if helpers.count(c for c in Cartridge if c.id == data_hash) > 0:
+        raise Exception(f"Cartridge already exists")
 
-    cartridge_path = f"{AppSettings.cartridges_path}/{data_hash}"
-    cartridge_file = open(cartridge_path,'wb')
+    cartridge_file = open(f"{riv_get_cartridges_path()}/{data_hash}",'wb')
     cartridge_file.write(cartridge_data)
     cartridge_file.close()
 
-    result = riv_get_cartridge_info(cartridge_path)
-    if result.returncode > 0:
-        raise Exception("Error getting info")
+    cartridge_info = riv_get_cartridge_info(data_hash)
+    
+    # validate info
+    cartridge_info_json = json.loads(cartridge_info)
+    Info(**cartridge_info_json)
 
-    cartridge_info = result.stdout
+    cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
 
-    screenshot_temp = tempfile.NamedTemporaryFile()
-    screenshot_file = screenshot_temp.file
-
-    result = riv_get_cartridge_screenshot(cartridge_path,screenshot_file.name,0)
-    # print("*** DEBUG PRINT ***",result)
-    if result.returncode != 0:
-        raise Exception("Error getting cover")
-
-    cartridge_cover = open(screenshot_file.name,'rb').read()
-    screenshot_temp.close()
-
-    ts = metadata.get('timestamp') or 0
     c = Cartridge(
         id = data_hash,
+        name = cartridge_info_json['name'],
         user_address = metadata.get('msg_sender'),
         created_at = metadata.get('timestamp') or 0,
-        info = cartridge_info,
+        info = cartridge_info_json,
         cover = cartridge_cover
     )
 
     LOGGER.info(c)
 
     return data_hash
-

@@ -1,7 +1,7 @@
 
 import logging
 
-from pytesi.manager import Manager
+from cartesapp.manager import Manager
 
 logging.basicConfig(level=logging.DEBUG)
 

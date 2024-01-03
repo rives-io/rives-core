@@ -3,7 +3,7 @@ import logging
 import importlib
 from inspect import getmembers, isfunction, signature
 import sys, getopt
-from typing import Optional, List
+from typing import Optional, List, get_type_hints
 from pydantic import BaseModel
 from Crypto.Hash import keccak
 from enum import Enum
@@ -31,7 +31,7 @@ class Manager(object):
     dapp = DApp()
     abi_router = ABIRouter()
     url_router = URLRouter()
-    storage = Storage()
+    storage = Storage
     modules_to_add = []
     queries_info = {}
     mutations_info = {}
@@ -54,7 +54,7 @@ class Manager(object):
     @classmethod
     def _register_queries(cls):
         query_selectors = []
-        for query_fn in Query().queries:
+        for query_fn in Query.queries:
             query_name = query_fn.__name__
             module_name = query_fn.__module__.split('.')[0]
 
@@ -77,12 +77,12 @@ class Manager(object):
             query_selectors.append(path)
             cls.queries_info[f"{module_name}.{query_name}"] = {"selector":path,"module":module_name,"method":query_name,"model":model}
             LOGGER.info(f"Adding query {module_name}.{query_name} selector={path}, model={model.schema()}")
-            cls.url_router.inspect(path=path)(_make_qry(query_fn,model,param is not None,module=module_name))
+            cls.url_router.inspect(path=path)(_make_query(query_fn,model,param is not None,module=module_name))
 
     @classmethod
     def _register_mutations(cls):
         mutation_selectors = []
-        for mutation_fn in Mutation().mutations:
+        for mutation_fn in Mutation.mutations:
             mutation_name = mutation_fn.__name__
             module_name = mutation_fn.__module__.split('.')[0]
             
@@ -114,7 +114,7 @@ class Manager(object):
     @classmethod
     def _setup_settings(cls):
         add_indexer_query = False
-        settings = Setting().settings
+        settings = Setting.settings
         for module_name in settings:
             settings_cls = settings[module_name]
             add_indexer_query = getattr(settings_cls,'index_outputs')
@@ -124,7 +124,7 @@ class Manager(object):
 
     @classmethod
     def _run_setup_functions(cls):
-        for app_setup in Setup().setup_functions:
+        for app_setup in Setup.setup_functions:
             app_setup()
 
     @classmethod
@@ -144,7 +144,7 @@ class Manager(object):
 # Singletons
 
 # Query
-class Query():
+class Query:
     queries = []
     def __new__(cls):
         return cls
@@ -155,13 +155,13 @@ class Query():
 
 def query(**kwargs):
     def decorator(func):
-        Query().add(func)
+        Query.add(func)
         return func
     return decorator
 
 
 # Mutation
-class Mutation():
+class Mutation:
     mutations = []
     def __new__(cls):
         return cls
@@ -170,19 +170,20 @@ class Mutation():
     def add(cls, func):
         cls.mutations.append(func)
 
+# TODO: decorator params to allow chunked and compressed mutations
 def mutation(**kwargs):
     if kwargs.get('chunk') is not None:
         LOGGER.warning("Chunking inputs is not implemented yet")
     if kwargs.get('compress') is not None:
         LOGGER.warning("Compressing inputs is not implemented yet")
     def decorator(func):
-        Mutation().add(func)
+        Mutation.add(func)
         return func
     return decorator
 
 
 # Settings
-class Setting():
+class Setting:
     settings = {}
     def __new__(cls):
         return cls
@@ -193,7 +194,7 @@ class Setting():
 
 def setting(**kwargs):
     def decorator(klass):
-        Setting().add(klass)
+        Setting.add(klass)
         return klass
     return decorator
 
@@ -226,7 +227,7 @@ class Context(object):
         cls.n_notices = 0
         cls.n_vouchers = 0
 
-class Setup():
+class Setup:
     setup_functions = []
     
     def __new__(cls):
@@ -244,7 +245,7 @@ def _make_setup_function(f):
 
 def setup(**kwargs):
     def decorator(func):
-        Setup().add_setup(func)
+        Setup.add_setup(func)
         return func
     return decorator
 
@@ -257,7 +258,7 @@ class OutputFormat(Enum):
     packed_abi = 1
     json = 2
 
-class Output():
+class Output:
     notices = {}
     reports = {}
     def __new__(cls):
@@ -273,7 +274,7 @@ class Output():
 
 def notice(**kwargs):
     def decorator(klass):
-        Output().add_notice(klass)
+        Output.add_notice(klass)
         return klass
     return decorator
 
@@ -281,14 +282,14 @@ event = notice
 
 def report(**kwargs):
     def decorator(klass):
-        Output().add_report(klass)
+        Output.add_report(klass)
         return klass
     return decorator
 
 output = report
 
 def get_metadata() -> RollupMetadata:
-    return Context().metadata
+    return Context.metadata
 
 def normalize_output(data,encode_format) -> [bytes, str]:
     if isinstance(data, bytes): return data,'bytes'
@@ -325,8 +326,8 @@ def normalize_voucher(*kargs):
     raise Exception("Invalid number of arguments")
 
 def send_report(payload_data, **kwargs):
-    ctx = Context()
-    stg = Setting().settings.get(ctx.module)
+    ctx = Context
+    stg = Setting.settings.get(ctx.module)
 
     report_format = OutputFormat[getattr(stg,'report_format')] if hasattr(stg,'report_format') else OutputFormat.json
     payload,class_name = normalize_output(payload_data,report_format)
@@ -354,8 +355,8 @@ def send_report(payload_data, **kwargs):
 add_output = send_report
 
 def send_notice(payload_data, **kwargs):
-    ctx = Context()
-    stg = Setting().settings.get(ctx.module)
+    ctx = Context
+    stg = Setting.settings.get(ctx.module)
 
     notice_format = OutputFormat[getattr(stg,'notice_format')] if hasattr(stg,'notice_format') else OutputFormat.abi
     payload,class_name = normalize_output(payload_data,notice_format)
@@ -376,8 +377,8 @@ emit_event = send_notice
 def send_voucher(destination: str, *kargs, **kwargs):
     payload,class_name = normalize_voucher()
 
-    ctx = Context()
-    stg = Setting().settings.get(ctx.module)
+    ctx = Context
+    stg = Setting.settings.get(ctx.module)
     tags=kwargs.get('tags')
     inds = f" ({ctx.metadata.input_index}, {ctx.n_vouchers})" if ctx.metadata is not None else ""
     if ctx.metadata is not None and stg is not None and hasattr(stg,'index_outputs') and getattr(stg,'index_outputs'):
@@ -414,25 +415,26 @@ def str2bytes(strtxt):
 def str2hex(strtxt):
     return bytes2hex(str2bytes(strtxt))
 
-def _make_qry(func,model,has_param, **kwargs):
+def _make_query(func,model,has_param, **kwargs):
     module = kwargs.get('module')
     @helpers.db_session
-    def qry(rollup: Rollup, params: URLParameters) -> bool:
-        ctx = Context()
+    def query(rollup: Rollup, params: URLParameters) -> bool:
+        ctx = Context
         ctx.set_context(rollup,None,module)
         param_list = []
         if has_param:
+            hints = get_type_hints(model)
             fields = []
             values = []
             for k in model.__fields__.keys():
                 if k in params.query_params:
-                    fields.append(k)
-                    values.append(params.query_params[k][0])
-                alternative_key = f"{k}[]" # for list. TODO: check if model is indeed list
-                if alternative_key in params.query_params:
-                    fields.append(k)
-                    values.append(params.query_params[alternative_key])
-
+                    field_str = str(hints[k])
+                    if field_str.startswith('typing.List') or field_str.startswith('typing.Optional[typing.List'):
+                        fields.append(k)
+                        values.append(params.query_params[k])
+                    else:
+                        fields.append(k)
+                        values.append(params.query_params[k][0])
             kwargs = dict(zip(fields, values))
             param_list.append(model.parse_obj(kwargs))
         try:
@@ -440,13 +442,13 @@ def _make_qry(func,model,has_param, **kwargs):
         finally:
             ctx.clear_context()
         return res
-    return qry
+    return query
 
 def _make_mut(func,model,has_param, **kwargs):
     module = kwargs.get('module')
     @helpers.db_session
     def mut(rollup: Rollup, data: RollupData) -> bool:
-        ctx = Context()
+        ctx = Context
         ctx.set_context(rollup,data.metadata,module)
         payload = data.bytes_payload()[4:]
         param_list = []
@@ -467,10 +469,7 @@ class IndexerPayload(BaseModel):
     timestamp_lte: Optional[int]
 
 def indexer_query(payload: IndexerPayload) -> bool:
-    print(f"*** DEBUG PRINT *** {payload=}")
     out = get_output_indexes(**payload.dict())
-
-    LOGGER.info(out)
 
     add_output(out)
 

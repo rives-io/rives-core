@@ -1,18 +1,17 @@
 import os
 from pydantic import BaseModel
 import logging
-import datetime
 from typing import Optional
-import tempfile
 from hashlib import sha256
+import json
 
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt
 
-from pytesi.storage import helpers # TODO: create repo to avoid this relative import hassle
-from pytesi.manager import mutation, get_metadata, add_output, event, emit_event, contract_call, hex2bytes, str2bytes, bytes2str # TODO: create repo to avoid this relative import hassle
+from cartesapp.storage import helpers # TODO: create repo to avoid this relative import hassle
+from cartesapp.manager import mutation, get_metadata, add_output, event, emit_event, contract_call, hex2bytes, str2bytes, bytes2str # TODO: create repo to avoid this relative import hassle
 
 from .setup import AppSettings
-from .riv import riv_process_replay
+from .riv import replay_log
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,11 +35,11 @@ class Replay(BaseModel):
 
 @event()
 class ReplayScore(BaseModel):
-    cartridge_id:   String
+    cartridge_id:   Bytes32
     user_address:   String
     timestamp:      UInt
     score:          Int # default score
-    score_struct:   String # json, but as it could be used onchain
+    score_struct:   String # json, but set to str as it could be used onchain
 
 
 ###
@@ -51,77 +50,58 @@ class ReplayScore(BaseModel):
 def replay(replay: Replay) -> bool:
     
     metadata = get_metadata()
-
-    LOGGER.info(metadata)
     
-    cartridge_id = replay.cartridge_id.hex()
-
-    replay_temp = tempfile.NamedTemporaryFile(delete=False)
-    replay_file = replay_temp.file
-    incard_temp = tempfile.NamedTemporaryFile()
-    incard_file = incard_temp.file
-    outcard_temp = tempfile.NamedTemporaryFile(delete=False)
-    outcard_file = outcard_temp.file
-
-    replay_file.write(replay.log)
-    replay_file.flush()
-    
-    incard_file.write(replay.in_card)
-    incard_file.flush()
-
-    incard_path = len(replay.in_card) > 0 and incard_temp.name or None
-
-    LOGGER.info("ProcesReplay: replaying cartridge...")
-    cartridge_path = f"{AppSettings.cartridges_path}/{cartridge_id}"
-    result = riv_process_replay(cartridge_path,replay_temp.name,outcard_temp.name,incard_path)
-
-    if result.returncode != 0:
-        add_output(str2bytes(f"Error processing replay: {result.stderr}"),tags=['error'])
+    # process replay
+    LOGGER.info("Replaying cartridge...")
+    try:
+        outcard_raw = replay_log(replay.cartridge_id,replay.log,replay.args,replay.in_card)
+    except Exception as e:
+        add_output(f"Could replay log: {e}",tags=['error'])
         return False
 
-    outcard_raw = outcard_file.read()
+    LOGGER.debug(outcard_raw)
+    LOGGER.debug(len(outcard_raw))
+    LOGGER.debug(outcard_raw.strip())
+    LOGGER.debug(len(outcard_raw.strip()))
+
+    # process outcard
     outcard_hash = sha256(outcard_raw).digest()
     outcard_valid = outcard_hash == replay.outcard_hash
 
     outcard_format = outcard_raw[:4]
     LOGGER.info(f"==== BEGIN OUTCARD ({outcard_format}) ====")
-    if outcard_format == "JSON" or outcard_format == "TEXT":
-        outcard_str = outcard_raw[4:]
+    if outcard_format == b"JSON" or outcard_format == b"TEXT":
+        outcard_str = bytes2str(outcard_raw[4:])
     else:
         outcard_str = outcard_raw[4:].hex()
     
     LOGGER.info(outcard_str)
     
     LOGGER.info("==== END OUTCARD ====")
-    LOGGER.info(f"Expected Outcard Hash: {outcard_hash.hex()}")
-    LOGGER.info(f"Computed Outcard Hash: {replay.outcard_hash.hex()}")
+    LOGGER.info(f"Expected Outcard Hash: {replay.outcard_hash.hex()}")
+    LOGGER.info(f"Computed Outcard Hash: {outcard_hash.hex()}")
     LOGGER.info(f"Valid Outcard Hash : {outcard_valid}")
 
-    # replay_temp.close()
-    # outcard_temp.close()
-    # incard_temp.close()
-
     if not outcard_valid:
-        add_output(str2bytes(f"Out card hash doesn't match"),tags=['error'])
+        add_output(f"Out card hash doesn't match",tags=['error'])
         return False
 
     score = 0
-    if outcard_format == "JSON":
+    if outcard_format == b"JSON":
         try:
             score = int(json.loads(outcard_str).get('score')) or 0
         except Exception as e:
             LOGGER.info(f"COuldn't load score from json: {e}")
-        
-        
+
     replay_score = ReplayScore(
-        cartridge_id = cartridge_id,
+        cartridge_id = replay.cartridge_id,
         user_address = metadata.msg_sender,
         timestamp = metadata.timestamp,
         score = score,
         score_struct = outcard_str
     )
 
-    add_output(replay.log,tags=['replay',cartridge_id])
-    emit_event(replay_score,tags=['score',cartridge_id])
+    add_output(replay.log,tags=['replay',replay.cartridge_id.hex()])
+    emit_event(replay_score,tags=['score',replay.cartridge_id.hex()])
 
     return True

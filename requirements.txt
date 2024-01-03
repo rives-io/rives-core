@@ -1,1 +1,24 @@
-cartesi @ git+https://github.com/prototyp3-dev/python-cartesi@cdf14b1365ea3bbbae5530a70d52303a5a93fbfe
+cartesi @ git+https://github.com/prototyp3-dev/python-cartesi@f728f18bcf0662873f09104984197106932d365a
+certifi==2023.11.17
+charset-normalizer==3.3.2
+cytoolz==0.12.2
+eth-abi==4.2.1
+eth-hash==0.5.2
+eth-typing==3.5.2
+eth-utils==2.3.1
+exceptiongroup==1.2.0
+idna==3.6
+iniconfig==2.0.0
+packaging==23.2
+parsimonious==0.9.0
+pluggy==1.3.0
+pony==0.7.17
+pycryptodome==3.19.0
+pydantic==1.10.13
+pytest==7.4.3
+regex==2023.10.3
+requests==2.31.0
+tomli==2.0.1
+toolz==0.12.0
+typing_extensions==4.9.0
+urllib3==2.1.0

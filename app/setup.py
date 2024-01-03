@@ -1,5 +1,5 @@
 import os
-from pytesi.manager import setup, setting
+from cartesapp.manager import setup, setting
 
 @setting()
 class FrameworkSettings:
