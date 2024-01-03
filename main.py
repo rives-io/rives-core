@@ -1,11 +1,11 @@
 
 import logging
 
-from dapp_manager import DappManager
+from cartesapp.manager import Manager
 
 logging.basicConfig(level=logging.DEBUG)
 
 if __name__ == '__main__':
-    dm = DappManager()
-    dm.add_module('app')
-    dm.run()
+    app_manager = Manager()
+    app_manager.add_module('app')
+    app_manager.run()
