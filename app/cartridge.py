@@ -1,3 +1,4 @@
+import os
 from pydantic import BaseModel
 import logging
 from hashlib import sha256
@@ -6,7 +7,7 @@ import tempfile
 import json
 import base64
 
-from cartesi.abi import String, Bytes, UInt, encode_model
+from cartesi.abi import String, Bytes, Bytes32, UInt, encode_model
 
 from cartesapp.storage import Entity, helpers, seed
 from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call, hex2bytes, str2bytes, bytes2str
@@ -23,10 +24,10 @@ LOGGER = logging.getLogger(__name__)
 
 # TODO: TypeError: unhashable type: 'ABIType' allow python cartesi types
 class Cartridge(Entity):
-    id              = helpers.PrimaryKey(str)
+    id              = helpers.PrimaryKey(str, 64)
     name            = helpers.Required(str, index=True, unique=True)
-    user_address    = helpers.Required(str)
-    info            = helpers.Optional(helpers.Json)
+    user_address    = helpers.Required(str, 66)
+    info            = helpers.Optional(helpers.Json, lazy=True)
     created_at      = helpers.Required(int)
     cover           = helpers.Optional(bytes)
 
@@ -35,13 +36,16 @@ def initialize_data():
     cartridge_example_file = open('misc/snake.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
-    create_cartridge(cartridge_example_data,msg_sender="0x")
+    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 
 
 # Inputs
 
-class SaveCartridgePayload(BaseModel):
+class InserCartridgePayload(BaseModel):
     data: Bytes
+
+class RemoveCartridgePayload(BaseModel):
+    id: Bytes32
 
 class CartridgePayload(BaseModel):
     id: String
@@ -57,9 +61,14 @@ class CartridgesPayload(BaseModel):
 # Outputs
 
 @event()
-class AddCartridge(BaseModel):
+class InserCartridge(BaseModel):
     cartridge_id:   String
     user_address:   String
+    timestamp:      UInt
+
+@event()
+class RemoveCartridge(BaseModel):
+    cartridge_id:   String
     timestamp:      UInt
 
 class Author(BaseModel):
@@ -80,7 +89,7 @@ class Info(BaseModel):
 class CartridgeInfo(BaseModel):
     id: String
     user_address: String
-    info: Info
+    info: Optional[Info]
     created_at: UInt
     cover: String # encode to base64
 
@@ -90,31 +99,51 @@ class CartridgesOutput(BaseModel):
     total:  UInt
     page:   UInt
 
-class Test(BaseModel):
-    cover: String
-
 ###
 # Mutations
 
-@mutation(chunk=True,compress=True)
-def save_cartridge(payload: SaveCartridgePayload) -> bool:
+@mutation()
+def insert_cartridge(payload: InserCartridgePayload) -> bool:
+    metadata = get_metadata()
     
-    LOGGER.info("Saving Cartridge...")
-
+    LOGGER.info("Saving cartridge...")
     try:
         cartridge_id = create_cartridge(payload.data,**get_metadata().dict())
     except Exception as e:
-        add_output(f"Could create cartridge: {e}",tags=['error'])
+        msg = f"Couldn't insert cartridge: {e}"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
         return False
 
-    add_cartridge_event = AddCartridge(
+    cartridge_event = InserCartridge(
         cartridge_id = cartridge_id,
         user_address = metadata.msg_sender,
         timestamp = metadata.timestamp
     )
-    out_tags = ['cartridge',cartridge_id]
+    out_tags = ['cartridge','insert_cartridge',cartridge_id]
     add_output(payload.data,tags=out_tags)
-    emit_event(add_cartridge_event,tags=out_tags)
+    emit_event(cartridge_event,tags=out_tags)
+
+    return True
+
+@mutation()
+def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
+    metadata = get_metadata()
+
+    LOGGER.info("Removing cartridge...")
+    try:
+        delete_cartridge(payload.id.hex(),**get_metadata().dict())
+    except Exception as e:
+        msg = f"Couldn't remove cartridge: {e}"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
+        return False
+
+    cartridge_event = RemoveCartridge(
+        cartridge_id = payload.id.hex(),
+        timestamp = metadata.timestamp
+    )
+    emit_event(cartridge_event,tags=['cartridge','remove_cartridge',payload.id.hex()])
 
     return True
 
@@ -124,36 +153,34 @@ def save_cartridge(payload: SaveCartridgePayload) -> bool:
 
 @query()
 def cartridge_info(payload: CartridgePayload) -> bool:
-    LOGGER.info(payload)
-
     cartridge = helpers.select(c for c in Cartridge if c.id == payload.id).first()
-    # cartridges = Cartridge.select(lambda c: c.id == payload.id)[:1]
 
     LOGGER.info(cartridge)
 
     if cartridge is not None:
-        cartridge_dict = cartridge.to_dict()
+        cartridge_dict = cartridge.to_dict(with_lazy=True)
         cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
         out = CartridgeInfo.parse_obj(cartridge_dict)
         add_output(out)
     else:
         add_output("null")
 
+    LOGGER.info(f"Returning cartridge {payload.id} info")
+
     return True
 
 @query()
 def cartridge(payload: CartridgePayload) -> bool:
-    LOGGER.info(payload)
-
     query = helpers.select(c for c in Cartridge if c.id == payload.id)
 
+    cartridge_data = b''
     if query.count() > 0:
         cartridge_file = open(f"{riv_get_cartridges_path()}/{payload.id}",'rb')
         cartridge_data = cartridge_file.read()
 
-        add_output(cartridge_data)
-    else:
-        add_output(b'')
+    add_output(cartridge_data)
+
+    LOGGER.info(f"Returning cartridge {payload.id} with {len(cartridge_data)} bytes")
 
     return True
 
@@ -184,7 +211,7 @@ def cartridges(payload: CartridgesPayload) -> bool:
     dict_list_result = []
     for cartridge in cartridges:
         cartridge_dict = cartridge.to_dict()
-        cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
+        cartridge_dict['cover'] = str(base64.b64encode(cartridge_dict['cover']))
         dict_list_result.append(cartridge_dict)
 
     LOGGER.info(f"Returning {len(dict_list_result)} of {total} cartridges")
@@ -232,3 +259,14 @@ def create_cartridge(cartridge_data,**metadata):
     LOGGER.info(c)
 
     return data_hash
+
+def delete_cartridge(cartridge_id,**metadata):
+    cartridge = Cartridge.get(lambda c: c.id == cartridge_id)
+    if cartridge is None:
+        raise Exception(f"Cartridge doesn't exist")
+
+    if cartridge.user_address != metadata['msg_sender']:
+        raise Exception(f"Sender not allowed")
+
+    cartridge.delete()
+    os.remove(f"{riv_get_cartridges_path()}/{cartridge_id}")

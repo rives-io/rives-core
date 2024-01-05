@@ -1,4 +1,5 @@
 import pony.orm
+import logging
 from enum import Enum
 from typing import Optional, List
 
@@ -6,7 +7,6 @@ from cartesi.abi import String, Bytes, Int, UInt
 
 
 helpers = pony.orm
-pony.orm.set_sql_debug(True)
 
 
 ###
@@ -29,6 +29,8 @@ class Storage:
     
     @classmethod
     def initialize_storage(cls):
+        if logging.root.level <= logging.DEBUG:
+            pony.orm.set_sql_debug(True)
         cls.db.bind(provider="sqlite", filename=":memory:")
         # cls.db.provider.converter_classes.append((Enum, EnumConverter))
         cls.db.generate_mapping(create_tables=True)
@@ -44,6 +46,7 @@ def _make_seed_function(f):
         f()
     return seed_func
 
+# TODO: allow ordering
 def seed(**kwargs):
     def decorator(func):
         Storage.add_seed(func)
@@ -60,7 +63,7 @@ Entity = Storage.db.Entity
 class Output(Entity):
     id              = helpers.PrimaryKey(int, auto=True)
     output_type     = helpers.Required(str) # helpers.Required(OutputType)
-    msg_sender      = helpers.Required(str, lazy=True, index=True)
+    msg_sender      = helpers.Required(str, 66, lazy=True, index=True)
     block_number    = helpers.Required(int, lazy=True)
     timestamp       = helpers.Required(int, lazy=True, index=True)
     epoch_index     = helpers.Required(int, lazy=True)
@@ -72,7 +75,7 @@ class Output(Entity):
 class OutputTag(Entity):
     id              = helpers.PrimaryKey(int, auto=True)
     name            = helpers.Required(str, index=True)
-    output          = helpers.Required(Output)
+    output          = helpers.Required(Output, index=True)
 
 
 def add_output_index(metadata,output_type,output_index,output_class,tags=None):

@@ -15,6 +15,7 @@ pluggy==1.3.0
 pony==0.7.17
 pycryptodome==3.19.0
 pydantic==1.10.13
+py_expression_eval == 0.3.14
 pytest==7.4.3
 regex==2023.10.3
 requests==2.31.0
