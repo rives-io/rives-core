@@ -8,3 +8,9 @@ sunodo-sdk:
 
 build:
 	sunodo build
+
+testimage:
+	docker build . --target base -t watest
+
+run-testimage:
+	docker run -it --rm --platform=linux/riscv64 watest bash

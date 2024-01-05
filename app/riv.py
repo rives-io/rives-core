@@ -56,13 +56,12 @@ def riv_get_cartridge_screenshot(cartridge_id,frame):
 
     cwd=str(Path(AppSettings.rivemu_path).parent.parent.absolute())
     absolute_cartridge_path = os.path.abspath(f"{AppSettings.cartridges_path}/{cartridge_id}")
-    env = os.environ.copy()
-    env['RIV_SAVE_SCREENSHOT'] = screenshot_file.name
-    env['RIV_STOP_FRAME'] = f"{frame}"
     args.append(AppSettings.rivemu_path)
     args.append(f"-cartridge={absolute_cartridge_path}")
-    args.append(f"-no-yield=y")
-    result = subprocess.run(args, capture_output=True, text=True, env=env,cwd=cwd)
+    args.append(f"-save-screenshot={screenshot_file.name}")
+    args.append(f"-stop-frame={frame}")
+    # args.append(f"-no-yield=y")
+    result = subprocess.run(args, capture_output=True, text=True, cwd=cwd)
 
     if result.returncode != 0:
         raise Exception("Error getting cover")
@@ -72,9 +71,7 @@ def riv_get_cartridge_screenshot(cartridge_id,frame):
 
     return cartridge_cover
 
-def replay_log(cartridge_id,log,replay_args,in_card):
-    cartridge_id = cartridge_id.hex()
-
+def replay_log(cartridge_id,log,riv_args,in_card):
     if AppSettings.rivemu_path is None: # use riv os
         replay_path = "/run/replaylog"
         outcard_path = "/run/outcard"
@@ -101,8 +98,8 @@ def replay_log(cartridge_id,log,replay_args,in_card):
             run_args.extend(["--setenv", "RIV_INCARD", incard_path])
         run_args.extend(["--setenv", "RIV_NO_YIELD", "y"])
         run_args.append("riv-run")
-        if replay_args is not None:
-            run_args.append(replay_args)
+        if riv_args is not None:
+            run_args.append(riv_args)
         result = subprocess.run(run_args, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception(f"Error processing replay: {result.stderr}")
@@ -139,8 +136,8 @@ def replay_log(cartridge_id,log,replay_args,in_card):
     if len(in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     run_args.append(f"-no-yield=y")
-    if replay_args is not None:
-        run_args.append(replay_args)
+    if riv_args is not None:
+        run_args.append(riv_args)
     p1 = subprocess.Popen(run_args,stdout=subprocess.PIPE, cwd=cwd)
     p2 = subprocess.Popen(["grep","-A1","==== BEGIN OUTCARD ===="],stdin=p1.stdout,stdout=subprocess.PIPE)
 
@@ -154,6 +151,82 @@ def replay_log(cartridge_id,log,replay_args,in_card):
     outcard_raw = outcard_file.read()
 
     replay_temp.close()
+    outcard_temp.close()
+    incard_temp.close()
+
+    return outcard_raw.strip()
+
+def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
+    if AppSettings.rivemu_path is None: # use riv os
+        
+        outcard_path = "/run/outcard"
+        incard_path = "/run/incard"
+        
+        if os.path.exists(outcard_path): os.remove(outcard_path)
+
+        if len(in_card) > 0:
+            incard_file = open(incard_path,'wb')
+            incard_file.write(in_card)
+            incard_file.close()
+
+        run_args = []
+        run_args.append("riv-chroot")
+        run_args.append("/rivos")
+        run_args.extend(["--setenv", "RIV_CARTRIDGE", f"/{AppSettings.cartridges_path}/{cartridge_id}"])
+        run_args.extend(["--setenv", "RIV_NO_YIELD", "y"])
+        run_args.extend(["--setenv", "RIV_STOP_FRAME", f"{frame}"])
+        run_args.extend(["--setenv", "RIV_OUTCARD", outcard_path])
+        if len(in_card) > 0:
+            run_args.extend(["--setenv", "RIV_INCARD", incard_path])
+        run_args.append("riv-run")
+        if riv_args is not None:
+            run_args.append(riv_args)
+        result = subprocess.run(run_args, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            raise Exception("Error running cartridge")
+
+        outcard_file = open(outcard_path, 'rb')
+        outcard_raw = outcard_file.read()
+
+        return outcard_raw.strip()
+            
+    # use rivemu
+    incard_temp = tempfile.NamedTemporaryFile()
+    incard_file = incard_temp.file
+    outcard_temp = tempfile.NamedTemporaryFile()
+    outcard_file = outcard_temp.file
+
+    if len(in_card) > 0:
+        incard_file.write(in_card)
+        incard_file.flush()
+
+    incard_path = len(in_card) > 0 and incard_temp.name or None
+
+    absolute_cartridge_path = os.path.abspath(f"{AppSettings.cartridges_path}/{cartridge_id}")
+    cwd = str(Path(AppSettings.rivemu_path).parent.parent.absolute())
+    run_args = []
+    run_args.append(AppSettings.rivemu_path)
+    run_args.append(f"-cartridge={absolute_cartridge_path}")
+    # run_args.append(f"-save-outcard={outcard_temp.name}")
+    if len(in_card):
+        run_args.append(f"-load-incard={incard_temp.name}")
+    # run_args.append(f"-no-yield=y")
+    run_args.append(f"-stop-frame={frame}")
+    if riv_args is not None:
+        run_args.append(riv_args)
+    p1 = subprocess.Popen(run_args,stdout=subprocess.PIPE, cwd=cwd)
+    p2 = subprocess.Popen(["grep","-A1","==== BEGIN OUTCARD ===="],stdin=p1.stdout,stdout=subprocess.PIPE)
+
+    fout = open(outcard_temp.name, 'wb')
+
+    result = subprocess.run(["tail","-1"], stdin=p2.stdout,stdout=fout,stderr=subprocess.PIPE)
+
+    if result.returncode != 0:
+        raise Exception(f"Error running cartridge: {result.stderr}")
+
+    outcard_raw = outcard_file.read()
+
     outcard_temp.close()
     incard_temp.close()
 

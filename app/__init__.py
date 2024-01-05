@@ -1,2 +1,2 @@
-from . import setup, cartridge, replay
+from . import setup, cartridge, replay, scoreboard
 

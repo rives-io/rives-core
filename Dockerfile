@@ -78,6 +78,8 @@ COPY cartesapp cartesapp
 COPY app app
 COPY misc/snake.sqfs misc/snake.sqfs
 
+FROM base as dapp
+
 RUN <<EOF
 echo "#!/bin/sh
 

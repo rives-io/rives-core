@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from Crypto.Hash import keccak
 from enum import Enum
 import json
+import traceback
 
 from cartesi import DApp, Rollup, RollupData, RollupMetadata, ABIRouter, URLRouter, URLParameters, abi
 from cartesi.models import ABIFunctionSelectorHeader
@@ -419,26 +420,33 @@ def _make_query(func,model,has_param, **kwargs):
     module = kwargs.get('module')
     @helpers.db_session
     def query(rollup: Rollup, params: URLParameters) -> bool:
-        ctx = Context
-        ctx.set_context(rollup,None,module)
-        param_list = []
-        if has_param:
-            hints = get_type_hints(model)
-            fields = []
-            values = []
-            for k in model.__fields__.keys():
-                if k in params.query_params:
-                    field_str = str(hints[k])
-                    if field_str.startswith('typing.List') or field_str.startswith('typing.Optional[typing.List'):
-                        fields.append(k)
-                        values.append(params.query_params[k])
-                    else:
-                        fields.append(k)
-                        values.append(params.query_params[k][0])
-            kwargs = dict(zip(fields, values))
-            param_list.append(model.parse_obj(kwargs))
         try:
+            ctx = Context
+            ctx.set_context(rollup,None,module)
+            param_list = []
+            if has_param:
+                hints = get_type_hints(model)
+                fields = []
+                values = []
+                for k in model.__fields__.keys():
+                    if k in params.query_params:
+                        field_str = str(hints[k])
+                        if field_str.startswith('typing.List') or field_str.startswith('typing.Optional[typing.List'):
+                            fields.append(k)
+                            values.append(params.query_params[k])
+                        else:
+                            fields.append(k)
+                            values.append(params.query_params[k][0])
+                kwargs = dict(zip(fields, values))
+                param_list.append(model.parse_obj(kwargs))
             res = func(*param_list)
+        except Exception as e:
+            msg = f"Error: {e}"
+            LOGGER.error(msg)
+            if logging.root.level <= logging.DEBUG:
+                traceback.print_exc()
+                add_output(msg)
+            return False
         finally:
             ctx.clear_context()
         return res
@@ -448,14 +456,21 @@ def _make_mut(func,model,has_param, **kwargs):
     module = kwargs.get('module')
     @helpers.db_session
     def mut(rollup: Rollup, data: RollupData) -> bool:
-        ctx = Context
-        ctx.set_context(rollup,data.metadata,module)
-        payload = data.bytes_payload()[4:]
-        param_list = []
-        if has_param:
-            param_list.append(abi.decode_to_model(data=payload, model=model)) #,packed=True)
         try:
+            ctx = Context
+            ctx.set_context(rollup,data.metadata,module)
+            payload = data.bytes_payload()[4:]
+            param_list = []
+            if has_param:
+                param_list.append(abi.decode_to_model(data=payload, model=model)) #,packed=True)
             res = func(*param_list)
+        except Exception as e:
+            msg = f"Error: {e}"
+            LOGGER.error(msg)
+            if logging.root.level <= logging.DEBUG:
+                traceback.print_exc()
+                add_output(msg,tags=['error'])
+            return False
         finally:
             ctx.clear_context()
         return res

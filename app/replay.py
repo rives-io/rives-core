@@ -10,7 +10,7 @@ from cartesi.abi import String, Bytes, Bytes32, Int, UInt
 from cartesapp.storage import helpers # TODO: create repo to avoid this relative import hassle
 from cartesapp.manager import mutation, get_metadata, add_output, event, emit_event, contract_call, hex2bytes, str2bytes, bytes2str # TODO: create repo to avoid this relative import hassle
 
-from .setup import AppSettings
+from .setup import AppSettings, ScoreType
 from .riv import replay_log
 
 LOGGER = logging.getLogger(__name__)
@@ -39,14 +39,14 @@ class ReplayScore(BaseModel):
     user_address:   String
     timestamp:      UInt
     score:          Int # default score
-    score_struct:   String # json, but set to str as it could be used onchain
+    score_type:     Int = ScoreType.default.value # default, socoreboard, tournaments
+    extra:          String = '' # extra field to maintain compatibility with socoreboard, tournaments...
 
 
 ###
 # Mutations
 
-# @chunked # TODO: decorator to allow chunked and compressed mutations
-@mutation(chunk=True,compress=True)
+@mutation()
 def replay(replay: Replay) -> bool:
     
     metadata = get_metadata()
@@ -54,15 +54,12 @@ def replay(replay: Replay) -> bool:
     # process replay
     LOGGER.info("Replaying cartridge...")
     try:
-        outcard_raw = replay_log(replay.cartridge_id,replay.log,replay.args,replay.in_card)
+        outcard_raw = replay_log(replay.cartridge_id.hex(),replay.log,replay.args,replay.in_card)
     except Exception as e:
-        add_output(f"Could replay log: {e}",tags=['error'])
+        msg = f"Couldn't replay log: {e}"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
         return False
-
-    LOGGER.debug(outcard_raw)
-    LOGGER.debug(len(outcard_raw))
-    LOGGER.debug(outcard_raw.strip())
-    LOGGER.debug(len(outcard_raw.strip()))
 
     # process outcard
     outcard_hash = sha256(outcard_raw).digest()
@@ -83,7 +80,9 @@ def replay(replay: Replay) -> bool:
     LOGGER.info(f"Valid Outcard Hash : {outcard_valid}")
 
     if not outcard_valid:
-        add_output(f"Out card hash doesn't match",tags=['error'])
+        msg = f"Out card hash doesn't match"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
         return False
 
     score = 0
@@ -91,14 +90,13 @@ def replay(replay: Replay) -> bool:
         try:
             score = int(json.loads(outcard_str).get('score')) or 0
         except Exception as e:
-            LOGGER.info(f"COuldn't load score from json: {e}")
+            LOGGER.info(f"Couldn't load score from json: {e}")
 
     replay_score = ReplayScore(
         cartridge_id = replay.cartridge_id,
         user_address = metadata.msg_sender,
         timestamp = metadata.timestamp,
-        score = score,
-        score_struct = outcard_str
+        score = score
     )
 
     add_output(replay.log,tags=['replay',replay.cartridge_id.hex()])
