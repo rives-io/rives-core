@@ -101,12 +101,18 @@ class ScoreboardCreated(BaseModel):
     created_at:     UInt
 
 @event()
+class ScoreboardRemoved(BaseModel):
+    scoreboard_id:  Bytes32
+    timestamp:     UInt
+
+@event()
 class ScoreboardReplayScore(BaseModel):
     cartridge_id:   Bytes32
     user_address:   String
     timestamp:      UInt
-    score:          Int
+    score:          Int # default score
     score_type:     Int = ScoreType.scoreboard.value
+    extra_score:    Int
     scoreboard_id:  String
 
 class ScoreboardInfo(BaseModel):
@@ -227,7 +233,15 @@ def create_scoreboard(payload: CreateScoreboardPayload) -> bool:
 @mutation()
 def clean_scoreboards() -> bool:
     metadata = get_metadata()
-    Scoreboard.select(lambda s: metadata.timestamp > s.created_at + AppSettings.scoreboard_ttl).delete(bulk=True)
+    scoreboard_query = Scoreboard.select(lambda s: metadata.timestamp > s.created_at + AppSettings.scoreboard_ttl)
+    for r in scoreboard_query.fetch():
+        remove_scoreboard_event = ScoreboardRemoved(
+            scoreboard_id = r.id,
+            timestamp = metadata.timestamp
+        )
+        emit_event(remove_scoreboard_event,tags=['scoreboard','clean_scoreboard',r.id])
+
+    scoreboard_query.delete(bulk=True)
     return True
 
 @mutation()
@@ -281,6 +295,7 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
     try:
         outcard_json = json.loads(outcard_str)
         parser = Parser()
+        default_score = outcard_json['scores']
         score = parser.parse(scoreboard.score_function).evaluate(outcard_json)
     except Exception as e:
         msg = f"Couldn't parse score: {e}"
@@ -299,12 +314,13 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         cartridge_id = hex2bytes(scoreboard.cartridge_id),
         user_address = metadata.msg_sender,
         timestamp = metadata.timestamp,
-        score = score,
+        score = default_score,
+        extra_score = score,
         scoreboard_id = replay.scoreboard_id.hex(),
     )
 
-    add_output(replay.log,tags=['replay','scoreboard',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
-    emit_event(replay_score,tags=['score','scoreboard',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
+    add_output(replay.log,tags=['replay',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
+    emit_event(replay_score,tags=['score',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
 
     return True
 

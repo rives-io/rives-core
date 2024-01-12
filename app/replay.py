@@ -40,6 +40,7 @@ class ReplayScore(BaseModel):
     timestamp:      UInt
     score:          Int # default score
     score_type:     Int = ScoreType.default.value # default, socoreboard, tournaments
+    extra_score:    Int = 0
     extra:          String = '' # extra field to maintain compatibility with socoreboard, tournaments...
 
 
@@ -100,6 +101,6 @@ def replay(replay: Replay) -> bool:
     )
 
     add_output(replay.log,tags=['replay',replay.cartridge_id.hex()])
-    emit_event(replay_score,tags=['score',replay.cartridge_id.hex()])
+    emit_event(replay_score,tags=['score','general',replay.cartridge_id.hex()])
 
     return True

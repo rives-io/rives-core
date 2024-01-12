@@ -15,6 +15,7 @@ For now, this is not a final product and should not be used as one.
 - [npm](https://docs.npmjs.com/cli/v9/configuring-npm/install) (To install dependencies and run the frontend)
 - [Sunodo](https://github.com/sunodo/sunodo) (To build and run the DApp backend)
 - [Metamask](https://metamask.io/) (To sign transactions in the frontend)
+- [json-schema-to-typescript](https://www.npmjs.com/package/json-schema-to-typescript) to generate typescript interfaces`npm install -g json-schema-to-typescript --save`
 
 To build the DApp, two images are also required: `riv/toolchain` and `sunodo/sdk:0.2.0-riv`.
 

@@ -7,7 +7,7 @@ import tempfile
 import json
 import base64
 
-from cartesi.abi import String, Bytes, Bytes32, UInt, encode_model
+from cartesi.abi import String, Bytes, Bytes32, UInt
 
 from cartesapp.storage import Entity, helpers, seed
 from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call, hex2bytes, str2bytes, bytes2str
@@ -61,13 +61,13 @@ class CartridgesPayload(BaseModel):
 # Outputs
 
 @event()
-class InserCartridge(BaseModel):
+class CartridgeInserted(BaseModel):
     cartridge_id:   String
     user_address:   String
     timestamp:      UInt
 
 @event()
-class RemoveCartridge(BaseModel):
+class CartridgeRemoved(BaseModel):
     cartridge_id:   String
     timestamp:      UInt
 
@@ -115,7 +115,7 @@ def insert_cartridge(payload: InserCartridgePayload) -> bool:
         add_output(msg,tags=['error'])
         return False
 
-    cartridge_event = InserCartridge(
+    cartridge_event = CartridgeInserted(
         cartridge_id = cartridge_id,
         user_address = metadata.msg_sender,
         timestamp = metadata.timestamp
@@ -139,7 +139,7 @@ def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
         add_output(msg,tags=['error'])
         return False
 
-    cartridge_event = RemoveCartridge(
+    cartridge_event = CartridgeRemoved(
         cartridge_id = payload.id.hex(),
         timestamp = metadata.timestamp
     )
@@ -150,6 +150,21 @@ def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
 
 ###
 # Queries
+
+@query()
+def cartridge(payload: CartridgePayload) -> bool:
+    query = helpers.select(c for c in Cartridge if c.id == payload.id)
+
+    cartridge_data = b''
+    if query.count() > 0:
+        cartridge_file = open(f"{riv_get_cartridges_path()}/{payload.id}",'rb')
+        cartridge_data = cartridge_file.read()
+
+    add_output(cartridge_data)
+
+    LOGGER.info(f"Returning cartridge {payload.id} with {len(cartridge_data)} bytes")
+
+    return True
 
 @query()
 def cartridge_info(payload: CartridgePayload) -> bool:
@@ -166,21 +181,6 @@ def cartridge_info(payload: CartridgePayload) -> bool:
         add_output("null")
 
     LOGGER.info(f"Returning cartridge {payload.id} info")
-
-    return True
-
-@query()
-def cartridge(payload: CartridgePayload) -> bool:
-    query = helpers.select(c for c in Cartridge if c.id == payload.id)
-
-    cartridge_data = b''
-    if query.count() > 0:
-        cartridge_file = open(f"{riv_get_cartridges_path()}/{payload.id}",'rb')
-        cartridge_data = cartridge_file.read()
-
-    add_output(cartridge_data)
-
-    LOGGER.info(f"Returning cartridge {payload.id} with {len(cartridge_data)} bytes")
 
     return True
 
