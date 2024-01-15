@@ -294,6 +294,13 @@ body {
     @apply hover-2-selected;
   }
 
+  .game-list-fallback-animation {
+    @apply w-auto px-4 py-4 border-l-2 border-l-[var(--highlight-text-end-hex)];
+  }
+
+  .game-list-fallback-animation > div {
+    @apply h-4 w-48 bg-[rgb(var(--foreground-rgb))] rounded;
+  }
 
   .game-option-tabs-header {
     @apply flex space-x-1 rounded-xl bg-[rgb(var(--background-start-rgb))] p-1;
