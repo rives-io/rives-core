@@ -69,6 +69,7 @@ class Output(Entity):
     epoch_index     = helpers.Required(int, lazy=True)
     input_index     = helpers.Required(int)
     output_index    = helpers.Required(int)
+    output_module   = helpers.Required(str)
     output_class    = helpers.Required(str)
     tags            = helpers.Set("OutputTag")
 
@@ -78,10 +79,11 @@ class OutputTag(Entity):
     output          = helpers.Required(Output, index=True)
 
 
-def add_output_index(metadata,output_type,output_index,output_class,tags=None):
+def add_output_index(metadata,output_type,output_index,output_module,output_class,tags=None):
     o = Output(
         output_type     = output_type.name.lower(),
         output_class    = output_class,
+        output_module   = output_module,
         msg_sender      = metadata.msg_sender.lower(),
         block_number    = metadata.block_number,
         timestamp       = metadata.timestamp,
@@ -106,6 +108,8 @@ def get_output_indexes(**kwargs):
     if tags is not None and len(tags) > 0:
         tag_query = tag_query.filter(lambda t: t.name in tags)
 
+    if kwargs.get('module') is not None:
+        output_query = output_query.filter(lambda o: o.output_module == kwargs.get('module').lower())
     if kwargs.get('output_type') is not None:
         output_query = output_query.filter(lambda o: o.output_type == kwargs.get('output_type').lower())
     if kwargs.get('msg_sender') is not None:
@@ -114,15 +118,15 @@ def get_output_indexes(**kwargs):
         output_query = output_query.filter(lambda o: o.timestamp >= kwargs.get('timestamp_gte'))
     if kwargs.get('timestamp_lte') is not None:
         output_query = output_query.filter(lambda o: o.timestamp <= kwargs.get('timestamp_lte'))
+    if kwargs.get('input_index') is not None:
+        output_query = output_query.filter(lambda o: o.input_index <= kwargs.get('input_index'))
 
     query = helpers.distinct(
-        [o.output_type,o.output_class,o.input_index,o.output_index]
+        [o.output_type,o.output_module,o.output_class,o.input_index,o.output_index]
         for o in output_query for t in tag_query if t.output == o
     )
 
-    res = [{'output_type':r[0],'output_class':r[1],'input_index':r[2],'output_index':r[3]} for r in query]
-    
-    return res
+    return query.fetch()
 
 
 

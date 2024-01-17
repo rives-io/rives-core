@@ -2,6 +2,7 @@ import os
 from enum import Enum
 from cartesapp.manager import setup, setting
 
+# TODO: use settings file instead of init
 @setting()
 class FrameworkSettings:
     index_outputs = True

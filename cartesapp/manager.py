@@ -9,12 +9,14 @@ from Crypto.Hash import keccak
 from enum import Enum
 import json
 import traceback
+import typer
 
 from cartesi import DApp, Rollup, RollupData, RollupMetadata, ABIRouter, URLRouter, URLParameters, abi
 from cartesi.models import ABIFunctionSelectorHeader
 from cartesi.abi import encode_model
 
 from .storage import Storage, helpers, add_output_index, OutputType, get_output_indexes
+from .utils import str2bytes, hex2bytes, bytes2hex
 
 
 LOGGER = logging.getLogger(__name__)
@@ -29,10 +31,10 @@ class EmptyClass(BaseModel):
 # Manager
 
 class Manager(object):
-    dapp = DApp()
-    abi_router = ABIRouter()
-    url_router = URLRouter()
-    storage = Storage
+    dapp = None
+    abi_router = None
+    url_router = None
+    storage = None
     modules_to_add = []
     queries_info = {}
     mutations_info = {}
@@ -53,7 +55,7 @@ class Manager(object):
             importlib.import_module(module_name)
 
     @classmethod
-    def _register_queries(cls):
+    def _register_queries(cls, add_to_router=True):
         query_selectors = []
         for query_fn in Query.queries:
             query_name = query_fn.__name__
@@ -76,12 +78,14 @@ class Manager(object):
             if path in query_selectors:
                 raise Exception("Duplicate query selector")
             query_selectors.append(path)
-            cls.queries_info[f"{module_name}.{query_name}"] = {"selector":path,"module":module_name,"method":query_name,"model":model}
-            LOGGER.info(f"Adding query {module_name}.{query_name} selector={path}, model={model.schema()}")
-            cls.url_router.inspect(path=path)(_make_query(query_fn,model,param is not None,module=module_name))
+            abi_types = [] # abi.get_abi_types_from_model(model)
+            cls.queries_info[f"{module_name}.{query_name}"] = {"selector":path,"module":module_name,"method":query_name,"abi_types":abi_types,"model":model}
+            if add_to_router:
+                LOGGER.info(f"Adding query {module_name}.{query_name} selector={path}, model={model.schema()}")
+                cls.url_router.inspect(path=path)(_make_query(query_fn,model,param is not None,module=module_name))
 
     @classmethod
-    def _register_mutations(cls):
+    def _register_mutations(cls, add_to_router=True):
         mutation_selectors = []
         for mutation_fn in Mutation.mutations:
             mutation_name = mutation_fn.__name__
@@ -100,17 +104,19 @@ class Manager(object):
                 model = EmptyClass
 
             # using abi router
+            abi_types = abi.get_abi_types_from_model(model)
             header = ABIFunctionSelectorHeader(
                 function=f"{module_name}.{mutation_name}",
-                argument_types=abi.get_abi_types_from_model(model)
+                argument_types=abi_types
             )
-            header_selector = header.to_bytes()
+            header_selector = header.to_bytes().hex()
             if header_selector in mutation_selectors:
                 raise Exception("Duplicate mutation selector")
             mutation_selectors.append(header_selector)
-            cls.mutations_info[f"{module_name}.{mutation_name}"] = {"selector":header,"module":module_name,"method":module_name,"model":model}
-            LOGGER.info(f"Adding mutation {module_name}.{mutation_name} selector={header}, model={model.schema()}")
-            cls.abi_router.advance(header=header)(_make_mut(mutation_fn,model,param is not None,module=module_name))
+            cls.mutations_info[f"{module_name}.{mutation_name}"] = {"selector":header,"module":module_name,"method":mutation_name,"abi_types":abi_types,"model":model}
+            if add_to_router:
+                LOGGER.info(f"Adding mutation {module_name}.{mutation_name} selector={header_selector}, model={model.schema()}")
+                cls.abi_router.advance(header=header)(_make_mut(mutation_fn,model,param is not None,module=module_name))
 
     @classmethod
     def _setup_settings(cls):
@@ -118,9 +124,11 @@ class Manager(object):
         settings = Setting.settings
         for module_name in settings:
             settings_cls = settings[module_name]
-            add_indexer_query = getattr(settings_cls,'index_outputs')
-            if add_indexer_query: break
+            if getattr(settings_cls,'index_outputs'): 
+                add_indexer_query = True
+                break
         if add_indexer_query:
+            output()(IndexerOutput)
             query()(indexer_query)
 
     @classmethod
@@ -130,6 +138,10 @@ class Manager(object):
 
     @classmethod
     def run(cls):
+        cls.dapp = DApp()
+        cls.abi_router = ABIRouter()
+        cls.url_router = URLRouter()
+        cls.storage = Storage
         cls.dapp.add_router(cls.abi_router)
         cls.dapp.add_router(cls.url_router)
         cls._import_apps()
@@ -140,6 +152,30 @@ class Manager(object):
         cls.storage.initialize_storage()
         cls.dapp.run()
 
+    @classmethod
+    def generate_frontend_lib(cls):
+        cls._import_apps()
+        cls._setup_settings()
+        cls._register_queries(False)
+        cls._register_mutations(False)
+        # generate lib
+        from .template_frontend_generator import render_templates
+        render_templates(
+            {"indexer_query":indexer_query,"indexer_output":IndexerOutput},
+            Setting.settings,
+            cls.mutations_info,
+            cls.queries_info,
+            Output.notices_info,
+            Output.reports_info,
+            cls.modules_to_add
+        )
+
+    @classmethod
+    def create_frontend(cls, generate_libs = False):
+        from .template_frontend_generator import create_frontend_structure
+        create_frontend_structure()
+        if generate_libs:
+            cls.generate_frontend_lib()
 
 ###
 # Singletons
@@ -177,6 +213,8 @@ def mutation(**kwargs):
         LOGGER.warning("Chunking inputs is not implemented yet")
     if kwargs.get('compress') is not None:
         LOGGER.warning("Compressing inputs is not implemented yet")
+    if kwargs.get('sender_address') is not None:
+        LOGGER.warning("Sender address filtering is not implemented yet")
     def decorator(func):
         Mutation.add(func)
         return func
@@ -260,18 +298,32 @@ class OutputFormat(Enum):
     json = 2
 
 class Output:
-    notices = {}
-    reports = {}
+    notices_info = {}
+    reports_info = {}
+    vouchers_info = {}
     def __new__(cls):
         return cls
     
     @classmethod
     def add_report(cls, klass):
-        cls.reports[klass.__name__] = klass
+        module_name = klass.__module__.split('.')[0]
+        class_name = klass.__name__
+        abi_types = [] # abi.get_abi_types_from_model(klass)
+        cls.reports_info[f"{module_name}.{class_name}"] = {"module":module_name,"class":class_name,"abi_types":abi_types,"model":klass}
 
     @classmethod
     def add_notice(cls, klass):
-        cls.notices[klass.__name__] = klass
+        module_name = klass.__module__.split('.')[0]
+        class_name = klass.__name__
+        abi_types = abi.get_abi_types_from_model(klass)
+        cls.notices_info[f"{module_name}.{class_name}"] = {"module":module_name,"class":class_name,"abi_types":abi_types,"model":klass}
+
+    @classmethod
+    def add_voucher(cls, klass):
+        module_name = klass.__module__.split('.')[0]
+        class_name = klass.__name__
+        abi_types = abi.get_abi_types_from_model(klass)
+        cls.vouchers_info[f"{module_name}.{class_name}"] = {"module":module_name,"class":class_name,"abi_types":abi_types,"model":klass}
 
 def notice(**kwargs):
     def decorator(klass):
@@ -289,6 +341,14 @@ def report(**kwargs):
 
 output = report
 
+def voucher(**kwargs):
+    def decorator(klass):
+        Output.add_voucher(klass)
+        return klass
+    return decorator
+
+contract_call = voucher
+
 def get_metadata() -> RollupMetadata:
     return Context.metadata
 
@@ -298,12 +358,13 @@ def normalize_output(data,encode_format) -> [bytes, str]:
     if isinstance(data, str): 
         if data.startswith('0x'): return hex2bytes(data[2:]),'hex'
         return str2bytes(data),'str'
+    class_name = f"{data.__module__.split('.')[0]}.{data.__class__.__name__}"
     if isinstance(data, dict) or isinstance(data, list) or isinstance(data, tuple):
-        return str2bytes(json.dumps(data)),data.__class__.__name__
+        return str2bytes(json.dumps(data)),class_name
     if issubclass(data.__class__,BaseModel): 
-        if encode_format == OutputFormat.abi: return encode_model(data),data.__class__.__name__
-        if encode_format == OutputFormat.packed_abi: return encode_model(data,True),data.__class__.__name__
-        if encode_format == OutputFormat.json: return str2bytes(data.json()),data.__class__.__name__
+        if encode_format == OutputFormat.abi: return encode_model(data),class_name
+        if encode_format == OutputFormat.packed_abi: return encode_model(data,True),class_name
+        if encode_format == OutputFormat.json: return str2bytes(data.json(exclude_unset=True,exclude_none=True)),class_name
     raise Exception("Invalid output format")
 
 def normalize_voucher(*kargs):
@@ -328,12 +389,18 @@ def normalize_voucher(*kargs):
 
 def send_report(payload_data, **kwargs):
     ctx = Context
+    # only one output to allow always chunking
+    if ctx.n_reports > 0: raise Exception("Can't add multiple reports")
+    
     stg = Setting.settings.get(ctx.module)
 
     report_format = OutputFormat[getattr(stg,'report_format')] if hasattr(stg,'report_format') else OutputFormat.json
     payload,class_name = normalize_output(payload_data,report_format)
 
-    tags=kwargs.get('tags')
+    # Always chunk if len > MAX_OUTPUT_SIZE
+    # if len(payload) > MAX_OUTPUT_SIZE: raise Exception("Maximum report length violation")
+
+    tags = kwargs.get('tags')
     add_idx = ctx.metadata is not None and stg is not None \
         and hasattr(stg,'index_outputs') and getattr(stg,'index_outputs')
 
@@ -345,8 +412,9 @@ def send_report(payload_data, **kwargs):
             top_bytes = len(payload)
         
         if add_idx:
+            splited_class_name = class_name.split('.')[-1]
             LOGGER.debug(f"Adding index report{inds} {tags=}")
-            add_output_index(ctx.metadata,OutputType.report,ctx.n_reports,class_name,tags)
+            add_output_index(ctx.metadata,OutputType.report,ctx.n_reports,ctx.module,splited_class_name,tags)
 
         LOGGER.debug(f"Sending report{inds} {top_bytes - sent_bytes} bytes")
         ctx.rollup.report(bytes2hex(payload[sent_bytes:top_bytes]))
@@ -362,12 +430,15 @@ def send_notice(payload_data, **kwargs):
     notice_format = OutputFormat[getattr(stg,'notice_format')] if hasattr(stg,'notice_format') else OutputFormat.abi
     payload,class_name = normalize_output(payload_data,notice_format)
 
-    tags=kwargs.get('tags')
+    if len(payload) > MAX_OUTPUT_SIZE: raise Exception("Maximum output length violation")
+
+    tags = kwargs.get('tags')
 
     inds = f" ({ctx.metadata.input_index}, {ctx.n_notices})" if ctx.metadata is not None else ""
     if ctx.metadata is not None and stg is not None and hasattr(stg,'index_outputs') and getattr(stg,'index_outputs'):
         LOGGER.debug(f"Adding index notice{inds} {tags=}")
-        add_output_index(ctx.metadata,OutputType.notice,ctx.n_notices,class_name,tags)
+        splited_class_name = class_name.split('.')[-1]
+        add_output_index(ctx.metadata,OutputType.notice,ctx.n_notices,ctx.module,splited_class_name,tags)
 
     LOGGER.debug(f"Sending notice{inds} {len(payload)} bytes")
     ctx.rollup.notice(bytes2hex(payload))
@@ -378,43 +449,26 @@ emit_event = send_notice
 def send_voucher(destination: str, *kargs, **kwargs):
     payload,class_name = normalize_voucher()
 
+    if len(payload) > MAX_OUTPUT_SIZE: raise Exception("Maximum output length violation")
+
     ctx = Context
     stg = Setting.settings.get(ctx.module)
-    tags=kwargs.get('tags')
+    tags = kwargs.get('tags')
     inds = f" ({ctx.metadata.input_index}, {ctx.n_vouchers})" if ctx.metadata is not None else ""
     if ctx.metadata is not None and stg is not None and hasattr(stg,'index_outputs') and getattr(stg,'index_outputs'):
         LOGGER.debug(f"Adding index voucher{inds} {tags=}")
-        add_output_index(ctx.metadata,OutputType.voucher,ctx.n_vouchers,class_name,tags)
+        splited_class_name = class_name.split('.')[-1]
+        add_output_index(ctx.metadata,OutputType.voucher,ctx.n_vouchers,ctx.module,splited_class_name,tags)
 
     LOGGER.debug(f"Sending voucher{inds}")
     ctx.rollup.voucher({destination:destination,payload:bytes2hex(payload)})
     ctx.n_vouchers += 1
 
-contract_call = send_voucher
+submit_contract_call = send_voucher
 
 
 ###
 # Helpers
-
-def hex2bytes(hexstr):
-    if hexstr.startswith('0x'): 
-        hexstr = hexstr[2:]
-    return bytes.fromhex(hexstr)
-
-def bytes2str(binstr):
-    return binstr.decode("utf-8")
-
-def hex2str(hexstr):
-    return bytes2str(hex2bytes(hexstr))
-
-def bytes2hex(value):
-    return "0x" + value.hex()
-
-def str2bytes(strtxt):
-    return strtxt.encode("utf-8")
-
-def str2hex(strtxt):
-    return bytes2hex(str2bytes(strtxt))
 
 def _make_query(func,model,has_param, **kwargs):
     module = kwargs.get('module')
@@ -423,6 +477,8 @@ def _make_query(func,model,has_param, **kwargs):
         try:
             ctx = Context
             ctx.set_context(rollup,None,module)
+            # TODO: accept abi encode or json (for larger post requests, configured in settings)
+            # Decoding url parameters
             param_list = []
             if has_param:
                 hints = get_type_hints(model)
@@ -476,17 +532,33 @@ def _make_mut(func,model,has_param, **kwargs):
         return res
     return mut
 
+# TODO add to indexer module and import it on manager
+
 class IndexerPayload(BaseModel):
     tags: Optional[List[str]]
     output_type: Optional[str]
     msg_sender: Optional[str]
     timestamp_gte: Optional[int]
     timestamp_lte: Optional[int]
+    module: Optional[str]
+    input_index: Optional[int]
+
+class OutputIndex(BaseModel):
+    output_type: str
+    module: str
+    class_name: str
+    input_index: int
+    output_index: int
+
+class IndexerOutput(BaseModel):
+    data:   List[OutputIndex]
 
 def indexer_query(payload: IndexerPayload) -> bool:
     out = get_output_indexes(**payload.dict())
 
-    add_output(out)
+    output_inds = [OutputIndex(output_type=r[0],module=r[1],class_name=r[2],input_index=r[3],output_index=r[4]) for r in out]
+    
+    add_output(IndexerOutput(data=output_inds))
 
     return True
 
@@ -494,35 +566,85 @@ def indexer_query(payload: IndexerPayload) -> bool:
 ###
 # CLI
 
-def execute_from_command_line(argv):
-    opts, args = getopt.getopt(argv[1:],"hrgc",["help","run","code_gen","create"])
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            print(f"{argv[0]} [option]")
-            print(f"    options: help, run, code_gen")
-            sys.exit()
-        elif opt in ("-r", "--run"):
-            # x = arg
-            try:
-                from manager import Manager
-                m = Manager()
-                m.run()
-            except Exception as e:
-                print(e)
-                exit(1)
-        elif opt in ("-g", "--code_gen"): # generate frontend lib
-            # x = arg
-            print("Not yet Implemented")
-            exit(1)
-        elif opt in ("-c", "--create"): # create new app
-            # x = arg
-            print("Not yet Implemented")
-            exit(1)
-        else:
-            print("No option selected")
-            exit(1)
+app = typer.Typer(help="Cartesapp Manager: manage your Cartesi Rollups App")
 
+
+@app.command()
+def run(modules: List[str]):
+    """
+    Run backend with MODULES
+    """
+    try:
+        m = Manager()
+        for mod in modules:
+            m.add_module(mod)
+        m.run()
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+        exit(1)
+
+@app.command()
+def generate_fronted_libs(modules: List[str]):
+    """
+    Generate frontend libs for MODULES
+    """
+    try:
+        m = Manager()
+        for mod in modules:
+            m.add_module(mod)
+        m.generate_frontend_lib()
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+        exit(1)
+
+@app.command()
+def create_frontend(force: Optional[bool]):
+    """
+    Create basic frontend
+    """
+    # check if it exists, bypass with force
+    # create frontend web
+    # doctor basic reqs (node)
+    # install packages ["ajv": "^8.12.0","ethers": "^5.7.2","ts-transformer-keys": "^0.4.4"]
+    print("Not yet Implemented")
+    exit(1)
+
+@app.command()
+def create(name: str):
+    """
+    Create new Cartesi Rollups App with NAME
+    """
+    print("Not yet Implemented")
+    exit(1)
+
+@app.command()
+def create_module(name: str, force: Optional[bool]):
+    """
+    Create new MODULE for current Cartesi Rollups App
+    """
+    print("Not yet Implemented")
+    exit(1)
+
+@app.command()
+def deploy(conf: str):
+    """
+    Deploy App with CONF file
+    """
+    # doctor basic reqs (sunodo)
+    print("Not yet Implemented")
+    exit(1)
+
+@app.command()
+def node(dev: Optional[bool] = True):
+    """
+    Deploy App to NETWORK
+    """
+    # doctor basic reqs (sunodo,nonodo)
+    print("Not yet Implemented")
+    exit(1)
 
 if __name__ == '__main__':
-    execute_from_command_line(sys.argv)
+    app()
     

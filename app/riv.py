@@ -64,7 +64,7 @@ def riv_get_cartridge_screenshot(cartridge_id,frame):
     result = subprocess.run(args, capture_output=True, text=True, cwd=cwd)
 
     if result.returncode != 0:
-        raise Exception("Error getting cover")
+        raise Exception(f"Error getting cover")
 
     cartridge_cover = open(screenshot_file.name,'rb').read()
     screenshot_temp.close()
