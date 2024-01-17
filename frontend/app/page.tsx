@@ -9,7 +9,7 @@ export default function Home() {
           <Title />
         </div>
 
-        <div className="basis-2/3">
+        <div className="basis-2/3 ms-8">
           <h2 className="subtitle-text title-color mb-4">About</h2>
           <p className="mb-4">
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam malesuada arcu ex, vitae gravida felis vestibulum ut.

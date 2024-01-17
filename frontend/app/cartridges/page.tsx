@@ -41,7 +41,7 @@ export default async function Cartridges() {
 				</div>
 			</div>
 
-			<div className="basis-3/5 rounded-md h-full">
+			<div className="basis-3/5 rounded-md h-full ms-auto">
 				<CartridgeInfo />
 			</div>
 

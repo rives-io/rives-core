@@ -1,5 +1,3 @@
-"use client"
-
 import { init } from '@web3-onboard/react'
 import injectedModule from '@web3-onboard/injected-wallets'
 
