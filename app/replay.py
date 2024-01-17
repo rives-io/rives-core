@@ -8,7 +8,8 @@ import json
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt
 
 from cartesapp.storage import helpers # TODO: create repo to avoid this relative import hassle
-from cartesapp.manager import mutation, get_metadata, add_output, event, emit_event, contract_call, hex2bytes, str2bytes, bytes2str # TODO: create repo to avoid this relative import hassle
+from cartesapp.manager import mutation, get_metadata, add_output, event, emit_event, contract_call # TODO: create repo to avoid this relative import hassle
+from cartesapp.utils import bytes2str
 
 from .setup import AppSettings, ScoreType
 from .riv import replay_log

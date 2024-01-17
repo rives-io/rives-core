@@ -16,6 +16,7 @@ from cartesi.models import ABIFunctionSelectorHeader
 from cartesi.abi import encode_model
 
 from .storage import Storage, helpers, add_output_index, OutputType, get_output_indexes
+from .utils import str2bytes, hex2bytes, bytes2hex
 
 
 LOGGER = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ class Manager(object):
                 function=f"{module_name}.{mutation_name}",
                 argument_types=abi_types
             )
-            header_selector = header.to_bytes()
+            header_selector = header.to_bytes().hex()
             if header_selector in mutation_selectors:
                 raise Exception("Duplicate mutation selector")
             mutation_selectors.append(header_selector)
@@ -168,6 +169,13 @@ class Manager(object):
             Output.reports_info,
             cls.modules_to_add
         )
+
+    @classmethod
+    def create_frontend(cls, generate_libs = False):
+        from .template_frontend_generator import create_frontend_structure
+        create_frontend_structure()
+        if generate_libs:
+            cls.generate_frontend_lib()
 
 ###
 # Singletons
@@ -292,6 +300,7 @@ class OutputFormat(Enum):
 class Output:
     notices_info = {}
     reports_info = {}
+    vouchers_info = {}
     def __new__(cls):
         return cls
     
@@ -309,6 +318,13 @@ class Output:
         abi_types = abi.get_abi_types_from_model(klass)
         cls.notices_info[f"{module_name}.{class_name}"] = {"module":module_name,"class":class_name,"abi_types":abi_types,"model":klass}
 
+    @classmethod
+    def add_voucher(cls, klass):
+        module_name = klass.__module__.split('.')[0]
+        class_name = klass.__name__
+        abi_types = abi.get_abi_types_from_model(klass)
+        cls.vouchers_info[f"{module_name}.{class_name}"] = {"module":module_name,"class":class_name,"abi_types":abi_types,"model":klass}
+
 def notice(**kwargs):
     def decorator(klass):
         Output.add_notice(klass)
@@ -325,6 +341,14 @@ def report(**kwargs):
 
 output = report
 
+def voucher(**kwargs):
+    def decorator(klass):
+        Output.add_voucher(klass)
+        return klass
+    return decorator
+
+contract_call = voucher
+
 def get_metadata() -> RollupMetadata:
     return Context.metadata
 
@@ -340,7 +364,7 @@ def normalize_output(data,encode_format) -> [bytes, str]:
     if issubclass(data.__class__,BaseModel): 
         if encode_format == OutputFormat.abi: return encode_model(data),class_name
         if encode_format == OutputFormat.packed_abi: return encode_model(data,True),class_name
-        if encode_format == OutputFormat.json: return str2bytes(data.json()),class_name
+        if encode_format == OutputFormat.json: return str2bytes(data.json(exclude_unset=True,exclude_none=True)),class_name
     raise Exception("Invalid output format")
 
 def normalize_voucher(*kargs):
@@ -388,9 +412,9 @@ def send_report(payload_data, **kwargs):
             top_bytes = len(payload)
         
         if add_idx:
-            splited_class_name = class_name.split('.')
+            splited_class_name = class_name.split('.')[-1]
             LOGGER.debug(f"Adding index report{inds} {tags=}")
-            add_output_index(ctx.metadata,OutputType.report,ctx.n_reports,splited_class_name[0],splited_class_name[1],tags)
+            add_output_index(ctx.metadata,OutputType.report,ctx.n_reports,ctx.module,splited_class_name,tags)
 
         LOGGER.debug(f"Sending report{inds} {top_bytes - sent_bytes} bytes")
         ctx.rollup.report(bytes2hex(payload[sent_bytes:top_bytes]))
@@ -413,8 +437,8 @@ def send_notice(payload_data, **kwargs):
     inds = f" ({ctx.metadata.input_index}, {ctx.n_notices})" if ctx.metadata is not None else ""
     if ctx.metadata is not None and stg is not None and hasattr(stg,'index_outputs') and getattr(stg,'index_outputs'):
         LOGGER.debug(f"Adding index notice{inds} {tags=}")
-        splited_class_name = class_name.split('.')
-        add_output_index(ctx.metadata,OutputType.notice,ctx.n_notices,splited_class_name[0],splited_class_name[1],tags)
+        splited_class_name = class_name.split('.')[-1]
+        add_output_index(ctx.metadata,OutputType.notice,ctx.n_notices,ctx.module,splited_class_name,tags)
 
     LOGGER.debug(f"Sending notice{inds} {len(payload)} bytes")
     ctx.rollup.notice(bytes2hex(payload))
@@ -433,38 +457,18 @@ def send_voucher(destination: str, *kargs, **kwargs):
     inds = f" ({ctx.metadata.input_index}, {ctx.n_vouchers})" if ctx.metadata is not None else ""
     if ctx.metadata is not None and stg is not None and hasattr(stg,'index_outputs') and getattr(stg,'index_outputs'):
         LOGGER.debug(f"Adding index voucher{inds} {tags=}")
-        splited_class_name = class_name.split('.')
-        add_output_index(ctx.metadata,OutputType.voucher,ctx.n_vouchers,splited_class_name[0],splited_class_name[1],tags)
+        splited_class_name = class_name.split('.')[-1]
+        add_output_index(ctx.metadata,OutputType.voucher,ctx.n_vouchers,ctx.module,splited_class_name,tags)
 
     LOGGER.debug(f"Sending voucher{inds}")
     ctx.rollup.voucher({destination:destination,payload:bytes2hex(payload)})
     ctx.n_vouchers += 1
 
-contract_call = send_voucher
+submit_contract_call = send_voucher
 
 
 ###
 # Helpers
-
-def hex2bytes(hexstr):
-    if hexstr.startswith('0x'): 
-        hexstr = hexstr[2:]
-    return bytes.fromhex(hexstr)
-
-def bytes2str(binstr):
-    return binstr.decode("utf-8")
-
-def hex2str(hexstr):
-    return bytes2str(hex2bytes(hexstr))
-
-def bytes2hex(value):
-    return "0x" + value.hex()
-
-def str2bytes(strtxt):
-    return strtxt.encode("utf-8")
-
-def str2hex(strtxt):
-    return bytes2hex(str2bytes(strtxt))
 
 def _make_query(func,model,has_param, **kwargs):
     module = kwargs.get('module')
@@ -473,7 +477,7 @@ def _make_query(func,model,has_param, **kwargs):
         try:
             ctx = Context
             ctx.set_context(rollup,None,module)
-            # TODO: accept abi encode (for larger post requests)
+            # TODO: accept abi encode or json (for larger post requests, configured in settings)
             # Decoding url parameters
             param_list = []
             if has_param:
@@ -528,6 +532,8 @@ def _make_mut(func,model,has_param, **kwargs):
         return res
     return mut
 
+# TODO add to indexer module and import it on manager
+
 class IndexerPayload(BaseModel):
     tags: Optional[List[str]]
     output_type: Optional[str]
@@ -581,7 +587,7 @@ def run(modules: List[str]):
         exit(1)
 
 @app.command()
-def generate_fronted_list(modules: List[str]):
+def generate_fronted_libs(modules: List[str]):
     """
     Generate frontend libs for MODULES
     """
@@ -596,6 +602,18 @@ def generate_fronted_list(modules: List[str]):
         exit(1)
 
 @app.command()
+def create_frontend(force: Optional[bool]):
+    """
+    Create basic frontend
+    """
+    # check if it exists, bypass with force
+    # create frontend web
+    # doctor basic reqs (node)
+    # install packages ["ajv": "^8.12.0","ethers": "^5.7.2","ts-transformer-keys": "^0.4.4"]
+    print("Not yet Implemented")
+    exit(1)
+
+@app.command()
 def create(name: str):
     """
     Create new Cartesi Rollups App with NAME
@@ -604,7 +622,7 @@ def create(name: str):
     exit(1)
 
 @app.command()
-def create_module(name: str):
+def create_module(name: str, force: Optional[bool]):
     """
     Create new MODULE for current Cartesi Rollups App
     """
@@ -616,6 +634,7 @@ def deploy(conf: str):
     """
     Deploy App with CONF file
     """
+    # doctor basic reqs (sunodo)
     print("Not yet Implemented")
     exit(1)
 
@@ -624,6 +643,7 @@ def node(dev: Optional[bool] = True):
     """
     Deploy App to NETWORK
     """
+    # doctor basic reqs (sunodo,nonodo)
     print("Not yet Implemented")
     exit(1)
 

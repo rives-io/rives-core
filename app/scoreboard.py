@@ -9,7 +9,8 @@ from py_expression_eval import Parser
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt
 
 from cartesapp.storage import Entity, helpers, seed
-from cartesapp.manager import mutation, query, get_metadata, output, add_output, event, emit_event, contract_call, hex2bytes, str2bytes, bytes2str
+from cartesapp.manager import mutation, query, get_metadata, output, add_output, event, emit_event, contract_call
+from cartesapp.utils import hex2bytes, str2bytes, bytes2str
 
 from .setup import AppSettings, ScoreType
 from .riv import replay_log, riv_get_cartridge_outcard
@@ -103,7 +104,7 @@ class ScoreboardCreated(BaseModel):
 @event()
 class ScoreboardRemoved(BaseModel):
     scoreboard_id:  Bytes32
-    timestamp:     UInt
+    timestamp:      UInt
 
 @event()
 class ScoreboardReplayScore(BaseModel):

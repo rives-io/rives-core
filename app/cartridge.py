@@ -10,7 +10,7 @@ import base64
 from cartesi.abi import String, Bytes, Bytes32, UInt
 
 from cartesapp.storage import Entity, helpers, seed
-from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call, hex2bytes, str2bytes, bytes2str
+from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call
 
 from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path
 from .setup import AppSettings
@@ -211,7 +211,7 @@ def cartridges(payload: CartridgesPayload) -> bool:
     dict_list_result = []
     for cartridge in cartridges:
         cartridge_dict = cartridge.to_dict()
-        cartridge_dict['cover'] = str(base64.b64encode(cartridge_dict['cover']))
+        cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
         dict_list_result.append(cartridge_dict)
 
     LOGGER.info(f"Returning {len(dict_list_result)} of {total} cartridges")
