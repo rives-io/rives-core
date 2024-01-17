@@ -739,14 +739,16 @@ export async function {{ convert_camel_case(info['method']) }}(
     options?:MutationOptions
 ):Promise<AdvanceOutput|ContractReceipt|any[]> {
     const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
-    {# return genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options); -#}
-    const result = await genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'0x494fdad8',data, options)
     {% if has_indexer_query -%}
+    if (options?.decode) { options.sync = true; }
+    const result = await genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'0x494fdad8',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
-    {% endif -%}
     return result;
+{% else -%}
+    return genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options);
+{% endif -%}
 }
 
 {% endfor %}
@@ -845,7 +847,7 @@ export function decodeTo{{ info['class'] }}(output: CartesiReport | CartesiNotic
  */
 
 export const models: Models = {
-{% for info in mutations_payload_info -%}
+    {% for info in mutations_payload_info -%}
     '{{ info["model"].__name__ }}': {
         ioType:IOType.mutationPayload,
         abiTypes:{{ info['abi_types'] }},
@@ -853,8 +855,8 @@ export const models: Models = {
         exporter: exportTo{{ info["model"].__name__ }},
         validator: ajv.compile<ifaces.{{ info["model"].__name__ }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
-{% endfor -%}
-{% for info in queries_payload_info -%}
+    {% endfor -%}
+    {% for info in queries_payload_info -%}
     '{{ info["model"].__name__ }}': {
         ioType:IOType.queryPayload,
         abiTypes:{{ info['abi_types'] }},
@@ -862,8 +864,8 @@ export const models: Models = {
         exporter: exportTo{{ info["model"].__name__ }},
         validator: ajv.compile<ifaces.{{ info["model"].__name__ }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
-{% endfor -%}
-{% for info in reports_info -%}
+    {% endfor -%}
+    {% for info in reports_info -%}
     '{{ info["class"] }}': {
         ioType:IOType.report,
         abiTypes:{{ info['abi_types'] }},
@@ -871,8 +873,8 @@ export const models: Models = {
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
-{% endfor -%}
-{% for info in notices_info -%}
+    {% endfor -%}
+    {% for info in notices_info -%}
     '{{ info["class"] }}': {
         ioType:IOType.notice,
         abiTypes:{{ info['abi_types'] }},
@@ -880,8 +882,8 @@ export const models: Models = {
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replace('integer','string","format":"biginteger')))
     },
-{% endfor -%}
-{% for info in vouchers_info -%}
+    {% endfor -%}
+    {% for info in vouchers_info -%}
     '{{ info["class"] }}': {
         ioType:IOType.voucher,
         abiTypes:{{ info['abi_types'] }},
