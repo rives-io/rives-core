@@ -323,7 +323,13 @@ body {
   }
 
 
+  .web3-connect-btn {
+    @apply rounded p-2 shadow-sm shadow-current;/*bg-gradient-to-r from-[var(--highlight-text-start-hex)] to-[var(--highlight-text-end-hex)];*/
+  }
 
+  .web3-connect-btn:hover {
+    @apply text-[var(--highlight-text-end-hex)] shadow-[var(--highlight-text-end-hex)];
+  }
 
 
 

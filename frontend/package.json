@@ -15,6 +15,8 @@
     "@react-three/drei": "^9.92.5",
     "@react-three/fiber": "^8.15.12",
     "@types/three": "^0.159.0",
+    "@web3-onboard/injected-wallets": "^2.10.11",
+    "@web3-onboard/react": "^2.8.13",
     "next": "14.0.4",
     "react": "^18",
     "react-dom": "^18",

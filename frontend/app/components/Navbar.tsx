@@ -4,9 +4,11 @@ import Link from 'next/link'
 import { usePathname } from "next/navigation";
 import React from 'react'
 import ThemeSwitch from "@/app/components/ThemeSwitch";
+import { useConnectWallet } from '@web3-onboard/react';
 
 function Navbar() {
     const pathname = usePathname();
+    const [{ wallet, connecting }, connect, disconnect] = useConnectWallet()
 
     return (
         <header className='header'>
@@ -25,7 +27,17 @@ function Navbar() {
                     <p>Upload Cartridge</p>
                 </Link>
             </nav>
-            <ThemeSwitch/>
+
+            <div className='flex space-x-8'>
+                <ThemeSwitch/>
+
+                <button className='web3-connect-btn' disabled={connecting}
+                    onClick={() => (wallet ? disconnect(wallet) : connect())}
+                >
+                    {connecting ? 'Connecting' : wallet ? 'Disconnect' : 'Connect'}
+                </button>
+
+            </div>
         </header>
     )
 }
