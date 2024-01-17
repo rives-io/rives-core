@@ -550,10 +550,8 @@ class OutputIndex(BaseModel):
     input_index: int
     output_index: int
 
-@output()
 class IndexerOutput(BaseModel):
     data:   List[OutputIndex]
-
 
 def indexer_query(payload: IndexerPayload) -> bool:
     out = get_output_indexes(**payload.dict())

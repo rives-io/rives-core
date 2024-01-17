@@ -95,7 +95,7 @@ def render_templates(conf,settings,mutations_info,queries_info,notices_info,repo
 
             indexer_query_info = None
             indexer_output_info = None
-            if not indexer_output_info:
+            if add_indexer_query and not indexer_output_info:
                 indexer_query_info = queries_info[f"{conf['indexer_query'].__module__.split('.')[0]}.{conf['indexer_query'].__name__}"]
                 indexer_output_info = reports_info[f"{conf['indexer_output'].__module__.split('.')[0]}.{conf['indexer_output'].__name__}"]
 
@@ -309,11 +309,12 @@ interface ModelInterface<T> {
 
 export interface Models {
     [key: string]: ModelInterface<any>;
-};
+}
 
 export interface InspectReportInput {
     index?: number;
 }
+
 export interface InspectReport {
     payload: string;
     input?: InspectReportInput;
@@ -328,6 +329,15 @@ export const outputGetters: OutputGetters = {
     report: queryReport,
     notice: queryNotice,
     voucher: queryVoucher
+}
+
+export interface MutationOptions extends AdvanceInputOptions {
+    decode?: boolean;
+}
+
+export interface QueryOptions extends InspectOptions {
+    decode?: boolean;
+    decodeModel?: string;
 }
 
 export class IOData<T extends object> {
@@ -609,13 +619,51 @@ export function decodeToConventionalTypes(data: string,modelName: string): any {
             else
                 throw new Error(`Cannot decode to int`);
         }
-        case "dict" || "list" || "tuple": {
+        case "dict": case "list": case "tuple": case "json": {
             return JSON.parse(ethers.utils.toUtf8String(data));
         }
     }
 }
 
 {% if add_indexer_query -%}
+
+interface OutMap {
+    [key: string]: CartesiReport | CartesiNotice | CartesiVoucher;
+}
+type outType = "report" | "notice" | "voucher";
+type AdvanceOutputMap = Record<outType,OutMap>
+
+export async function decodeAdvance(
+    advanceResult: AdvanceOutput,
+    decoder: (data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport, modelName:string) => any,
+    options?:InspectOptions): Promise<any[]>
+{
+    let input_index:number;
+    if (advanceResult.reports.length > 0) {
+        input_index = advanceResult.reports[0].input.index;
+    } else if (advanceResult.notices.length > 0) {
+        input_index = advanceResult.notices[0].input.index;
+    } else if (advanceResult.vouchers.length > 0) {
+        input_index = advanceResult.vouchers[0].input.index;
+    } else {
+        // Can't decode outputs (no outputs)
+        return [];
+    }
+    const outMap: AdvanceOutputMap = {report:{},notice:{},voucher:{}};
+    for (const report of advanceResult.reports) { outMap.report[report.index] = report }
+    for (const notice of advanceResult.notices) { outMap.notice[notice.index] = notice }
+    for (const voucher of advanceResult.vouchers) { outMap.voucher[voucher.index] = voucher }
+
+    const indexerOutputRaw = await {{ convert_camel_case(indexer_query_info['method']) }}({input_index:input_index},options) as InspectReport;
+    const indexerOutput: {{ indexer_output_info['model'].__name__ }} = decodeTo{{ indexer_output_info['model'].__name__ }}(indexerOutputRaw as CartesiReport);
+
+    const outList: any[] = [];
+    for (const indOut of indexerOutput.data) {
+        outList.push( decoder(outMap[indOut.output_type as outType][`${indOut.output_index}`],indOut.class_name) );
+    }
+    return outList
+}
+
 // indexer
 export async function genericGetOutputs(
     inputData: ifaces.{{ indexer_query_info['model'].__name__ }},
@@ -649,14 +697,15 @@ import Ajv from "ajv"
 import addFormats from "ajv-formats"
 import { keys } from 'ts-transformer-keys';
 
-import { AdvanceOutput, AdvanceInputOptions, InspectOptions,
+import { AdvanceOutput, InspectOptions,
     Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher
 } from "cartesi-client";
 
 import { 
-    genericAdvanceInput, genericDecodeTo, genericInspect, IOType, Models,
-    IOData, Output, Event, ContractCall, InspectReport,
-    CONVENTIONAL_TYPES, decodeToConventionalTypes{% if has_indexer_query -%}, genericGetOutputs{% endif %}
+    genericAdvanceInput, genericInspect, IOType, Models,
+    IOData, Output, Event, ContractCall, InspectReport, 
+    MutationOptions, QueryOptions, 
+    CONVENTIONAL_TYPES, decodeToConventionalTypes{% if has_indexer_query -%}, genericGetOutputs, decodeAdvance{% endif %}
 } from "../cartesapp/lib"
 
 {% if has_indexer_query -%}
@@ -687,10 +736,17 @@ export async function {{ convert_camel_case(info['method']) }}(
     client:Signer,
     dappAddress:string,
     inputData: ifaces.{{ info['model'].__name__ }},
-    options?:AdvanceInputOptions
-):Promise<AdvanceOutput|ContractReceipt> {
+    options?:MutationOptions
+):Promise<AdvanceOutput|ContractReceipt|any[]> {
     const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
-    return genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options);
+    {# return genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options); -#}
+    const result = await genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'0x494fdad8',data, options)
+    {% if has_indexer_query -%}
+    if (options?.decode) {
+        return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
+    }
+    {% endif -%}
+    return result;
 }
 
 {% endfor %}
@@ -701,11 +757,14 @@ export async function {{ convert_camel_case(info['method']) }}(
 {% for info in queries_info -%}
 export async function {{ convert_camel_case(info['method']) }}(
     inputData: ifaces.{{ info['model'].__name__ }},
-    options?:InspectOptions
-):Promise<InspectReport> {
+    options?:QueryOptions
+):Promise<InspectReport|any> {
     const route = '{{ info["selector"] }}';
     const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
-    return genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options);
+    {# return genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options); -#}
+    const output: InspectReport = await genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options);
+    if (options?.decode) { return decodeToModel(output,options.decodeModel || "json"); }
+    return output;
 }
 
 {% endfor %}
@@ -727,6 +786,8 @@ export async function getOutputs(
  */
 
 export function decodeToModel(data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport, modelName: string): any {
+    if (modelName == undefined)
+        throw new Error("undefined model");
     if (CONVENTIONAL_TYPES.includes(modelName))
         return decodeToConventionalTypes(data.payload,modelName);
     const decoder = models[modelName].decoder;
@@ -784,7 +845,7 @@ export function decodeTo{{ info['class'] }}(output: CartesiReport | CartesiNotic
  */
 
 export const models: Models = {
-    {% for info in mutations_payload_info -%}
+{% for info in mutations_payload_info -%}
     '{{ info["model"].__name__ }}': {
         ioType:IOType.mutationPayload,
         abiTypes:{{ info['abi_types'] }},
@@ -792,8 +853,8 @@ export const models: Models = {
         exporter: exportTo{{ info["model"].__name__ }},
         validator: ajv.compile<ifaces.{{ info["model"].__name__ }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
-    {% endfor -%}
-    {% for info in queries_payload_info -%}
+{% endfor -%}
+{% for info in queries_payload_info -%}
     '{{ info["model"].__name__ }}': {
         ioType:IOType.queryPayload,
         abiTypes:{{ info['abi_types'] }},
@@ -801,8 +862,8 @@ export const models: Models = {
         exporter: exportTo{{ info["model"].__name__ }},
         validator: ajv.compile<ifaces.{{ info["model"].__name__ }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
-    {% endfor -%}
-    {% for info in reports_info -%}
+{% endfor -%}
+{% for info in reports_info -%}
     '{{ info["class"] }}': {
         ioType:IOType.report,
         abiTypes:{{ info['abi_types'] }},
@@ -810,8 +871,8 @@ export const models: Models = {
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
-    {% endfor -%}
-    {% for info in notices_info -%}
+{% endfor -%}
+{% for info in notices_info -%}
     '{{ info["class"] }}': {
         ioType:IOType.notice,
         abiTypes:{{ info['abi_types'] }},
@@ -819,8 +880,8 @@ export const models: Models = {
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replace('integer','string","format":"biginteger')))
     },
-    {% endfor -%}
-    {% for info in vouchers_info -%}
+{% endfor -%}
+{% for info in vouchers_info -%}
     '{{ info["class"] }}': {
         ioType:IOType.voucher,
         abiTypes:{{ info['abi_types'] }},
@@ -828,7 +889,6 @@ export const models: Models = {
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replace('integer','string","format":"biginteger')))
     },
-    {% endfor -%}
-
+{% endfor -%}
 };
 '''
