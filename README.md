@@ -62,16 +62,10 @@ To create (or merge) the frontend structure:
 m.create_frontend()
 ```
 
-To (re)generate frontend libs based on backend:
+To (re)generate frontend libs based on backend (on a specific path, default is `src`):
 
 ```python
-m.generate_frontend_lib()
-```
-
-To do both operations:
-
-```python
-m.create_frontend(True)
+m.generate_frontend_lib("app/backend-libs")
 ```
 
 Then install frontend dependencies:

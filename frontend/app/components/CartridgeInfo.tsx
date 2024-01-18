@@ -26,7 +26,7 @@ function CartridgeInfo() {
 		{
 			id: 0,
 			label: {icon: <DescriptionIcon/>, text: "Description"},
-			content: selectedCartridge?selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc+selectedCartridge.desc:""
+			content: selectedCartridge.info?.summary
 		},
 		{
 			id: 1,
@@ -72,7 +72,7 @@ function CartridgeInfo() {
                             rotation={[0, -Math.PI/2, 0]}
                                 key={selectedCartridge.cover}
                                 position={[0,0,-10]}
-                                cover={selectedCartridge.cover}
+                                cover={selectedCartridge.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
                                 scale={[1, 1, 1]}
                             />
                             <SciFiPedestal position={[0, -5, -10]} scale={[0.3,0.3,0.3]}/>

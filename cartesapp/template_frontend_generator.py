@@ -7,7 +7,7 @@ from jinja2 import Template
 from packaging.version import Version
 
 FRONTEND_PATH = 'frontend'
-SRC_FRONTEND_PATH = f"{FRONTEND_PATH}/src"
+DEFAULT_LIB_PATH = 'src'
 PACKAGES_JSON_FILENAME = "package.json"
 TSCONFIG_JSON_FILENAME = "tsconfig.json"
 
@@ -15,7 +15,7 @@ def convert_camel_case(s):
     splitted = s.split('_')
     return splitted[0] + ''.join(i.title() for i in splitted[1:])
 
-def render_templates(conf,settings,mutations_info,queries_info,notices_info,reports_info,modules_to_add):
+def render_templates(conf,settings,mutations_info,queries_info,notices_info,reports_info,modules_to_add,libs_path=DEFAULT_LIB_PATH):
 
     add_indexer_query = False
     for module_name in settings:
@@ -54,7 +54,7 @@ def render_templates(conf,settings,mutations_info,queries_info,notices_info,repo
         models.extend(map(lambda i:i['model'],module_queries_info))
         models = list(set(models))
 
-        frontend_lib_path = f"{SRC_FRONTEND_PATH}/{module_name}"
+        frontend_lib_path = f"{FRONTEND_PATH}/{libs_path}/{module_name}"
 
         if len(models) > 0:
 
@@ -131,6 +131,7 @@ def render_templates(conf,settings,mutations_info,queries_info,notices_info,repo
             "reports_info":module_reports_info,
             "vouchers_info":module_vouchers_info,
             "has_indexer_query": has_indexer_query,
+            "list":list,
             "convert_camel_case":convert_camel_case
         })
 
@@ -159,7 +160,7 @@ def get_newer_version(pkg_name,req_version,orig_version):
     return newer
 
 
-def create_frontend_structure():
+def create_frontend_structure(libs_path=DEFAULT_LIB_PATH):
     # packages json
     pkg_path = f"{FRONTEND_PATH}/{PACKAGES_JSON_FILENAME}"
     original_pkg = {}
@@ -186,12 +187,13 @@ def create_frontend_structure():
         with open(tscfg_path, "r") as f:
             original_json_str = f.read()
             original_tscfg = json.loads(original_json_str)
+    # tsconfig_json['include'] = [libs_path]
     for section in tsconfig_json:
         if type(tsconfig_json[section]) == type({}):
             if original_tscfg.get(section) is None: original_tscfg[section] = {}
             for key in tsconfig_json[section]:
                 if original_tscfg[section].get(key) is not None and original_tscfg[section][key] != tsconfig_json[section][key]:
-                    print(f"WARN: Required tsconfig {section} section is '{tsconfig_json[section][key]}' but original is '{original_tscfg[section][key]}': keeping original (fix this manually)")
+                    print(f"WARN: Required tsconfig {section} section is '{json.dumps(tsconfig_json[section][key])}' but original is '{json.dumps(original_tscfg[section][key])}': keeping original (fix this manually)")
                 original_tscfg[section][key] = original_tscfg[section].get(key) or tsconfig_json[section][key]
         elif type(tsconfig_json[section]) == type([]):
             if original_tscfg.get(section) is None: original_tscfg[section] = []
@@ -215,19 +217,19 @@ def create_frontend_structure():
 packages_json = {
     "scripts": {
         # "dry-run": "ts-node src/dry-run.ts",
-        "prepare": "ts-patch install"
+        # "prepare": "ts-patch install"
     },
-        "dependencies": {
+    "dependencies": {
         "ajv": "^8.12.0",
         "ajv-formats": "^2.1.1",
         "ethers": "^5.7.2"
     },
-        "devDependencies": {
-        "@types/node": "^20.11.0",
-        "ts-patch": "^3.1.2",
-        "ts-transformer-keys": "^0.4.4",
-        "typescript": "^5.3.3",
-        "ts-node": "^10.9.2"
+    "devDependencies": {
+        "@types/node": "^20",
+        "typescript": "^5",
+        # "ts-patch": "^3.1.2",
+        # "ts-transformer-keys": "^0.4.4",
+        # "ts-node": "^10.9.2"
     }
 }
 
@@ -237,17 +239,14 @@ tsconfig_json = {
     #   "compiler": "ts-patch/compiler"
     # },
     "compilerOptions": {
-        "strict": True,
-        "noEmitOnError": True,
-        # "suppressImplicitAnyIndexErrors": true,
-        "target": "ES5",
-        "plugins": [
-            { "transform": "ts-transformer-keys/transformer" }
-        ]
-    },
-    "include": [
-      "src"
-    ]
+        # "strict": True,
+        # "noEmitOnError": True,
+        # # "suppressImplicitAnyIndexErrors": true,
+        # "target": "ES5",
+        # "plugins": [
+        #     { "transform": "ts-transformer-keys/transformer" }
+        # ]
+    }
 }
 
 helper_template = '''/* eslint-disable */
@@ -256,7 +255,6 @@ helper_template = '''/* eslint-disable */
  * DO NOT MODIFY IT BY HAND. Instead, run the generator,
  */
 import { Signer, ethers, ContractReceipt } from "ethers";
-import { keys } from 'ts-transformer-keys';
 import Ajv, { ValidateFunction } from "ajv"
 import addFormats from "ajv-formats"
 
@@ -695,7 +693,6 @@ lib_imports = '''/* eslint-disable */
 import { ethers, Signer, ContractReceipt } from "ethers";
 import Ajv from "ajv"
 import addFormats from "ajv-formats"
-import { keys } from 'ts-transformer-keys';
 
 import { AdvanceOutput, InspectOptions,
     Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher
@@ -851,7 +848,7 @@ export const models: Models = {
     '{{ info["model"].__name__ }}': {
         ioType:IOType.mutationPayload,
         abiTypes:{{ info['abi_types'] }},
-        params:keys<ifaces.{{ info["model"].__name__ }}>(),
+        params:{{ list(info["model"].__fields__.keys()) }},
         exporter: exportTo{{ info["model"].__name__ }},
         validator: ajv.compile<ifaces.{{ info["model"].__name__ }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
@@ -860,7 +857,7 @@ export const models: Models = {
     '{{ info["model"].__name__ }}': {
         ioType:IOType.queryPayload,
         abiTypes:{{ info['abi_types'] }},
-        params:keys<ifaces.{{ info["model"].__name__ }}>(),
+        params:{{ list(info["model"].__fields__.keys()) }},
         exporter: exportTo{{ info["model"].__name__ }},
         validator: ajv.compile<ifaces.{{ info["model"].__name__ }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
@@ -869,7 +866,7 @@ export const models: Models = {
     '{{ info["class"] }}': {
         ioType:IOType.report,
         abiTypes:{{ info['abi_types'] }},
-        params:keys<ifaces.{{ info["class"] }}>(),
+        params:{{ list(info["model"].__fields__.keys()) }},
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
@@ -878,7 +875,7 @@ export const models: Models = {
     '{{ info["class"] }}': {
         ioType:IOType.notice,
         abiTypes:{{ info['abi_types'] }},
-        params:keys<ifaces.{{ info["class"] }}>(),
+        params:{{ list(info["model"].__fields__.keys()) }},
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replace('integer','string","format":"biginteger')))
     },
@@ -887,10 +884,10 @@ export const models: Models = {
     '{{ info["class"] }}': {
         ioType:IOType.voucher,
         abiTypes:{{ info['abi_types'] }},
-        params:keys<ifaces.{{ info["class"] }}>(),
+        params:{{ list(info["model"].__fields__.keys()) }},
         decoder: decodeTo{{ info['class'] }},
         validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replace('integer','string","format":"biginteger')))
     },
-{% endfor -%}
+    {% endfor -%}
 };
 '''

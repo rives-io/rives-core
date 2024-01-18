@@ -2,18 +2,19 @@
 
 
 import { createContext, useState } from 'react';
+import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
 
 
 export const selectedCartridgeContext = createContext<{
     selectedCartridge: PlayableCartridge|null, changeCartridge:Function, playCartridge:Function
 }>({selectedCartridge: null, changeCartridge: () => null, playCartridge: () => null});
 
-export type Cartridge = {
-	id: number,
-	name: string,
-	cover: string,
-	desc: string
-}
+// export type Cartridge = {
+// 	id: number,
+// 	name: string,
+// 	cover: string,
+// 	desc: string
+// }
 
 type PlayableCartridge = Cartridge & {play: boolean};
 
@@ -24,7 +25,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         const aux:PlayableCartridge = {...cartridge, play:false};
         setSelectedCartridge(aux);
     }
-
+ 
     const playCartridge = () => {
         if (selectedCartridge) {
             setSelectedCartridge({...selectedCartridge, play:true});
