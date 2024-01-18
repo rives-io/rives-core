@@ -29,7 +29,7 @@ class Cartridge(Entity):
     user_address    = helpers.Required(str, 66)
     info            = helpers.Optional(helpers.Json, lazy=True)
     created_at      = helpers.Required(int)
-    cover           = helpers.Optional(bytes)
+    cover           = helpers.Optional(bytes, lazy=True)
 
 @seed()
 def initialize_data():
@@ -88,10 +88,11 @@ class Info(BaseModel):
 @output()
 class CartridgeInfo(BaseModel):
     id: String
+    name: String
     user_address: String
     info: Optional[Info]
     created_at: UInt
-    cover: String # encode to base64
+    cover: Optional[str] # encode to base64
 
 @output()
 class CartridgesOutput(BaseModel):
@@ -121,7 +122,7 @@ def insert_cartridge(payload: InserCartridgePayload) -> bool:
         timestamp = metadata.timestamp
     )
     out_tags = ['cartridge','insert_cartridge',cartridge_id]
-    add_output(payload.data,tags=out_tags)
+    # add_output(payload.data,tags=out_tags)
     emit_event(cartridge_event,tags=out_tags)
 
     return True
@@ -211,7 +212,7 @@ def cartridges(payload: CartridgesPayload) -> bool:
     dict_list_result = []
     for cartridge in cartridges:
         cartridge_dict = cartridge.to_dict()
-        cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
+        # cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
         dict_list_result.append(cartridge_dict)
 
     LOGGER.info(f"Returning {len(dict_list_result)} of {total} cartridges")

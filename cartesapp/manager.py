@@ -153,29 +153,28 @@ class Manager(object):
         cls.dapp.run()
 
     @classmethod
-    def generate_frontend_lib(cls):
+    def generate_frontend_lib(cls, lib_path=None):
         cls._import_apps()
         cls._setup_settings()
         cls._register_queries(False)
         cls._register_mutations(False)
         # generate lib
         from .template_frontend_generator import render_templates
-        render_templates(
+        params = [
             {"indexer_query":indexer_query,"indexer_output":IndexerOutput},
             Setting.settings,
             cls.mutations_info,
             cls.queries_info,
             Output.notices_info,
             Output.reports_info,
-            cls.modules_to_add
-        )
+            cls.modules_to_add]
+        if lib_path is not None: params.append(lib_path)
+        render_templates(*params)
 
     @classmethod
-    def create_frontend(cls, generate_libs = False):
+    def create_frontend(cls):
         from .template_frontend_generator import create_frontend_structure
         create_frontend_structure()
-        if generate_libs:
-            cls.generate_frontend_lib()
 
 ###
 # Singletons

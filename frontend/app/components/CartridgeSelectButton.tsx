@@ -1,13 +1,20 @@
 "use client"
 
 import React, { useContext } from 'react'
-import { Cartridge, selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
+import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
+import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
+import { cartridgeInfo } from '../backend-libs/app/lib';
 
 function CartridgeSelectButton({cartridge}:{cartridge:Cartridge}) {
     const {selectedCartridge, changeCartridge} = useContext(selectedCartridgeContext);
 
-    const handleCartridgeSelection = (e:React.MouseEvent<HTMLElement>) => {
-		changeCartridge(cartridge);
+    const handleCartridgeSelection = async (e:React.MouseEvent<HTMLElement>) => {
+
+        const cartridgeWithInfo = await cartridgeInfo({id:cartridge.id},{decode:true});
+
+        console.log('Select')
+        
+		changeCartridge(cartridgeWithInfo);
 	}
 
     return (

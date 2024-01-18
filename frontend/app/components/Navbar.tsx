@@ -24,7 +24,7 @@ function Navbar() {
                 </Link>
 
                 <Link href={"/upload-cartridge"} className={ pathname === "/upload-cartridge" ? "link-active" : "link-2step-hover" }>
-                    <p>Upload Cartridge</p>
+                    <p>Insert Cartridge</p>
                 </Link>
             </nav>
 
