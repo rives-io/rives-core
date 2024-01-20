@@ -398,8 +398,7 @@ export async function decodeAdvance(
     for (const notice of advanceResult.notices) { outMap.notice[notice.index] = notice }
     for (const voucher of advanceResult.vouchers) { outMap.voucher[voucher.index] = voucher }
 
-    const indexerOutputRaw = await indexerQuery({input_index:input_index},options) as InspectReport;
-    const indexerOutput: IndexerOutput = decodeToIndexerOutput(indexerOutputRaw as CartesiReport);
+    const indexerOutput: IndexerOutput = await indexerQuery({input_index:input_index},{...options, decode:true, decodeModel:"IndexerOutput"}) as IndexerOutput;
 
     const outList: any[] = [];
     for (const indOut of indexerOutput.data) {
@@ -415,8 +414,7 @@ export async function genericGetOutputs(
     options?:InspectOptions
 ):Promise<any[]> {
     if (options == undefined) options = {};
-    const indexerOutputRaw = await indexerQuery(inputData,options) as InspectReport;
-    const indexerOutput: IndexerOutput = decodeToIndexerOutput(indexerOutputRaw as CartesiReport);
+    const indexerOutput: IndexerOutput = await indexerQuery(inputData,{...options, decode:true, decodeModel:"IndexerOutput"}) as IndexerOutput;
     const graphqlQueries: Promise<any>[] = [];
     for (const outInd of indexerOutput.data) {
         const graphqlOptions: GraphqlOptions = {cartesiNodeUrl: options.cartesiNodeUrl, inputIndex: outInd.input_index, outputIndex: outInd.output_index};

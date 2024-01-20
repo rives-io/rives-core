@@ -516,6 +516,7 @@ def _make_mut(func,model,has_param, **kwargs):
             ctx.set_context(rollup,data.metadata,module)
             payload = data.bytes_payload()[4:]
             param_list = []
+            print(payload,model,model.schema())
             if has_param:
                 param_list.append(abi.decode_to_model(data=payload, model=model)) #,packed=True)
             res = func(*param_list)

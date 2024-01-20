@@ -119,7 +119,7 @@ def get_output_indexes(**kwargs):
     if kwargs.get('timestamp_lte') is not None:
         output_query = output_query.filter(lambda o: o.timestamp <= kwargs.get('timestamp_lte'))
     if kwargs.get('input_index') is not None:
-        output_query = output_query.filter(lambda o: o.input_index <= kwargs.get('input_index'))
+        output_query = output_query.filter(lambda o: o.input_index == kwargs.get('input_index'))
 
     query = helpers.distinct(
         [o.output_type,o.output_module,o.output_class,o.input_index,o.output_index]
