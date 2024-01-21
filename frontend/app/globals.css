@@ -230,6 +230,12 @@ body {
   line-height: 13px;
 }
 
+.button-57:disabled,
+.button-57[disabled]{
+  opacity: 50%;
+  cursor: not-allowed;
+}
+
 .button-57:after {
   content: "";
   position: absolute;

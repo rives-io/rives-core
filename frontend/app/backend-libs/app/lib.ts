@@ -44,7 +44,7 @@ export async function insertCartridge(
 ):Promise<AdvanceOutput|ContractReceipt|any[]> {
     const data: InserCartridgePayload = new InserCartridgePayload(inputData);
     if (options?.decode) { options.sync = true; }
-    const result = await genericAdvanceInput<ifaces.InserCartridgePayload>(client,dappAddress,'0x494fdad8',data, options)
+    const result = await genericAdvanceInput<ifaces.InserCartridgePayload>(client,dappAddress,'0x36b24e6f',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
@@ -59,7 +59,7 @@ export async function removeCartridge(
 ):Promise<AdvanceOutput|ContractReceipt|any[]> {
     const data: RemoveCartridgePayload = new RemoveCartridgePayload(inputData);
     if (options?.decode) { options.sync = true; }
-    const result = await genericAdvanceInput<ifaces.RemoveCartridgePayload>(client,dappAddress,'0x494fdad8',data, options)
+    const result = await genericAdvanceInput<ifaces.RemoveCartridgePayload>(client,dappAddress,'0xa850c582',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
@@ -74,7 +74,7 @@ export async function replay(
 ):Promise<AdvanceOutput|ContractReceipt|any[]> {
     const data: Replay = new Replay(inputData);
     if (options?.decode) { options.sync = true; }
-    const result = await genericAdvanceInput<ifaces.Replay>(client,dappAddress,'0x494fdad8',data, options)
+    const result = await genericAdvanceInput<ifaces.Replay>(client,dappAddress,'0x49ee5e36',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
@@ -104,7 +104,7 @@ export async function cleanScoreboards(
 ):Promise<AdvanceOutput|ContractReceipt|any[]> {
     const data: EmptyClass = new EmptyClass(inputData);
     if (options?.decode) { options.sync = true; }
-    const result = await genericAdvanceInput<ifaces.EmptyClass>(client,dappAddress,'0x494fdad8',data, options)
+    const result = await genericAdvanceInput<ifaces.EmptyClass>(client,dappAddress,'0x7b75384d',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
@@ -119,7 +119,7 @@ export async function scoreboardReplay(
 ):Promise<AdvanceOutput|ContractReceipt|any[]> {
     const data: ScoreboardReplayPayload = new ScoreboardReplayPayload(inputData);
     if (options?.decode) { options.sync = true; }
-    const result = await genericAdvanceInput<ifaces.ScoreboardReplayPayload>(client,dappAddress,'0x494fdad8',data, options)
+    const result = await genericAdvanceInput<ifaces.ScoreboardReplayPayload>(client,dappAddress,'0xc0b7397c',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
@@ -221,15 +221,9 @@ export function exportToModel(data: any, modelName: string): string {
     return exporter(data);
 }
 
-export class InserCartridgePayload extends IOData<ifaces.InserCartridgePayload> { constructor(data: ifaces.InserCartridgePayload, validate: boolean = true) { super(models['InserCartridgePayload'],data,validate); } }
-export function exportToInserCartridgePayload(data: ifaces.InserCartridgePayload): string {
-    const dataToExport: InserCartridgePayload = new InserCartridgePayload(data);
-    return dataToExport.export();
-}
-
-export class CreateScoreboardPayload extends IOData<ifaces.CreateScoreboardPayload> { constructor(data: ifaces.CreateScoreboardPayload, validate: boolean = true) { super(models['CreateScoreboardPayload'],data,validate); } }
-export function exportToCreateScoreboardPayload(data: ifaces.CreateScoreboardPayload): string {
-    const dataToExport: CreateScoreboardPayload = new CreateScoreboardPayload(data);
+export class EmptyClass extends IOData<ifaces.EmptyClass> { constructor(data: ifaces.EmptyClass, validate: boolean = true) { super(models['EmptyClass'],data,validate); } }
+export function exportToEmptyClass(data: ifaces.EmptyClass): string {
+    const dataToExport: EmptyClass = new EmptyClass(data);
     return dataToExport.export();
 }
 
@@ -239,15 +233,9 @@ export function exportToRemoveCartridgePayload(data: ifaces.RemoveCartridgePaylo
     return dataToExport.export();
 }
 
-export class Replay extends IOData<ifaces.Replay> { constructor(data: ifaces.Replay, validate: boolean = true) { super(models['Replay'],data,validate); } }
-export function exportToReplay(data: ifaces.Replay): string {
-    const dataToExport: Replay = new Replay(data);
-    return dataToExport.export();
-}
-
-export class EmptyClass extends IOData<ifaces.EmptyClass> { constructor(data: ifaces.EmptyClass, validate: boolean = true) { super(models['EmptyClass'],data,validate); } }
-export function exportToEmptyClass(data: ifaces.EmptyClass): string {
-    const dataToExport: EmptyClass = new EmptyClass(data);
+export class CreateScoreboardPayload extends IOData<ifaces.CreateScoreboardPayload> { constructor(data: ifaces.CreateScoreboardPayload, validate: boolean = true) { super(models['CreateScoreboardPayload'],data,validate); } }
+export function exportToCreateScoreboardPayload(data: ifaces.CreateScoreboardPayload): string {
+    const dataToExport: CreateScoreboardPayload = new CreateScoreboardPayload(data);
     return dataToExport.export();
 }
 
@@ -257,15 +245,15 @@ export function exportToScoreboardReplayPayload(data: ifaces.ScoreboardReplayPay
     return dataToExport.export();
 }
 
-export class CartridgePayload extends IOData<ifaces.CartridgePayload> { constructor(data: ifaces.CartridgePayload, validate: boolean = true) { super(models['CartridgePayload'],data,validate); } }
-export function exportToCartridgePayload(data: ifaces.CartridgePayload): string {
-    const dataToExport: CartridgePayload = new CartridgePayload(data);
+export class Replay extends IOData<ifaces.Replay> { constructor(data: ifaces.Replay, validate: boolean = true) { super(models['Replay'],data,validate); } }
+export function exportToReplay(data: ifaces.Replay): string {
+    const dataToExport: Replay = new Replay(data);
     return dataToExport.export();
 }
 
-export class CartridgesPayload extends IOData<ifaces.CartridgesPayload> { constructor(data: ifaces.CartridgesPayload, validate: boolean = true) { super(models['CartridgesPayload'],data,validate); } }
-export function exportToCartridgesPayload(data: ifaces.CartridgesPayload): string {
-    const dataToExport: CartridgesPayload = new CartridgesPayload(data);
+export class InserCartridgePayload extends IOData<ifaces.InserCartridgePayload> { constructor(data: ifaces.InserCartridgePayload, validate: boolean = true) { super(models['InserCartridgePayload'],data,validate); } }
+export function exportToInserCartridgePayload(data: ifaces.InserCartridgePayload): string {
+    const dataToExport: InserCartridgePayload = new InserCartridgePayload(data);
     return dataToExport.export();
 }
 
@@ -278,6 +266,18 @@ export function exportToScoreboardsPayload(data: ifaces.ScoreboardsPayload): str
 export class ScoresPayload extends IOData<ifaces.ScoresPayload> { constructor(data: ifaces.ScoresPayload, validate: boolean = true) { super(models['ScoresPayload'],data,validate); } }
 export function exportToScoresPayload(data: ifaces.ScoresPayload): string {
     const dataToExport: ScoresPayload = new ScoresPayload(data);
+    return dataToExport.export();
+}
+
+export class CartridgePayload extends IOData<ifaces.CartridgePayload> { constructor(data: ifaces.CartridgePayload, validate: boolean = true) { super(models['CartridgePayload'],data,validate); } }
+export function exportToCartridgePayload(data: ifaces.CartridgePayload): string {
+    const dataToExport: CartridgePayload = new CartridgePayload(data);
+    return dataToExport.export();
+}
+
+export class CartridgesPayload extends IOData<ifaces.CartridgesPayload> { constructor(data: ifaces.CartridgesPayload, validate: boolean = true) { super(models['CartridgesPayload'],data,validate); } }
+export function exportToCartridgesPayload(data: ifaces.CartridgesPayload): string {
+    const dataToExport: CartridgesPayload = new CartridgesPayload(data);
     return dataToExport.export();
 }
 
@@ -337,19 +337,12 @@ export function decodeToScoreboardReplayScore(output: CartesiReport | CartesiNot
  */
 
 export const models: Models = {
-    'InserCartridgePayload': {
+    'EmptyClass': {
         ioType:IOType.mutationPayload,
-        abiTypes:['bytes'],
-        params:['data'],
-        exporter: exportToInserCartridgePayload,
-        validator: ajv.compile<ifaces.InserCartridgePayload>(JSON.parse('{"title": "InserCartridgePayload", "type": "object", "properties": {"data": {"type": "string", "format": "binary"}}, "required": ["data"]}'))
-    },
-    'CreateScoreboardPayload': {
-        ioType:IOType.mutationPayload,
-        abiTypes:['bytes32', 'string', 'string', 'bytes', 'string'],
-        params:['cartridge_id', 'name', 'args', 'in_card', 'score_function'],
-        exporter: exportToCreateScoreboardPayload,
-        validator: ajv.compile<ifaces.CreateScoreboardPayload>(JSON.parse('{"title": "CreateScoreboardPayload", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "name": {"type": "string"}, "args": {"type": "string"}, "in_card": {"type": "string", "format": "binary"}, "score_function": {"type": "string"}}, "required": ["cartridge_id", "name", "args", "in_card", "score_function"]}'))
+        abiTypes:[],
+        params:[],
+        exporter: exportToEmptyClass,
+        validator: ajv.compile<ifaces.EmptyClass>(JSON.parse('{"title": "EmptyClass", "type": "object", "properties": {}}'))
     },
     'RemoveCartridgePayload': {
         ioType:IOType.mutationPayload,
@@ -358,19 +351,12 @@ export const models: Models = {
         exporter: exportToRemoveCartridgePayload,
         validator: ajv.compile<ifaces.RemoveCartridgePayload>(JSON.parse('{"title": "RemoveCartridgePayload", "type": "object", "properties": {"id": {"type": "string", "format": "binary"}}, "required": ["id"]}'))
     },
-    'Replay': {
+    'CreateScoreboardPayload': {
         ioType:IOType.mutationPayload,
-        abiTypes:['bytes32', 'bytes32', 'string', 'bytes', 'bytes'],
-        params:['cartridge_id', 'outcard_hash', 'args', 'in_card', 'log'],
-        exporter: exportToReplay,
-        validator: ajv.compile<ifaces.Replay>(JSON.parse('{"title": "Replay", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "outcard_hash": {"type": "string", "format": "binary"}, "args": {"type": "string"}, "in_card": {"type": "string", "format": "binary"}, "log": {"type": "string", "format": "binary"}}, "required": ["cartridge_id", "outcard_hash", "args", "in_card", "log"]}'))
-    },
-    'EmptyClass': {
-        ioType:IOType.mutationPayload,
-        abiTypes:[],
-        params:[],
-        exporter: exportToEmptyClass,
-        validator: ajv.compile<ifaces.EmptyClass>(JSON.parse('{"title": "EmptyClass", "type": "object", "properties": {}}'))
+        abiTypes:['bytes32', 'string', 'string', 'bytes', 'string'],
+        params:['cartridge_id', 'name', 'args', 'in_card', 'score_function'],
+        exporter: exportToCreateScoreboardPayload,
+        validator: ajv.compile<ifaces.CreateScoreboardPayload>(JSON.parse('{"title": "CreateScoreboardPayload", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "name": {"type": "string"}, "args": {"type": "string"}, "in_card": {"type": "string", "format": "binary"}, "score_function": {"type": "string"}}, "required": ["cartridge_id", "name", "args", "in_card", "score_function"]}'))
     },
     'ScoreboardReplayPayload': {
         ioType:IOType.mutationPayload,
@@ -379,19 +365,19 @@ export const models: Models = {
         exporter: exportToScoreboardReplayPayload,
         validator: ajv.compile<ifaces.ScoreboardReplayPayload>(JSON.parse('{"title": "ScoreboardReplayPayload", "type": "object", "properties": {"scoreboard_id": {"type": "string", "format": "binary"}, "outcard_hash": {"type": "string", "format": "binary"}, "log": {"type": "string", "format": "binary"}}, "required": ["scoreboard_id", "outcard_hash", "log"]}'))
     },
-    'CartridgePayload': {
-        ioType:IOType.queryPayload,
-        abiTypes:[],
-        params:['id'],
-        exporter: exportToCartridgePayload,
-        validator: ajv.compile<ifaces.CartridgePayload>(JSON.parse('{"title": "CartridgePayload", "type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}'))
+    'Replay': {
+        ioType:IOType.mutationPayload,
+        abiTypes:['bytes32', 'bytes32', 'string', 'bytes', 'bytes'],
+        params:['cartridge_id', 'outcard_hash', 'args', 'in_card', 'log'],
+        exporter: exportToReplay,
+        validator: ajv.compile<ifaces.Replay>(JSON.parse('{"title": "Replay", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "outcard_hash": {"type": "string", "format": "binary"}, "args": {"type": "string"}, "in_card": {"type": "string", "format": "binary"}, "log": {"type": "string", "format": "binary"}}, "required": ["cartridge_id", "outcard_hash", "args", "in_card", "log"]}'))
     },
-    'CartridgesPayload': {
-        ioType:IOType.queryPayload,
-        abiTypes:[],
-        params:['name', 'tags', 'page', 'page_size'],
-        exporter: exportToCartridgesPayload,
-        validator: ajv.compile<ifaces.CartridgesPayload>(JSON.parse('{"title": "CartridgesPayload", "type": "object", "properties": {"name": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "page": {"type": "integer"}, "page_size": {"type": "integer"}}}'))
+    'InserCartridgePayload': {
+        ioType:IOType.mutationPayload,
+        abiTypes:['bytes'],
+        params:['data'],
+        exporter: exportToInserCartridgePayload,
+        validator: ajv.compile<ifaces.InserCartridgePayload>(JSON.parse('{"title": "InserCartridgePayload", "type": "object", "properties": {"data": {"type": "string", "format": "binary"}}, "required": ["data"]}'))
     },
     'ScoreboardsPayload': {
         ioType:IOType.queryPayload,
@@ -407,19 +393,33 @@ export const models: Models = {
         exporter: exportToScoresPayload,
         validator: ajv.compile<ifaces.ScoresPayload>(JSON.parse('{"title": "ScoresPayload", "type": "object", "properties": {"scoreboard_id": {"type": "string"}, "page": {"type": "integer"}, "page_size": {"type": "integer"}}, "required": ["scoreboard_id"]}'))
     },
+    'CartridgePayload': {
+        ioType:IOType.queryPayload,
+        abiTypes:[],
+        params:['id'],
+        exporter: exportToCartridgePayload,
+        validator: ajv.compile<ifaces.CartridgePayload>(JSON.parse('{"title": "CartridgePayload", "type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}'))
+    },
+    'CartridgesPayload': {
+        ioType:IOType.queryPayload,
+        abiTypes:[],
+        params:['name', 'tags', 'page', 'page_size'],
+        exporter: exportToCartridgesPayload,
+        validator: ajv.compile<ifaces.CartridgesPayload>(JSON.parse('{"title": "CartridgesPayload", "type": "object", "properties": {"name": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "page": {"type": "integer"}, "page_size": {"type": "integer"}}}'))
+    },
     'CartridgeInfo': {
         ioType:IOType.report,
         abiTypes:[],
         params:['id', 'name', 'user_address', 'info', 'created_at', 'cover'],
         decoder: decodeToCartridgeInfo,
-        validator: ajv.compile<ifaces.CartridgeInfo>(JSON.parse('{"title": "CartridgeInfo", "type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "user_address": {"type": "string"}, "info": {"$ref": "#/definitions/Info"}, "created_at": {"type": "integer"}, "cover": {"type": "string"}}, "required": ["id", "name", "user_address", "created_at", "cover"], "definitions": {"Author": {"title": "Author", "type": "object", "properties": {"name": {"type": "string"}, "link": {"type": "string"}}, "required": ["name", "link"]}, "Info": {"title": "Info", "type": "object", "properties": {"name": {"type": "string"}, "summary": {"type": "string"}, "description": {"type": "string"}, "version": {"type": "string"}, "status": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "authors": {"type": "array", "items": {"$ref": "#/definitions/Author"}}, "url": {"type": "string"}}, "required": ["name", "tags"]}}}'))
+        validator: ajv.compile<ifaces.CartridgeInfo>(JSON.parse('{"title": "CartridgeInfo", "type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "user_address": {"type": "string"}, "info": {"$ref": "#/definitions/Info"}, "created_at": {"type": "integer"}, "cover": {"type": "string"}}, "required": ["id", "name", "user_address", "created_at"], "definitions": {"Author": {"title": "Author", "type": "object", "properties": {"name": {"type": "string"}, "link": {"type": "string"}}, "required": ["name", "link"]}, "Info": {"title": "Info", "type": "object", "properties": {"name": {"type": "string"}, "summary": {"type": "string"}, "description": {"type": "string"}, "version": {"type": "string"}, "status": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "authors": {"type": "array", "items": {"$ref": "#/definitions/Author"}}, "url": {"type": "string"}}, "required": ["name", "tags"]}}}'))
     },
     'CartridgesOutput': {
         ioType:IOType.report,
         abiTypes:[],
         params:['data', 'total', 'page'],
         decoder: decodeToCartridgesOutput,
-        validator: ajv.compile<ifaces.CartridgesOutput>(JSON.parse('{"title": "CartridgesOutput", "type": "object", "properties": {"data": {"type": "array", "items": {"$ref": "#/definitions/CartridgeInfo"}}, "total": {"type": "integer"}, "page": {"type": "integer"}}, "required": ["data", "total", "page"], "definitions": {"Author": {"title": "Author", "type": "object", "properties": {"name": {"type": "string"}, "link": {"type": "string"}}, "required": ["name", "link"]}, "Info": {"title": "Info", "type": "object", "properties": {"name": {"type": "string"}, "summary": {"type": "string"}, "description": {"type": "string"}, "version": {"type": "string"}, "status": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "authors": {"type": "array", "items": {"$ref": "#/definitions/Author"}}, "url": {"type": "string"}}, "required": ["name", "tags"]}, "CartridgeInfo": {"title": "CartridgeInfo", "type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "user_address": {"type": "string"}, "info": {"$ref": "#/definitions/Info"}, "created_at": {"type": "integer"}, "cover": {"type": "string"}}, "required": ["id", "name", "user_address", "created_at", "cover"]}}}'))
+        validator: ajv.compile<ifaces.CartridgesOutput>(JSON.parse('{"title": "CartridgesOutput", "type": "object", "properties": {"data": {"type": "array", "items": {"$ref": "#/definitions/CartridgeInfo"}}, "total": {"type": "integer"}, "page": {"type": "integer"}}, "required": ["data", "total", "page"], "definitions": {"Author": {"title": "Author", "type": "object", "properties": {"name": {"type": "string"}, "link": {"type": "string"}}, "required": ["name", "link"]}, "Info": {"title": "Info", "type": "object", "properties": {"name": {"type": "string"}, "summary": {"type": "string"}, "description": {"type": "string"}, "version": {"type": "string"}, "status": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "authors": {"type": "array", "items": {"$ref": "#/definitions/Author"}}, "url": {"type": "string"}}, "required": ["name", "tags"]}, "CartridgeInfo": {"title": "CartridgeInfo", "type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "user_address": {"type": "string"}, "info": {"$ref": "#/definitions/Info"}, "created_at": {"type": "integer"}, "cover": {"type": "string"}}, "required": ["id", "name", "user_address", "created_at"]}}}'))
     },
     'ScoreboardsOutput': {
         ioType:IOType.report,
@@ -440,41 +440,41 @@ export const models: Models = {
         abiTypes:['string', 'string', 'uint'],
         params:['cartridge_id', 'user_address', 'timestamp'],
         decoder: decodeToCartridgeInserted,
-        validator: ajv.compile<ifaces.CartridgeInserted>(JSON.parse('{"title": "CartridgeInserted", "type": "object", "properties": {"cartridge_id": {"type": "string"}, "user_address": {"type": "string"}, "timestamp": {"type": "integer"}}, "required": ["cartridge_id", "user_address", "timestamp"]}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.CartridgeInserted>(JSON.parse('{"title": "CartridgeInserted", "type": "object", "properties": {"cartridge_id": {"type": "string"}, "user_address": {"type": "string"}, "timestamp": {"type": "integer"}}, "required": ["cartridge_id", "user_address", "timestamp"]}'.replaceAll('integer','string","format":"biginteger')))
     },
     'CartridgeRemoved': {
         ioType:IOType.notice,
         abiTypes:['string', 'uint'],
         params:['cartridge_id', 'timestamp'],
         decoder: decodeToCartridgeRemoved,
-        validator: ajv.compile<ifaces.CartridgeRemoved>(JSON.parse('{"title": "CartridgeRemoved", "type": "object", "properties": {"cartridge_id": {"type": "string"}, "timestamp": {"type": "integer"}}, "required": ["cartridge_id", "timestamp"]}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.CartridgeRemoved>(JSON.parse('{"title": "CartridgeRemoved", "type": "object", "properties": {"cartridge_id": {"type": "string"}, "timestamp": {"type": "integer"}}, "required": ["cartridge_id", "timestamp"]}'.replaceAll('integer','string","format":"biginteger')))
     },
     'ReplayScore': {
         ioType:IOType.notice,
         abiTypes:['bytes32', 'string', 'uint', 'int', 'int', 'int', 'string'],
         params:['cartridge_id', 'user_address', 'timestamp', 'score', 'score_type', 'extra_score', 'extra'],
         decoder: decodeToReplayScore,
-        validator: ajv.compile<ifaces.ReplayScore>(JSON.parse('{"title": "ReplayScore", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "user_address": {"type": "string"}, "timestamp": {"type": "integer"}, "score": {"type": "integer"}, "score_type": {"default": 0, "type": "integer"}, "extra_score": {"default": 0, "type": "integer"}, "extra": {"default": "", "type": "string"}}, "required": ["cartridge_id", "user_address", "timestamp", "score"]}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.ReplayScore>(JSON.parse('{"title": "ReplayScore", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "user_address": {"type": "string"}, "timestamp": {"type": "integer"}, "score": {"type": "integer"}, "score_type": {"default": 0, "type": "integer"}, "extra_score": {"default": 0, "type": "integer"}, "extra": {"default": "", "type": "string"}}, "required": ["cartridge_id", "user_address", "timestamp", "score"]}'.replaceAll('integer','string","format":"biginteger')))
     },
     'ScoreboardCreated': {
         ioType:IOType.notice,
         abiTypes:['bytes32', 'string', 'uint'],
         params:['scoreboard_id', 'created_by', 'created_at'],
         decoder: decodeToScoreboardCreated,
-        validator: ajv.compile<ifaces.ScoreboardCreated>(JSON.parse('{"title": "ScoreboardCreated", "type": "object", "properties": {"scoreboard_id": {"type": "string", "format": "binary"}, "created_by": {"type": "string"}, "created_at": {"type": "integer"}}, "required": ["scoreboard_id", "created_by", "created_at"]}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.ScoreboardCreated>(JSON.parse('{"title": "ScoreboardCreated", "type": "object", "properties": {"scoreboard_id": {"type": "string", "format": "binary"}, "created_by": {"type": "string"}, "created_at": {"type": "integer"}}, "required": ["scoreboard_id", "created_by", "created_at"]}'.replaceAll('integer','string","format":"biginteger')))
     },
     'ScoreboardRemoved': {
         ioType:IOType.notice,
         abiTypes:['bytes32', 'uint'],
         params:['scoreboard_id', 'timestamp'],
         decoder: decodeToScoreboardRemoved,
-        validator: ajv.compile<ifaces.ScoreboardRemoved>(JSON.parse('{"title": "ScoreboardRemoved", "type": "object", "properties": {"scoreboard_id": {"type": "string", "format": "binary"}, "timestamp": {"type": "integer"}}, "required": ["scoreboard_id", "timestamp"]}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.ScoreboardRemoved>(JSON.parse('{"title": "ScoreboardRemoved", "type": "object", "properties": {"scoreboard_id": {"type": "string", "format": "binary"}, "timestamp": {"type": "integer"}}, "required": ["scoreboard_id", "timestamp"]}'.replaceAll('integer','string","format":"biginteger')))
     },
     'ScoreboardReplayScore': {
         ioType:IOType.notice,
         abiTypes:['bytes32', 'string', 'uint', 'int', 'int', 'int', 'string'],
         params:['cartridge_id', 'user_address', 'timestamp', 'score', 'score_type', 'extra_score', 'scoreboard_id'],
         decoder: decodeToScoreboardReplayScore,
-        validator: ajv.compile<ifaces.ScoreboardReplayScore>(JSON.parse('{"title": "ScoreboardReplayScore", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "user_address": {"type": "string"}, "timestamp": {"type": "integer"}, "score": {"type": "integer"}, "score_type": {"default": 1, "type": "integer"}, "extra_score": {"type": "integer"}, "scoreboard_id": {"type": "string"}}, "required": ["cartridge_id", "user_address", "timestamp", "score", "extra_score", "scoreboard_id"]}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.ScoreboardReplayScore>(JSON.parse('{"title": "ScoreboardReplayScore", "type": "object", "properties": {"cartridge_id": {"type": "string", "format": "binary"}, "user_address": {"type": "string"}, "timestamp": {"type": "integer"}, "score": {"type": "integer"}, "score_type": {"default": 1, "type": "integer"}, "extra_score": {"type": "integer"}, "scoreboard_id": {"type": "string"}}, "required": ["cartridge_id", "user_address", "timestamp", "score", "extra_score", "scoreboard_id"]}'.replaceAll('integer','string","format":"biginteger')))
     },
     };

@@ -64,7 +64,7 @@ def replay(replay: Replay) -> bool:
         return False
 
     # process outcard
-    outcard_hash = sha256(outcard_raw).digest()
+    outcard_hash = sha256(outcard_raw.replace(b'\r',b"").replace(b'\t',b"").replace(b'\n',b"").replace(b' ',b"")).digest()
     outcard_valid = outcard_hash == replay.outcard_hash
 
     outcard_format = outcard_raw[:4]

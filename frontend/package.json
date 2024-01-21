@@ -19,13 +19,16 @@
     "@types/three": "^0.159.0",
     "@web3-onboard/injected-wallets": "^2.10.11",
     "@web3-onboard/react": "^2.8.13",
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "ethers": "^5.7.2",
+    "expr-eval": "^2.0.2",
+    "js-sha256": "^0.10.1",
     "next": "14.0.4",
     "react": "^18",
     "react-dom": "^18",
-    "three": "^0.159.0",
-    "ajv": "^8.12.0",
-    "ajv-formats": "^2.1.1",
-    "ethers": "^5.7.2"
+    "react-use-downloader": "^1.2.4",
+    "three": "^0.159.0"
   },
   "devDependencies": {
     "@types/node": "^20",

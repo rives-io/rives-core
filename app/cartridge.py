@@ -38,6 +38,12 @@ def initialize_data():
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 
+    cartridge_example_file = open('misc/doom.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+
+
 
 # Inputs
 
@@ -246,7 +252,9 @@ def create_cartridge(cartridge_data,**metadata):
     cartridge_info_json = json.loads(cartridge_info)
     Info(**cartridge_info_json)
 
-    cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
+    cartridge_cover = cartridge_info_json.get("cover")
+    if cartridge_cover is None or len(cartridge_cover) == 0:
+        cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
 
     c = Cartridge(
         id = data_hash,
