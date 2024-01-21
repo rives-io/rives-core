@@ -652,8 +652,7 @@ export async function decodeAdvance(
     for (const notice of advanceResult.notices) { outMap.notice[notice.index] = notice }
     for (const voucher of advanceResult.vouchers) { outMap.voucher[voucher.index] = voucher }
 
-    const indexerOutputRaw = await {{ convert_camel_case(indexer_query_info['method']) }}({input_index:input_index},options) as InspectReport;
-    const indexerOutput: {{ indexer_output_info['model'].__name__ }} = decodeTo{{ indexer_output_info['model'].__name__ }}(indexerOutputRaw as CartesiReport);
+    const indexerOutput: {{ indexer_output_info['model'].__name__ }} = await {{ convert_camel_case(indexer_query_info['method']) }}({input_index:input_index},{...options, decode:true, decodeModel:"{{ indexer_output_info['model'].__name__ }}"}) as {{ indexer_output_info['model'].__name__ }};
 
     const outList: any[] = [];
     for (const indOut of indexerOutput.data) {
@@ -669,8 +668,7 @@ export async function genericGetOutputs(
     options?:InspectOptions
 ):Promise<any[]> {
     if (options == undefined) options = {};
-    const indexerOutputRaw = await {{ convert_camel_case(indexer_query_info['method']) }}(inputData,options) as InspectReport;
-    const indexerOutput: {{ indexer_output_info['model'].__name__ }} = decodeTo{{ indexer_output_info['model'].__name__ }}(indexerOutputRaw as CartesiReport);
+    const indexerOutput: {{ indexer_output_info['model'].__name__ }} = await {{ convert_camel_case(indexer_query_info['method']) }}(inputData,{...options, decode:true, decodeModel:"{{ indexer_output_info['model'].__name__ }}"}) as {{ indexer_output_info['model'].__name__ }};
     const graphqlQueries: Promise<any>[] = [];
     for (const outInd of indexerOutput.data) {
         const graphqlOptions: GraphqlOptions = {cartesiNodeUrl: options.cartesiNodeUrl, inputIndex: outInd.input_index, outputIndex: outInd.output_index};
@@ -738,7 +736,7 @@ export async function {{ convert_camel_case(info['method']) }}(
     const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
     {% if has_indexer_query -%}
     if (options?.decode) { options.sync = true; }
-    const result = await genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'0x494fdad8',data, options)
+    const result = await genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
@@ -877,7 +875,7 @@ export const models: Models = {
         abiTypes:{{ info['abi_types'] }},
         params:{{ list(info["model"].__fields__.keys()) }},
         decoder: decodeTo{{ info['class'] }},
-        validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replaceAll('integer','string","format":"biginteger')))
     },
     {% endfor -%}
     {% for info in vouchers_info -%}
@@ -886,7 +884,7 @@ export const models: Models = {
         abiTypes:{{ info['abi_types'] }},
         params:{{ list(info["model"].__fields__.keys()) }},
         decoder: decodeTo{{ info['class'] }},
-        validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replace('integer','string","format":"biginteger')))
+        validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replaceAll('integer','string","format":"biginteger')))
     },
     {% endfor -%}
 };
