@@ -139,11 +139,12 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     if riv_args is not None:
         run_args.append(riv_args)
     p1 = subprocess.Popen(run_args,stdout=subprocess.PIPE, cwd=cwd)
-    p2 = subprocess.Popen(["grep","-A1","==== BEGIN OUTCARD ===="],stdin=p1.stdout,stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(["sed","-n","/==== BEGIN OUTCARD ====/,/==== END OUTCARD ====/p"],stdin=p1.stdout,stdout=subprocess.PIPE)
+    p3 = subprocess.Popen(["head","-n","-1"],stdin=p2.stdout,stdout=subprocess.PIPE)
 
     fout = open(outcard_temp.name, 'wb')
 
-    result = subprocess.run(["tail","-1"], stdin=p2.stdout,stdout=fout,stderr=subprocess.PIPE)
+    result = subprocess.run(["tail","-n","+2"], stdin=p3.stdout,stdout=fout,stderr=subprocess.PIPE)
 
     if result.returncode != 0:
         raise Exception(f"Error processing replay: {result.stderr}")

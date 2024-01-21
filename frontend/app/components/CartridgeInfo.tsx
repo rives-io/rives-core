@@ -50,7 +50,7 @@ function CartridgeInfo() {
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
             cartridge_id:"0x"+selectedCartridge.id,
-            outcard_hash: "0x"+sha256(selectedCartridge.outcard),
+            outcard_hash: "0x"+sha256(selectedCartridge.outcard.replace(/\s|\n|\r|\t/g, '')),
             args: selectedCartridge.args || "",
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)

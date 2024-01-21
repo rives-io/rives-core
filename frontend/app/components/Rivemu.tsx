@@ -32,7 +32,7 @@ async function movePageToTop() {
 function Rivemu() {
     const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge} = useContext(selectedCartridgeContext);
     const [overallScore, setOverallScore] = useState(0);
-    const [isLoading, setIsLoading] = useState(true);
+    // const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
     const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
 
@@ -46,18 +46,16 @@ function Rivemu() {
         movePageToBottom();
         loadCartridge();
         if (selectedCartridge?.gameplayLog) setReplayLog(selectedCartridge.gameplayLog);
-        setIsLoading(false);
     }
 
     async function loadCartridge() {
         if (!selectedCartridge || !selectedCartridge?.play || selectedCartridge.cartridgeData != undefined) return;
         const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes"});
         setCartridgeData(data);
-        
     }
     
-    if (!selectedCartridge || (!selectedCartridge?.play && isLoading)) {
-        return <></>;
+    if (!selectedCartridge) {
+       return  <></>;
     }
     
     var decoder = new TextDecoder("utf-8");
@@ -125,7 +123,7 @@ function Rivemu() {
         let params = selectedCartridge?.args || "";
         // @ts-ignore:next-line
         Module.ccall(
-            "rivemu_start_ex",
+            "rivemu_start_replay_ex",
             selectedCartridge.inCard || null,
             ["number", "number", "number", "number", "string"],
             [
@@ -145,12 +143,10 @@ function Rivemu() {
     async function rivemuStop() {
         console.log("rivemuStop");
         movePageToTop();
-        if (isPlaying) {
-            setIsPlaying(false);
-            stopCartridge();
-            // @ts-ignore:next-line
-            Module.cwrap("rivemu_stop")();
-        }
+        setIsPlaying(false);
+        stopCartridge();
+        // @ts-ignore:next-line
+        Module.cwrap("rivemu_stop")();
     }
 
     if (typeof window !== "undefined") {
@@ -159,7 +155,7 @@ function Rivemu() {
             const outcard_str = decoder.decode(outcard);
             const outcard_json = JSON.parse(outcard_str.substring(4));
             let score = outcard_json.score;
-            if (selectedCartridge.scoreFunction) {
+            if (selectedCartridge?.scoreFunction) {
                 score = scoreFunction.evaluate(outcard_json);
             }
             setOverallScore(score);
@@ -178,13 +174,13 @@ function Rivemu() {
             rivlog: ArrayBuffer,
             outcard: ArrayBuffer
         ) {
-            console.log("rivemu_on_finish");
+            setIsPlaying(false);
             setGameplay(new Uint8Array(rivlog),decoder.decode(outcard));
             setReplayLog(new Uint8Array(rivlog));
         };
     }
 
-    
+
     return (
         <section className='h-svh'>
             <div className='h-56 grid grid-cols-3 gap-4 content-start'>
@@ -193,7 +189,7 @@ function Rivemu() {
                     <button className="button-57"
                         onKeyDown={(e) => e.preventDefault()}
                         onClick={rivemuStart}
-                        disabled={isLoading || selectedCartridge?.cartridgeData == undefined}
+                        disabled={selectedCartridge?.cartridgeData == undefined}
                         // loading={isLoading}
                         // leftSection={
                         //     isPlaying ? (
@@ -210,7 +206,7 @@ function Rivemu() {
                         onKeyDown={(e) => e.preventDefault()}
                         onClick={rivemuReplay}
                         // leftSection={<TbPlayerStopFilled />}
-                        disabled={isLoading || selectedCartridge?.cartridgeData == undefined || replayLog == undefined}
+                        disabled={selectedCartridge?.cartridgeData == undefined || replayLog == undefined}
                     >
                         <span><OndemandVideoIcon/></span>
                         <span>Replay</span>
@@ -229,7 +225,7 @@ function Rivemu() {
                 {/* TODO: fix suspense rivemu canvas */}
                 {/* <Suspense fallback={coverFallback()}> */}
                     <canvas
-                        // hidden={selectedCartridge.cartridgeData == undefined}
+                        // hidden={selectedCartridge?.cartridgeData == undefined}
                         // key={selectedCartridge.name+selectedCartridge.cartridgeData?.length}
                         id="canvas"
                         height={400}
@@ -242,7 +238,7 @@ function Rivemu() {
                         }}
                     />
                 {/* </Suspense> */}
-            </div>
+            </div>1
             <div className="text-center d-flex justify-content-center">
                 <h3>Score: <span>{overallScore}</span></h3>
             </div>

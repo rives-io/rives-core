@@ -231,6 +231,7 @@ export async function genericAdvanceInput<T extends object>(
     if (options == undefined) options = {};
 
     const payloadHex = inputData.export();
+    console.log("genericAdvanceInput",payloadHex,inputData)
     const output = await advanceInput(client,dappAddress,selector + payloadHex.replace('0x',''),options).catch(
         e => {
             if (String(e.message).startsWith('0x'))
