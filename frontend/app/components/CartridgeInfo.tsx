@@ -25,6 +25,7 @@ import { Replay } from '../backend-libs/app/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
+import { envClient } from "../utils/clientEnv";
 
 
 function scoreboardFallback() {
@@ -95,12 +96,7 @@ function CartridgeInfo() {
             alert("Connect first to upload a gameplay log.");
             return;
         }
-        let appAddress = process.env.NEXT_PUBLIC_INPUT_BOX_ADDR;
-        if (!process.env.NEXT_PUBLIC_INPUT_BOX_ADDR) {
-            // TODO: fix env vars
-            appAddress = "0x70ac08179605AF2D9e75782b8DEcDD3c22aA4D0C";
-        }
-        if (!appAddress) return;
+
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
             cartridge_id:"0x"+selectedCartridge.id,
@@ -109,7 +105,7 @@ function CartridgeInfo() {
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
         }
-        const replayRes = await replay(signer,appAddress,inputData,{decode:true});
+        const replayRes = await replay(signer, envClient.DAPP_ADDR, inputData, {decode:true});
     }
 
     async function uploadLog() {

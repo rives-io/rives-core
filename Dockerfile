@@ -77,6 +77,7 @@ COPY main.py .
 COPY cartesapp cartesapp
 COPY app app
 COPY misc/snake.sqfs misc/snake.sqfs
+COPY misc/doom.sqfs misc/doom.sqfs
 
 FROM base as dapp
 
