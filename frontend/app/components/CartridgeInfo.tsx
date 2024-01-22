@@ -140,7 +140,7 @@ function CartridgeInfo() {
             <legend className="ms-2 px-1">
                 <span className='cartridge-title-text'>{selectedCartridge.name}</span>
                 <br/>
-                <span className='muted-text text-sm'>
+                <span className='muted-text text-xs'>
                     Uploaded by {selectedCartridge.user_address} on {new Date(selectedCartridge.created_at*1000).toLocaleString()}
                 </span>
             </legend>

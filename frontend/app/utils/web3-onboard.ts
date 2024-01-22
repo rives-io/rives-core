@@ -22,9 +22,9 @@ const chains = [ethereumRopsten, polygonMainnet]
 const wallets = [injectedModule()]
 
 const appMetadata = {
-  name: 'World Arcade',
+  name: 'RiVES',
   icon: '<svg>My App Icon</svg>',
-  description: 'The World Arcade allows users to play riscv-binaries of games on a RISC-V Cartesi Machine on the browser. The game moves are submited onchain so the session can be replayed in a Cartesi Rollups DApp to generate a provable score.',
+  description: 'RiVES allows users to play riscv-binaries of games on a RISC-V Cartesi Machine on the browser. The game moves are submited onchain so the session can be replayed in a Cartesi Rollups DApp to generate a provable score.',
   recommendedInjectedWallets: [
     { name: 'MetaMask', url: 'https://metamask.io' },
     { name: 'Coinbase', url: 'https://wallet.coinbase.com/' }

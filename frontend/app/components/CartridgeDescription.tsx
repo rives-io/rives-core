@@ -3,6 +3,7 @@
 
 import { useContext } from 'react';
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
+import { fontPressStart2P } from '../utils/font';
 
 function CartridgeDescription() {
     const {selectedCartridge} = useContext(selectedCartridgeContext);
@@ -15,12 +16,12 @@ function CartridgeDescription() {
         <div>
             <fieldset>
                 <legend className='font-bold text-xl'>Sumary</legend>
-                <p>{selectedCartridge.info?.summary}</p>
+                <p className='text-sm'>{selectedCartridge.info?.summary}</p>
             </fieldset>
 
             <fieldset>
                 <legend className='font-bold text-xl'>Description</legend>
-                <pre style={{whiteSpace: "pre-wrap"}}>
+                <pre className={`${fontPressStart2P.className} text-sm`} style={{whiteSpace: "pre-wrap"}}>
                     {selectedCartridge.info?.description}
                 </pre>
             </fieldset>

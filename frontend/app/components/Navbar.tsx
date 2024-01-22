@@ -13,12 +13,10 @@ function Navbar() {
     return (
         <header className='header'>
             <Link href={"/"} className='font-semibold title-color'>
-                <span>World</span>
-                <br/>
-                <span className='ps-2'>Arcade</span>
+                <span>RiVES</span>
             </Link>
 
-            <nav className='flex text-lg gap-7 font-medium'>
+            <nav className='flex text-sm gap-7 font-medium'>
                 <Link href={"/cartridges"} className={ pathname === "/cartridges" ? "link-active" : "link-2step-hover" }>
                     <p>Cartridges</p>
                 </Link>
@@ -28,7 +26,7 @@ function Navbar() {
                 </Link>
             </nav>
 
-            <div className='flex space-x-8'>
+            <div className='flex space-x-6'>
                 <ThemeSwitch/>
 
                 <button className='web3-connect-btn' disabled={connecting}
