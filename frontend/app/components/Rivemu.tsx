@@ -13,6 +13,7 @@ import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import { cartridge } from '../backend-libs/app/lib';
+import { fontPressStart2P } from '../utils/font';
 
 // let rivlogData: Uint8Array | undefined = undefined;
 
@@ -53,11 +54,11 @@ function Rivemu() {
         const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes"});
         setCartridgeData(data);
     }
-    
+
     if (!selectedCartridge) {
        return  <></>;
     }
-    
+
     var decoder = new TextDecoder("utf-8");
     let parser = new Parser();
     let scoreFunction = parser.parse('score');
@@ -238,9 +239,9 @@ function Rivemu() {
                         }}
                     />
                 {/* </Suspense> */}
-            </div>1
+            </div>
             <div className="text-center d-flex justify-content-center">
-                <h3>Score: <span>{overallScore}</span></h3>
+                <h3 className={fontPressStart2P.className}>Score: <span>{overallScore}</span></h3>
             </div>
 
             <Script src="/rivemu.js" strategy="lazyOnload" />

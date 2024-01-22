@@ -258,6 +258,10 @@ body {
   }
 
   .first-section {
+    @apply mx-auto md:p-16 pb-12 !pt-[126px] px-8 h-svh flex flex-col items-center max-w-screen-lg;
+  }
+
+  .second-section {
     @apply mx-auto md:p-16 pb-12 !pt-[126px] px-8 h-svh flex flex-row;
   }
 

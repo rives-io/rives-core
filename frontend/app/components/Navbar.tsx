@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import React from 'react'
 import ThemeSwitch from "@/app/components/ThemeSwitch";
 import { useConnectWallet } from '@web3-onboard/react';
+import rivesLogo from '../../public/rives_logo.png';
+import Image from 'next/image'
 
 function Navbar() {
     const pathname = usePathname();
@@ -12,11 +14,15 @@ function Navbar() {
 
     return (
         <header className='header'>
-            <Link href={"/"} className='font-semibold title-color'>
+            {/* <Link href={"/"} className={`font-semibold title-color ${fontPressStart2P.className}`}>
                 <span>RiVES</span>
+            </Link> */}
+
+            <Link href={"/"}>
+                <Image src={rivesLogo} alt='RiVES' width={96} ></Image>
             </Link>
 
-            <nav className='flex text-sm gap-7 font-medium'>
+            <nav className='flex gap-7 font-medium'>
                 <Link href={"/cartridges"} className={ pathname === "/cartridges" ? "link-active" : "link-2step-hover" }>
                     <p>Cartridges</p>
                 </Link>

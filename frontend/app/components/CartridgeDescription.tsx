@@ -15,13 +15,13 @@ function CartridgeDescription() {
     return (
         <div>
             <fieldset>
-                <legend className='font-bold text-xl'>Sumary</legend>
-                <p className='text-sm'>{selectedCartridge.info?.summary}</p>
+                <legend className={`font-bold text-xl ${fontPressStart2P.className}`}>Sumary</legend>
+                <p>{selectedCartridge.info?.summary}</p>
             </fieldset>
 
             <fieldset>
-                <legend className='font-bold text-xl'>Description</legend>
-                <pre className={`${fontPressStart2P.className} text-sm`} style={{whiteSpace: "pre-wrap"}}>
+                <legend className={`font-bold text-xl ${fontPressStart2P.className}`}>Description</legend>
+                <pre style={{whiteSpace: "pre-wrap"}}>
                     {selectedCartridge.info?.description}
                 </pre>
             </fieldset>

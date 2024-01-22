@@ -26,6 +26,7 @@ import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
 import { envClient } from "../utils/clientEnv";
+import { fontPressStart2P } from '../utils/font';
 
 
 function scoreboardFallback() {
@@ -138,9 +139,9 @@ function CartridgeInfo() {
     return (
         <fieldset className='h-full custom-shadow'>
             <legend className="ms-2 px-1">
-                <span className='cartridge-title-text'>{selectedCartridge.name}</span>
+                <span className={`cartridge-title-text ${fontPressStart2P.className}`}>{selectedCartridge.name}</span>
                 <br/>
-                <span className='muted-text text-xs'>
+                <span className='muted-text'>
                     Uploaded by {selectedCartridge.user_address} on {new Date(selectedCartridge.created_at*1000).toLocaleString()}
                 </span>
             </legend>
@@ -205,7 +206,7 @@ function CartridgeInfo() {
                             <></>
                         :
                             <div className='mt-3'>
-                                <span className='ms-2 font-bold text-xl'>
+                                <span className={`ms-2 font-bold text-xl ${fontPressStart2P.className}`}>
                                     Creators
                                 </span>
 
@@ -243,7 +244,6 @@ function CartridgeInfo() {
 
                             <Tab
                                 className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-                                disabled
                                 >
                                     <span className='game-tabs-option-text'>
                                         <StadiumIcon/>
@@ -253,7 +253,6 @@ function CartridgeInfo() {
 
                             <Tab
                                 className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-                                disabled
                                 >
                                     <span className='game-tabs-option-text'>
                                         <CodeIcon/>
@@ -281,13 +280,13 @@ function CartridgeInfo() {
                             <Tab.Panel
                                 className="game-tab-content"
                             >
-                                <></>
+                                <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
                             </Tab.Panel>
 
                             <Tab.Panel
                                 className="game-tab-content"
                             >
-                                <></>
+                                <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
                             </Tab.Panel>
                         </Tab.Panels>
                     </Tab.Group>

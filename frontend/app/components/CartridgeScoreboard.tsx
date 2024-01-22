@@ -42,7 +42,7 @@ async function CartridgeScoreboard({cartridge_id}:{cartridge_id:string}) {
                     </th>
                 </tr>
             </thead>
-            <tbody className='text-xs'>
+            <tbody>
                 {
                     generalScores.map((scoreInfo, index) => {
                         return (
