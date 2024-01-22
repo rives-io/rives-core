@@ -35,6 +35,7 @@ body {
 @layer base {
   :root {
     --foreground-rgb: 0, 0, 0;
+    --foreground-rgb-muted: rgba(0, 0, 0, 0.6);
     --background-start-rgb: 214, 219, 220;
     --background-end-rgb: 255, 255, 255;
     --background-end-rgba0: rgba(255, 255, 255, 0.4);
@@ -49,6 +50,7 @@ body {
   @media (prefers-color-scheme: dark) {
     :root {
       --foreground-rgb: 241, 245, 249;
+      --foreground-rgb-muted: rgba(241, 245, 249, 0.6);
       --background-start-rgb: 36, 36, 36;
       --background-end-rgb: 105, 105, 105;
       --background-end-rgba0: rgba(100, 100, 100, 0.4);
@@ -63,6 +65,7 @@ body {
   }
   :root[data-theme="dark"] {
     --foreground-rgb: 241, 245, 249;
+    --foreground-rgb-muted: rgba(241, 245, 249, 0.6);
     --background-start-rgb: 36, 36, 36;
     --background-end-rgb: 105, 105, 105;
     --background-end-rgba0: rgba(100, 100, 100, 0.4);
@@ -83,7 +86,7 @@ body {
       transparent,
       rgb(var(--background-end-rgb))
     )
-    rgb(var(--background-start-rgb));
+    rgb(var(--background-start-rgb)) fixed;
 }
 
 
@@ -300,12 +303,16 @@ body {
     @apply hover-2-selected;
   }
 
+  .fallback-bg-color {
+    @apply bg-[rgb(var(--foreground-rgb))];
+  }
+
   .game-list-fallback-animation {
     @apply w-auto px-4 py-4 border-l-2 border-l-[var(--highlight-text-end-hex)];
   }
 
   .game-list-fallback-animation > div {
-    @apply h-4 w-48 bg-[rgb(var(--foreground-rgb))] rounded;
+    @apply h-4 w-48 rounded fallback-bg-color;
   }
 
   .game-option-tabs-header {
@@ -313,7 +320,15 @@ body {
   }
 
   .game-tabs-option {
-    @apply w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-[rgb(var(--foreground-rgb))] ring-offset-2 ring-offset-[var(--highlight-text-end-hex)] focus:outline-none focus:ring-2;
+    @apply w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-[var(--highlight-text-end-hex)] focus:ring-4;
+  }
+
+  .game-tabs-option-text {
+    @apply flex justify-center items-center;
+  }
+
+  .game-tabs-option-text > span {
+    @apply ms-1;
   }
 
   .game-tabs-option-unselected {
@@ -325,7 +340,7 @@ body {
   }
 
   .game-tab-content {
-    @apply rounded-xl bg-[rgb(var(--background-end-rgb))] p-3 ring-[rgb(var(--foreground-rgb))] ring-offset-2 ring-offset-[var(--highlight-text-end-hex)] focus:outline-none focus:ring-2;
+    @apply rounded-xl bg-[rgb(var(--background-end-rgb))] p-3;
   }
 
 
@@ -337,7 +352,13 @@ body {
     @apply text-[var(--highlight-text-end-hex)] shadow-[var(--highlight-text-end-hex)];
   }
 
+  .muted-text {
+    @apply text-[var(--foreground-rgb-muted)];
+  }
 
+  /* .leaderboard-card {
+    @apply p-2 bg-[rgb(var(--background-start-rgb))] mb-3 rounded-md transition delay-150 duration-300 ease-in-out hover:scale-105;
+  } */
 
 
 

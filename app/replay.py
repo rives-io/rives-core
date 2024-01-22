@@ -4,6 +4,8 @@ import logging
 from typing import Optional
 from hashlib import sha256
 import json
+import re
+
 
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt
 
@@ -90,7 +92,7 @@ def replay(replay: Replay) -> bool:
     score = 0
     if outcard_format == b"JSON":
         try:
-            score = int(json.loads(outcard_str).get('score')) or 0
+            score = int(json.loads(re.sub(r'\,(?!\s*?[\{\[\"\'\w])', '', outcard_str)).get('score')) or 0
         except Exception as e:
             LOGGER.info(f"Couldn't load score from json: {e}")
 

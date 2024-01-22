@@ -153,7 +153,7 @@ function Rivemu() {
         // @ts-ignore:next-line
         window.rivemu_on_outcard_update = function (outcard: any) {
             const outcard_str = decoder.decode(outcard);
-            const outcard_json = JSON.parse(outcard_str.substring(4));
+            const outcard_json = JSON.parse(outcard_str.substring(4).replace(/\,(?!\s*?[\{\[\"\'\w])/g, ''));
             let score = outcard_json.score;
             if (selectedCartridge?.scoreFunction) {
                 score = scoreFunction.evaluate(outcard_json);
@@ -175,7 +175,7 @@ function Rivemu() {
             outcard: ArrayBuffer
         ) {
             setIsPlaying(false);
-            setGameplay(new Uint8Array(rivlog),decoder.decode(outcard));
+            setGameplay(new Uint8Array(rivlog),decoder.decode(outcard).replace(/\s|\n|\r|\t/g, ''));
             setReplayLog(new Uint8Array(rivlog));
         };
     }
