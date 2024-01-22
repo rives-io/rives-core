@@ -5,6 +5,7 @@ from typing import Optional, List
 from hashlib import sha256
 import json
 from py_expression_eval import Parser
+import re
 
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt
 
@@ -294,7 +295,7 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         return False
 
     try:
-        outcard_json = json.loads(outcard_str)
+        outcard_json = json.loads(re.sub(r'\,(?!\s*?[\{\[\"\'\w])', '', outcard_str))
         parser = Parser()
         default_score = outcard_json['scores']
         score = parser.parse(scoreboard.score_function).evaluate(outcard_json)

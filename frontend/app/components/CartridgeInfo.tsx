@@ -3,7 +3,7 @@
 import { ethers } from "ethers";
 import React, { Suspense, useContext, useRef } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import PublishIcon from '@mui/icons-material/Publish';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -100,7 +100,7 @@ function CartridgeInfo() {
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
             cartridge_id:"0x"+selectedCartridge.id,
-            outcard_hash: "0x"+sha256(selectedCartridge.outcard.replace(/\s|\n|\r|\t/g, '')),
+            outcard_hash: "0x"+sha256(selectedCartridge.outcard),
             args: selectedCartridge.args || "",
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
@@ -179,8 +179,8 @@ function CartridgeInfo() {
                     <input type="file" ref={fileRef} onChange={(e) => handleOnChange(e)} style={{ display: 'none' }}/>
                     <div className="flex flex-wrap place-content-evenly">
                         <button className="button-57" onClick={() => {playCartridge()}}>
-                            <span><VideogameAssetIcon/></span>
-                            <span>Play Now</span>
+                            <span><PowerSettingsNewIcon/></span>
+                            <span>Turn on</span>
                         </button>
 
                         <button className={"button-57"} onClick={() => {submitLog()}} disabled={!selectedCartridge.gameplayLog || !wallet}>

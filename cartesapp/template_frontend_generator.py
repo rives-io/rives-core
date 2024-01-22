@@ -278,7 +278,8 @@ import * as ifaces from "./ifaces";
 const ajv = new Ajv();
 addFormats(ajv);
 ajv.addFormat("biginteger", (data) => {
-    return ethers.utils.isHexString(data) && data.length % 2 == 0;
+    const dataTovalidate = data.startsWith('-') ? data.substring(1) : data;
+    return ethers.utils.isHexString(dataTovalidate) && dataTovalidate.length % 2 == 0;
 });
 const abiCoder = new ethers.utils.AbiCoder();
 export const CONVENTIONAL_TYPES: Array<string> = ["bytes","hex","str","int","dict","list","tuple","json"];
@@ -717,7 +718,8 @@ import * as ifaces from "./ifaces";
 const ajv = new Ajv();
 addFormats(ajv);
 ajv.addFormat("biginteger", (data) => {
-    return ethers.utils.isHexString(data) && data.length % 2 == 0;
+    const dataTovalidate = data.startsWith('-') ? data.substring(1) : data;
+    return ethers.utils.isHexString(dataTovalidate) && dataTovalidate.length % 2 == 0;
 });
 
 '''
