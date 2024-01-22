@@ -11,15 +11,15 @@ RUN \
   git clone -b feature/types-and-standardizations --depth 1 https://github.com/prototyp3-dev/cartesi-client.git && \
   cd cartesi-client && \
   npm clean-install && \
-  npm run build
+  npm run build && \
+  npm pack .
 
 # Install dependencies
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN \
   npm clean-install && \
-  npm install --no-save --install-links /opt/cartesi-client/cartesi-client && \
-  npm install --no-save "@cartesi/rollups@^1.1.0" "@urql/core@^4.1.4" "@urql/exchange-retry@^1.2.0" "urql@^4.0.5"
+  npm install /opt/cartesi-client/cartesi-client/cartesi-client*.tgz
 
 
 # Rebuild the source code only when needed
