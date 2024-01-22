@@ -1,15 +1,23 @@
-import Link from 'next/link'
 import React from 'react'
+import { fontPressStart2P } from '../utils/font';
+
+import Image from 'next/image'
+import rivesLogo from '../../public/logo.png';
 
 function Title() {
   return (
-    <div className="grid grid-cols-1">
-        <h1 className='title-text'>
-                <span>World</span>
-                <br/>
-                <span className='ps-16'>Arcade</span>
-        </h1>
-        <span className="subtitle-text justify-self-end">Powered by <Link className="link-2step-hover" href="https://cartesi.io/">Cartesi</Link></span>
+    // <div className="grid grid-cols-1">
+    //     <h1 className={`${fontPressStart2P.className} title-text`}>
+    //             <span>RiVES</span>
+    //     </h1>
+    //     <span className="subtitle-text">RiscV Verifiable Entertainment System</span>
+    // </div>
+
+    <div className="flex space-x-2">
+    {/* <h1 className='title-text'>
+            <span>RiVES</span>
+    </h1> */}
+      <Image width={250} src={rivesLogo} alt='RiVES logo'/>
     </div>
   )
 }

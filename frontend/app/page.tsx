@@ -1,39 +1,24 @@
 import Title from "./components/Title";
+import { fontPressStart2P } from './utils/font';
 
 
 export default function Home() {
   return (
     <main className="">
       <section id="presentation-section" className="first-section">
-        <div className="basis-1/3 justify-self-start">
           <Title />
-        </div>
-
-        <div className="basis-2/3 ms-8">
-          <h2 className="subtitle-text title-color mb-4">About</h2>
-          <p className="mb-4">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam malesuada arcu ex, vitae gravida felis vestibulum ut.
-            Morbi congue, est ut dictum dignissim, lacus nibh laoreet est, in molestie metus massa eget nisi. In finibus eu massa vitae mattis.
-            Quisque iaculis eros vitae diam consectetur accumsan. Mauris efficitur magna tellus. Etiam sagittis mi nec varius congue.
-            Mauris nibh metus, ultrices ac ante id, vestibulum luctus velit. Morbi at metus tortor. Morbi in nisl lorem. Sed mattis feugiat ultrices.
-            Pellentesque quis maximus sem. Quisque gravida efficitur lorem, a commodo massa imperdiet vel.
+          {/* <h2 className={`subtitle-text title-color my-4 ${fontPressStart2P.className}`}>RiSCV Verifiable Entertainment System</h2> */}
+          <p className="my-6">
+            <span className={fontPressStart2P.className}>RiVES</span> (RISC-V Verifiable Entertainment System) is a free and open source verifiable fantasy game console for making and playing small onchain games.
+            All matches generate an output that can be used by anyone to reproduce and verify the gameplay.
+            No more lying about that epic speedrun or completing the final stage without taking a hit.
+            RIVES will enable decentralized trustless tournaments so that no one can deny your bounty after an epic play!
           </p>
 
-          <p className="mb-4">
-            Curabitur ut odio eget magna laoreet eleifend a eget justo. Etiam et venenatis nulla. Proin vestibulum luctus arcu, vitae tincidunt quam fringilla nec.
-            Duis faucibus, mi non scelerisque mattis, nunc orci pretium sapien, sit amet porttitor est tellus vel leo. Suspendisse tempor finibus urna.
-            Nunc vitae erat a ligula dictum condimentum at at lacus. Morbi a odio sed mi vehicula ornare in scelerisque tortor.
-            Phasellus ut mauris vitae felis dictum cursus sed nec metus. Curabitur iaculis dignissim tellus, non consequat justo maximus et.
-          </p>
+          <div className="w-1/2 bg-black h-1/2 rounded flex items-center justify-center">
+            Demo Video
+          </div>
 
-          <p>
-            Praesent vitae egestas nisl. Suspendisse vitae arcu ac ex volutpat dictum. Pellentesque fringilla sapien massa, non euismod sem cursus id.
-            Nullam posuere, nisl sit amet rutrum aliquet, sem justo lacinia odio, id sollicitudin sem lacus in orci.
-            Ut turpis urna, elementum sit amet convallis volutpat, dignissim eget magna. Praesent a tempus leo. Interdum et malesuada fames ac ante ipsum primis in faucibus.
-            Integer porttitor purus id nunc porta, eu pellentesque ipsum luctus. Donec a luctus ipsum. Ut dictum dolor eu condimentum ornare. Maecenas dictum feugiat mattis.
-            Maecenas mollis at dolor volutpat tincidunt. Morbi vehicula metus non ipsum tempor, quis venenatis libero iaculis. Nulla facilisi.
-          </p>
-        </div>
       </section>
       {/* <section id="statistical-section" className="h-svh">
         placeholder for statistical info retrieved from DApp

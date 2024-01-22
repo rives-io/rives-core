@@ -54,13 +54,6 @@ body {
       --background-start-rgb: 36, 36, 36;
       --background-end-rgb: 105, 105, 105;
       --background-end-rgba0: rgba(100, 100, 100, 0.4);
-      --highlight-text-start-hex: #BFFFFC;
-      --highlight-text-end-hex: #12B8FF;
-      --highlight-text-end-rgba0: rgba(18, 184, 255, 0.4);
-      --highlight-text-end-rgba1: rgba(18, 184, 255, 0.3);
-      --highlight-text-end-rgba2: rgba(18, 184, 255, 0.2);
-      --highlight-text-end-rgba3: rgba(18, 184, 255, 0.1);
-      --highlight-text-end-rgba4: rgba(18, 184, 255, 0.05);
     }
   }
   :root[data-theme="dark"] {
@@ -69,13 +62,6 @@ body {
     --background-start-rgb: 36, 36, 36;
     --background-end-rgb: 105, 105, 105;
     --background-end-rgba0: rgba(100, 100, 100, 0.4);
-    --highlight-text-start-hex: #BFFFFC;
-    --highlight-text-end-hex: #12B8FF;
-    --highlight-text-end-rgba0: rgba(18, 184, 255, 0.4);
-    --highlight-text-end-rgba1: rgba(18, 184, 255, 0.3);
-    --highlight-text-end-rgba2: rgba(18, 184, 255, 0.2);
-    --highlight-text-end-rgba3: rgba(18, 184, 255, 0.1);
-    --highlight-text-end-rgba4: rgba(18, 184, 255, 0.05);
 }
 }
 
@@ -231,6 +217,7 @@ body {
   transform: translateY(225%) translateX(-50%);
   height: 14px;
   line-height: 13px;
+  font-size: 60%;
 }
 
 .button-57:disabled,
@@ -271,6 +258,10 @@ body {
   }
 
   .first-section {
+    @apply mx-auto md:p-16 pb-12 !pt-[126px] px-8 h-svh flex flex-col items-center max-w-screen-lg;
+  }
+
+  .second-section {
     @apply mx-auto md:p-16 pb-12 !pt-[126px] px-8 h-svh flex flex-row;
   }
 
@@ -284,15 +275,15 @@ body {
   }
 
   .title-text {
-    @apply 2xl:text-9xl xl:text-8xl md:text-6xl sm:text-3xl font-semibold font-poppins title-color leading-none;
+    @apply 2xl:text-8xl xl:text-7xl md:text-3xl sm:text-2xl font-semibold title-color leading-none;
   }
 
   .subtitle-text {
-    @apply font-semibold 2xl:text-3xl xl:text-xl md:text-lg sm:text-base relative font-poppins;
+    @apply font-semibold 2xl:text-2xl xl:text-lg md:text-sm sm:text-base relative;
   }
 
   .cartridge-title-text {
-    @apply font-semibold sm:text-4xl text-xl relative font-poppins title-color;
+    @apply font-semibold sm:text-4xl text-xl relative title-color;
   }
 
   .games-list-item {
@@ -345,7 +336,7 @@ body {
 
 
   .web3-connect-btn {
-    @apply rounded p-2 shadow-sm shadow-current;/*bg-gradient-to-r from-[var(--highlight-text-start-hex)] to-[var(--highlight-text-end-hex)];*/
+    @apply rounded text-sm p-2 shadow-sm shadow-current;/*bg-gradient-to-r from-[var(--highlight-text-start-hex)] to-[var(--highlight-text-end-hex)];*/
   }
 
   .web3-connect-btn:hover {
