@@ -2,11 +2,12 @@ import { cache } from 'react';
 import { getOutputs } from '../backend-libs/app/lib';
 import { ReplayScore } from '../backend-libs/app/ifaces';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
+import { envClient } from '../utils/clientEnv';
 
 
 
 const getGeneralScoreboard = cache(async (cartridge_id:string) => {
-    const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]});
+    const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
     return scores;
 })
 

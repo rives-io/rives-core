@@ -14,6 +14,7 @@ import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import { cartridge } from '../backend-libs/app/lib';
 import { fontPressStart2P } from '../utils/font';
+import { envClient } from '../utils/clientEnv';
 
 // let rivlogData: Uint8Array | undefined = undefined;
 
@@ -51,7 +52,7 @@ function Rivemu() {
 
     async function loadCartridge() {
         if (!selectedCartridge || !selectedCartridge?.play || selectedCartridge.cartridgeData != undefined) return;
-        const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes"});
+        const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes", cartesiNodeUrl: envClient.CARTESI_NODE_URL});
         setCartridgeData(data);
     }
 

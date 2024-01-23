@@ -106,7 +106,7 @@ function CartridgeInfo() {
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
         }
-        const replayRes = await replay(signer, envClient.DAPP_ADDR, inputData, {decode:true});
+        const replayRes = await replay(signer, envClient.DAPP_ADDR, inputData, {decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
     }
 
     async function uploadLog() {

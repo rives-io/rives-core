@@ -5,6 +5,7 @@ import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvide
 import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
 import { cartridgeInfo } from '../backend-libs/app/lib';
 import { fontPressStart2P } from '../utils/font';
+import { envClient } from '../utils/clientEnv';
 
 function CartridgeSelectButton({cartridge, index}:{cartridge:Cartridge, index:number}) {
     const {selectedCartridge, changeCartridge} = useContext(selectedCartridgeContext);
@@ -18,7 +19,7 @@ function CartridgeSelectButton({cartridge, index}:{cartridge:Cartridge, index:nu
 
     const handleCartridgeSelection = async (e:React.MouseEvent<HTMLElement>) => {
 
-        const cartridgeWithInfo = await cartridgeInfo({id:cartridge.id},{decode:true});
+        const cartridgeWithInfo = await cartridgeInfo({id:cartridge.id},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
 
         console.log('Select')
 
