@@ -1,10 +1,11 @@
 import CartridgeSelectButton from './CartridgeSelectButton';
 import { cache } from 'react';
 import { cartridges as cartridgerequest} from "../backend-libs/app/lib";
+import { envClient } from '../utils/clientEnv';
 
 
 const getCartridges = cache(async () => {
-	const cartridges: any[] = (await cartridgerequest({},{decode:true})).data;
+	const cartridges: any[] = (await cartridgerequest({},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL})).data;
 
     return cartridges;
   })
