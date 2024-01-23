@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 
-import DarkIcon from "@/app/components/DarkIcon";
-import LightIcon from "@/app/components/LightIcon";
+import DarkIcon from "@/app/components/svg/DarkIcon";
+import LightIcon from "@/app/components/svg/LightIcon";
 
 const LIGHT_TRANSLATE = "-translate-x-2";
 const LIGHT_BTN = "bg-yellow-500";

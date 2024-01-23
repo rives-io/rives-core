@@ -1,7 +1,7 @@
 "use client"
 
 import { ethers } from "ethers";
-import React, { Suspense, useContext, useRef } from 'react'
+import React, { Suspense, useContext, useRef, useState } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import PublishIcon from '@mui/icons-material/Publish';
@@ -27,7 +27,56 @@ import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
 import { envClient } from "../utils/clientEnv";
 import { fontPressStart2P } from '../utils/font';
+import { delay } from "../utils/util";
+import CheckIcon from "./svg/CheckIcon";
+import ErrorIcon from "./svg/ErrorIcon";
+import CloseIcon from "./svg/CloseIcon";
 
+
+enum STATUS {
+    READY,
+    VALIDATING,
+    VALID,
+    INVALID,
+}
+
+interface LOG_STATUS {
+    status:STATUS,
+    error?:string
+}
+
+function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
+    if (logStatus.status === STATUS.VALID) {
+        delay(2500).then(() =>{
+            setLogStatus({status: STATUS.READY} as LOG_STATUS);
+        })
+        return (
+            <div className="fixed flex items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow-lg right-5 bottom-20 dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
+                <CheckIcon/>
+                <div className="ms-3 text-sm font-bold">Log Validated</div>
+            </div>
+        )
+    } else if (logStatus.status === STATUS.INVALID) {
+        const click = () => {
+            setLogStatus({status: STATUS.READY} as LOG_STATUS)
+        }
+        return (
+            <div className="fixed flex-col items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow right-5 bottom-[20%] dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
+                <div className="flex items-center pb-1 border-b">
+                    <ErrorIcon/>
+                    <div className="ms-3 text-sm font-normal">Invalid Log.</div>
+                    <button onClick={click} type="button" className="ms-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex items-center justify-center h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#toast-danger" aria-label="Close">
+                        <span className="sr-only">Close</span>
+                        <CloseIcon/>
+                    </button>
+                </div>
+                <div>
+                    {logStatus.error}
+                </div>
+            </div>
+        )
+    }
+}
 
 function scoreboardFallback() {
     const arr = Array.from(Array(3).keys());
@@ -84,6 +133,7 @@ function CartridgeInfo() {
     const fileRef = useRef<HTMLInputElement | null>(null);
     const [{ wallet }, connect] = useConnectWallet();
     const { download } = useDownloader();
+    const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
 
     if (!selectedCartridge) return <></>;
 
@@ -106,7 +156,15 @@ function CartridgeInfo() {
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
         }
-        const replayRes = await replay(signer, envClient.DAPP_ADDR, inputData, {decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+
+        setSubmitLogStatus({status: STATUS.VALIDATING});
+        try {
+            const replayRes = await replay(signer, envClient.DAPP_ADDR, inputData, {decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+            console.log(replayRes);
+            setSubmitLogStatus({status: STATUS.VALID});
+        } catch (error) {
+            setSubmitLogStatus({status: STATUS.INVALID, error: (error as Error).message});
+        }
     }
 
     async function uploadLog() {
@@ -184,9 +242,26 @@ function CartridgeInfo() {
                             <span>Turn on</span>
                         </button>
 
-                        <button className={"button-57"} onClick={() => {submitLog()}} disabled={!selectedCartridge.gameplayLog || !wallet}>
-                            <span><PublishIcon/></span>
-                            <span>Submit Log</span>
+                        <button className={"button-57"} onClick={() => {submitLog()}}
+                        disabled={!selectedCartridge.gameplayLog || !wallet || submitLogStatus.status != STATUS.READY}>
+                            {
+                                submitLogStatus.status === STATUS.READY?
+                                    <>
+                                        <span><PublishIcon/></span>
+                                        <span>Submit Log</span>
+                                    </>
+                                :
+                                    <>
+                                        <span>
+                                            <div className='w-5 h-5 border-2 rounded-full border-current animate-spin'>
+                                            </div>
+                                        </span>
+
+                                        <span>
+                                            Validating
+                                        </span>
+                                    </>
+                            }
                         </button>
 
                         <button className="button-57" onClick={() => {uploadLog()}}>
@@ -292,6 +367,11 @@ function CartridgeInfo() {
                     </Tab.Group>
                 </div>
             </div>
+
+            {
+                logFeedback(submitLogStatus, setSubmitLogStatus)
+            }
+
         </fieldset>
     )
 }
