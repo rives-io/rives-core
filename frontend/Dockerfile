@@ -28,11 +28,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-
+ARG NEXT_PUBLIC_CARTESI_NODE_URL
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# FIXME: uncomment this for production
-# RUN npm run build
+RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -41,17 +40,15 @@ LABEL org.opencontainers.image.source https://github.com/prototyp3-dev/world-arc
 
 WORKDIR /app
 
-# FIXME: uncomment this for production
-# ENV NODE_ENV production
+
+ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# FIXME: uncomment this for production
-# COPY --from=builder /app/public ./public
-RUN chown -R nextjs:nodejs /app
-COPY --from=builder --chown=nextjs:nodejs /app/ ./
+
+COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
@@ -59,9 +56,8 @@ RUN chown nextjs:nodejs .next
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
-# FIXME: uncomment this for production
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
@@ -73,6 +69,5 @@ ENV HOSTNAME "0.0.0.0"
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
-# FIXME: uncomment this for production
-# CMD ["node", "server.js"]
-CMD ["npm", "run", "dev"]
+CMD ["node", "server.js"]
+
