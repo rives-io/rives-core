@@ -1,4 +1,5 @@
 import Title from "./components/Title";
+import YoutubeVideo from "./components/youtubeVideo";
 import { fontPressStart2P } from './utils/font';
 
 
@@ -15,8 +16,8 @@ export default function Home() {
             RIVES will enable decentralized trustless tournaments so that no one can deny your bounty after an epic play!
           </p>
 
-          <div className="w-1/2 bg-black h-1/2 rounded flex items-center justify-center">
-            Demo Video
+          <div className="w-1/2 flex items-center justify-center">
+            <YoutubeVideo videoId="1x5B1xJY7as" />
           </div>
 
       </section>
