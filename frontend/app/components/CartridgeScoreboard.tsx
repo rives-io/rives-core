@@ -1,8 +1,10 @@
 import { cache } from 'react';
-import { getOutputs } from '../backend-libs/app/lib';
-import { ReplayScore } from '../backend-libs/app/ifaces';
+import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
+import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import { envClient } from '../utils/clientEnv';
+
+
 
 
 
@@ -25,9 +27,13 @@ const setMedal = (index:number) => {
     return <span className='ms-7'></span>;
 }
 
-async function CartridgeScoreboard({cartridge_id}:{cartridge_id:string}) {
+async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:string,replay_function(replayScore: ReplayScore): void}) {
     const generalScores = (await getGeneralScoreboard(cartridge_id)).sort((a, b) => b.score - a.score);
 
+    const playReplay = (replayScore:ReplayScore) => {
+        replay_function(replayScore);
+    }
+    
     return (
         <table className="w-full text-sm text-left">
             <thead className="text-xsuppercase">
@@ -40,6 +46,9 @@ async function CartridgeScoreboard({cartridge_id}:{cartridge_id:string}) {
                     </th>
                     <th scope="col" className="px-6 py-3">
                         Score
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                        
                     </th>
                 </tr>
             </thead>
@@ -58,6 +67,9 @@ async function CartridgeScoreboard({cartridge_id}:{cartridge_id:string}) {
                                 </td>
                                 <td className="px-6 py-4">
                                     {scoreInfo.score.toLocaleString()}
+                                </td>
+                                <td className="py-4">
+                                    <button onClick={() => playReplay(scoreInfo)}><span><OndemandVideoIcon/></span></button>
                                 </td>
                             </tr>
                         );

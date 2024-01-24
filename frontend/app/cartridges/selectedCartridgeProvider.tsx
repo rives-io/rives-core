@@ -7,10 +7,10 @@ import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
 
 export const selectedCartridgeContext = createContext<{
     selectedCartridge: PlayableCartridge|null, changeCartridge:Function, playCartridge:Function, 
-        setReplayInfo:Function, setCartridgeData:Function, setGamePatrameters:Function, 
+        setReplay:Function, setCartridgeData:Function, setGameParameters:Function, 
         setGameplay:Function, stopCartridge:Function
 }>({selectedCartridge: null, changeCartridge: () => null, playCartridge: () => null, 
-    setReplayInfo: () => null, setCartridgeData: () => null, setGamePatrameters: () => null, 
+    setReplay: () => null, setCartridgeData: () => null, setGameParameters: () => null, 
     setGameplay: () => null, stopCartridge: () => null});
 
 // export type Cartridge = {
@@ -20,21 +20,15 @@ export const selectedCartridgeContext = createContext<{
 // 	desc: string
 // }
 
-export interface ReplayInfo {
-    userAddress: string;
-    timestamp: number;
-    score: number;
-    scoreType: string;
-    extraScore: number;
-}
 export interface PlayableCartridge extends Cartridge {
+    initCanvas: boolean;
     play: boolean;
     playToggle: boolean;
     cartridgeData: Uint8Array | undefined;
     inCard: Uint8Array | undefined;
     args: string | undefined;
     scoreFunction: string | undefined;
-    replayInfo: ReplayInfo | undefined;
+    replay: Uint8Array | undefined;
     gameplayLog: Uint8Array | undefined;
     outcard: string | undefined;
 }
@@ -44,13 +38,14 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
 
     const changeCartridge = (cartridge:Cartridge) => {
         const aux = {...cartridge, play:false, cartridgeData:undefined, inCard:undefined, 
-            args:undefined, scoreFunction:undefined, replayInfo:undefined, gameplayLog:undefined, outcard:undefined};
+            args:undefined, scoreFunction:undefined, replay:undefined, gameplayLog:undefined, 
+            outcard:undefined, initCanvas:selectedCartridge?.initCanvas};
         setSelectedCartridge(aux as PlayableCartridge);
     }
  
     const playCartridge = () => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:true, replayInfo:undefined, playToggle:!selectedCartridge.playToggle});
+            setSelectedCartridge({...selectedCartridge, play:true, replay:undefined, playToggle:!selectedCartridge.playToggle, initCanvas:true});
         }
     }
 
@@ -60,9 +55,9 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         }
     }
 
-    const setReplayInfo = (replayInfo: ReplayInfo) => {
+    const setReplay = (replay: Uint8Array) => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, replayInfo});
+            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, replay, playToggle:!selectedCartridge.playToggle, initCanvas:true});
         }
     }
 
@@ -72,21 +67,27 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         }
     }
 
-    const setGamePatrameters = (args: string, inCard: Uint8Array, scoreFunction: string) => {
+    const setGameParameters = (args: string, inCard: Uint8Array, scoreFunction: string) => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, args, inCard, scoreFunction, gameplayLog:undefined, replayInfo:undefined});
+            setSelectedCartridge({...selectedCartridge, args, inCard, scoreFunction, gameplayLog:undefined, replay:undefined});
         }
     }
     
     const setGameplay = (gameplayLog: Uint8Array, outcard: string) => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, gameplayLog, outcard});
+            if (outcard == undefined)
+                if (gameplayLog == undefined)
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard});
+                else
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, play: true, playToggle:!selectedCartridge.playToggle, initCanvas:true});
+            else
+                setSelectedCartridge({...selectedCartridge, gameplayLog, outcard});
         }
     }
     
     return (
         <selectedCartridgeContext.Provider value={ {selectedCartridge, changeCartridge, playCartridge, 
-                setReplayInfo, setCartridgeData, setGamePatrameters, 
+                setReplay, setCartridgeData, setGameParameters, 
                 setGameplay, stopCartridge} }>
             { children }
         </selectedCartridgeContext.Provider>

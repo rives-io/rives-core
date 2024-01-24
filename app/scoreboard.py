@@ -13,7 +13,7 @@ from cartesapp.storage import Entity, helpers, seed
 from cartesapp.manager import mutation, query, get_metadata, output, add_output, event, emit_event, contract_call
 from cartesapp.utils import hex2bytes, str2bytes, bytes2str
 
-from .setup import AppSettings, ScoreType
+from .setup import AppSettings, ScoreType, GameplayHash
 from .riv import replay_log, riv_get_cartridge_outcard
 from .cartridge import Cartridge
 
@@ -258,6 +258,12 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         add_output(msg,tags=['error'])
         return False
 
+    if not GameplayHash.check(scoreboard.cartridge_id,sha256(replay.log).hexdigest()):
+        msg = f"Gameplay hash already submitted"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
+        return False
+
     # process replay
     LOGGER.info(f"Processing scoreboard replay...")
     try:
@@ -323,6 +329,8 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
 
     add_output(replay.log,tags=['replay',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
     emit_event(replay_score,tags=['score',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
+
+    GameplayHash.add(scoreboard.cartridge_id,sha256(replay.log).hexdigest())
 
     return True
 

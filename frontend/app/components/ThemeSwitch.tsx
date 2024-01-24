@@ -20,7 +20,6 @@ type ThemeButton = {
 
 function setSiteTheme(theme:string) {
     document.documentElement.setAttribute("data-theme", theme);
-    console.log(theme)
 }
 
 function ThemeSwitch() {

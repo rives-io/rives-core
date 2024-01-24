@@ -27,6 +27,22 @@ def riv_get_cartridge_info(cartridge_id):
 
     return result.stdout
 
+def riv_get_cover(cartridge_id):
+    args = []
+    if AppSettings.rivemu_path is None: # use riv os
+        args.append("riv-chroot")
+        args.append("/rivos")
+        args.extend(["sqfscat","-no-exit",f"/{AppSettings.cartridges_path}/{cartridge_id}"])
+    else:
+        args.extend(["sqfscat","-no-exit",f"{AppSettings.cartridges_path}/{cartridge_id}"])
+    args.append("/cover.png")
+        
+    result = subprocess.run(args, capture_output=True)
+    if result.returncode > 0:
+        raise Exception("Error getting cover")
+
+    return result.stdout
+
 
 def riv_get_cartridge_screenshot(cartridge_id,frame):
     args = []

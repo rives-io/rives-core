@@ -13,7 +13,7 @@ from cartesapp.storage import helpers # TODO: create repo to avoid this relative
 from cartesapp.manager import mutation, get_metadata, add_output, event, emit_event, contract_call # TODO: create repo to avoid this relative import hassle
 from cartesapp.utils import bytes2str
 
-from .setup import AppSettings, ScoreType
+from .setup import AppSettings, ScoreType, GameplayHash
 from .riv import replay_log
 
 LOGGER = logging.getLogger(__name__)
@@ -55,6 +55,12 @@ def replay(replay: Replay) -> bool:
     
     metadata = get_metadata()
     
+    if not GameplayHash.check(replay.cartridge_id.hex(),sha256(replay.log).hexdigest()):
+        msg = f"Gameplay hash already submitted"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
+        return False
+
     # process replay
     LOGGER.info("Replaying cartridge...")
     try:
@@ -105,5 +111,7 @@ def replay(replay: Replay) -> bool:
 
     add_output(replay.log,tags=['replay',replay.cartridge_id.hex()])
     emit_event(replay_score,tags=['score','general',replay.cartridge_id.hex()])
+
+    GameplayHash.add(replay.cartridge_id.hex(),sha256(replay.log).hexdigest())
 
     return True

@@ -21,8 +21,6 @@ function CartridgeSelectButton({cartridge, index}:{cartridge:Cartridge, index:nu
 
         const cartridgeWithInfo = await cartridgeInfo({id:cartridge.id},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
 
-        console.log('Select')
-
 		changeCartridge(cartridgeWithInfo);
 	}
 

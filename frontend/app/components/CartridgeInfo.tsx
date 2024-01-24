@@ -20,7 +20,7 @@ import { sha256 } from "js-sha256";
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
 import Loader from "../components/Loader";
-import { replay } from '../backend-libs/app/lib';
+import { ReplayScore, getOutputs, replay } from '../backend-libs/app/lib';
 import { Replay } from '../backend-libs/app/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
@@ -129,7 +129,7 @@ function scoreboardFallback() {
 }
 
 function CartridgeInfo() {
-    const {selectedCartridge, playCartridge, setGameplay} = useContext(selectedCartridgeContext);
+    const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
     const fileRef = useRef<HTMLInputElement | null>(null);
     const [{ wallet }, connect] = useConnectWallet();
     const { download } = useDownloader();
@@ -139,8 +139,12 @@ function CartridgeInfo() {
 
     async function submitLog() {
         // replay({car});
-        if (!selectedCartridge || !selectedCartridge.gameplayLog || !selectedCartridge.outcard){
+        if (!selectedCartridge || !selectedCartridge.gameplayLog){
             alert("No gameplay data.");
+            return;
+        }
+        if (!selectedCartridge.outcard){
+            alert("No gameplay output yet, you should run it.");
             return;
         }
         if (!wallet) {
@@ -159,8 +163,7 @@ function CartridgeInfo() {
 
         setSubmitLogStatus({status: STATUS.VALIDATING});
         try {
-            const replayRes = await replay(signer, envClient.DAPP_ADDR, inputData, {decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
-            console.log(replayRes);
+            await replay(signer, envClient.DAPP_ADDR, inputData, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
             setSubmitLogStatus({status: STATUS.VALID});
         } catch (error) {
             setSubmitLogStatus({status: STATUS.INVALID, error: (error as Error).message});
@@ -188,12 +191,30 @@ function CartridgeInfo() {
         reader.onload = async (readerEvent) => {
             const data = readerEvent.target?.result;
             if (data) {
-                setGameplay(new Uint8Array(data as ArrayBuffer));
+                setGameplay(new Uint8Array(data as ArrayBuffer), undefined);
+                e.target.value = null;
             }
         };
         reader.readAsArrayBuffer(e.target.files[0])
     }
 
+    async function prepareReplay(replayScore: ReplayScore) {
+        if (selectedCartridge) {
+            const replayLog: Array<Uint8Array> = await getOutputs(
+                {
+                    tags: ["replay", selectedCartridge?.id],
+                    timestamp_gte: replayScore.timestamp.toNumber(),
+                    timestamp_lte: replayScore.timestamp.toNumber(),
+                    msg_sender: replayScore.user_address,
+                    output_type: 'report'
+                }, 
+                {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
+            );
+            if (replayLog.length > 0) {
+                setReplay(replayLog[0]);
+            }
+        }
+    }
     return (
         <fieldset className='h-full custom-shadow'>
             <legend className="ms-2 px-1">
@@ -243,7 +264,8 @@ function CartridgeInfo() {
                         </button>
 
                         <button className={"button-57"} onClick={() => {submitLog()}}
-                        disabled={!selectedCartridge.gameplayLog || !wallet || submitLogStatus.status != STATUS.READY}>
+                        disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
+
                             {
                                 submitLogStatus.status === STATUS.READY?
                                     <>
@@ -347,7 +369,7 @@ function CartridgeInfo() {
                                 className="game-tab-content"
                             >
                                 <Suspense fallback={scoreboardFallback()}>
-                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id}/>
+                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} replay_function={prepareReplay}/>
                                 </Suspense>
 
                             </Tab.Panel>

@@ -12,7 +12,7 @@ from cartesi.abi import String, Bytes, Bytes32, UInt
 from cartesapp.storage import Entity, helpers, seed
 from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call
 
-from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path
+from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path, riv_get_cover
 from .setup import AppSettings
 
 LOGGER = logging.getLogger(__name__)
@@ -43,6 +43,10 @@ def initialize_data():
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 
+    # cartridge_example_file = open('misc/antcopter.sqfs','rb')
+    # cartridge_example_data = cartridge_example_file.read()
+    # cartridge_example_file.close()
+    # create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 
 
 # Inputs
@@ -252,7 +256,7 @@ def create_cartridge(cartridge_data,**metadata):
     cartridge_info_json = json.loads(cartridge_info)
     Info(**cartridge_info_json)
 
-    cartridge_cover = cartridge_info_json.get("cover")
+    cartridge_cover = riv_get_cover(data_hash)
     if cartridge_cover is None or len(cartridge_cover) == 0:
         cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
 
