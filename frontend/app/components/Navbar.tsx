@@ -23,9 +23,9 @@ function Navbar() {
             </Link>
 
             <nav className='flex gap-7 font-medium'>
-                <Link href={"/cartridges"} className={ pathname === "/cartridges" ? "link-active" : "link-2step-hover" }>
+                <a href={"/cartridges"} className={ pathname === "/cartridges" ? "link-active" : "link-2step-hover" }>
                     <p>Cartridges</p>
-                </Link>
+                </a>
 
                 <Link href={"/insert-cartridge"} className={ pathname === "/insert-cartridge" ? "link-active" : "link-2step-hover" }>
                     <p>Insert Cartridge</p>
