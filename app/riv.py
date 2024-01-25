@@ -12,37 +12,32 @@ def riv_get_cartridges_path():
 
 
 def riv_get_cartridge_info(cartridge_id):
-    args = []
+    args = ["sqfscat","-st"]
     if AppSettings.rivemu_path is None: # use riv os
-        args.append("riv-chroot")
-        args.append("/rivos")
-        args.extend(["sqfscat","-st",f"/{AppSettings.cartridges_path}/{cartridge_id}"])
+        args.append(f"/rivos/{AppSettings.cartridges_path}/{cartridge_id}")
     else:
-        args.extend(["sqfscat","-st",f"{AppSettings.cartridges_path}/{cartridge_id}"])
+        args.append(f"{AppSettings.cartridges_path}/{cartridge_id}")
     args.append("/info.json")
         
     result = subprocess.run(args, capture_output=True, text=True)
     if result.returncode > 0:
-        raise Exception("Error getting info")
+        raise Exception(f"Error getting info: {str(result.stderr)}")
 
     return result.stdout
 
 def riv_get_cover(cartridge_id):
-    args = []
+    args = ["sqfscat","-no-exit"]
     if AppSettings.rivemu_path is None: # use riv os
-        args.append("riv-chroot")
-        args.append("/rivos")
-        args.extend(["sqfscat","-no-exit",f"/{AppSettings.cartridges_path}/{cartridge_id}"])
+        args.append(f"/rivos/{AppSettings.cartridges_path}/{cartridge_id}")
     else:
-        args.extend(["sqfscat","-no-exit",f"{AppSettings.cartridges_path}/{cartridge_id}"])
+        args.append(f"{AppSettings.cartridges_path}/{cartridge_id}")
     args.append("/cover.png")
         
     result = subprocess.run(args, capture_output=True)
     if result.returncode > 0:
-        raise Exception("Error getting cover")
+        raise Exception(f"Error getting cover: {str(result.stderr)}")
 
     return result.stdout
-
 
 def riv_get_cartridge_screenshot(cartridge_id,frame):
     args = []
@@ -59,12 +54,12 @@ def riv_get_cartridge_screenshot(cartridge_id,frame):
         result = subprocess.run(args, capture_output=True, text=True)
         
         if result.returncode != 0:
-            raise Exception("Error getting cover")
+            raise Exception("Error getting screenshot: {str(result.stderr)}")
 
-        cartridge_cover = open(screenshot_path,'rb').read()
+        cartridge_screenshot = open(screenshot_path,'rb').read()
         os.remove(screenshot_path)
 
-        return cartridge_cover
+        return cartridge_screenshot
             
     # use rivemu
     screenshot_temp = tempfile.NamedTemporaryFile()
@@ -80,12 +75,12 @@ def riv_get_cartridge_screenshot(cartridge_id,frame):
     result = subprocess.run(args, capture_output=True, text=True, cwd=cwd)
 
     if result.returncode != 0:
-        raise Exception(f"Error getting cover")
+        raise Exception(f"Error getting screenshot: {str(result.stderr)}")
 
-    cartridge_cover = open(screenshot_file.name,'rb').read()
+    cartridge_screenshot = open(screenshot_file.name,'rb').read()
     screenshot_temp.close()
 
-    return cartridge_cover
+    return cartridge_screenshot
 
 def replay_log(cartridge_id,log,riv_args,in_card):
     if AppSettings.rivemu_path is None: # use riv os
@@ -118,7 +113,7 @@ def replay_log(cartridge_id,log,riv_args,in_card):
             run_args.append(riv_args)
         result = subprocess.run(run_args, capture_output=True, text=True)
         if result.returncode != 0:
-            raise Exception(f"Error processing replay: {result.stderr}")
+            raise Exception(f"Error processing replay: {str(result.stderr)}")
 
         outcard_file = open(outcard_path, 'rb')
         outcard_raw = outcard_file.read()
@@ -163,7 +158,7 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     result = subprocess.run(["tail","-n","+2"], stdin=p3.stdout,stdout=fout,stderr=subprocess.PIPE)
 
     if result.returncode != 0:
-        raise Exception(f"Error processing replay: {result.stderr}")
+        raise Exception(f"Error processing replay: {str(result.stderr)}")
 
     outcard_raw = outcard_file.read()
 
@@ -201,7 +196,7 @@ def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
         result = subprocess.run(run_args, capture_output=True, text=True)
         
         if result.returncode != 0:
-            raise Exception("Error running cartridge")
+            raise Exception(f"Error running cartridge: {str(result.stderr)}")
 
         outcard_file = open(outcard_path, 'rb')
         outcard_raw = outcard_file.read()
@@ -240,7 +235,7 @@ def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
     result = subprocess.run(["tail","-1"], stdin=p2.stdout,stdout=fout,stderr=subprocess.PIPE)
 
     if result.returncode != 0:
-        raise Exception(f"Error running cartridge: {result.stderr}")
+        raise Exception(f"Error running cartridge: {str(result.stderr)}")
 
     outcard_raw = outcard_file.read()
 

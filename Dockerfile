@@ -27,7 +27,7 @@ WORKDIR /opt/tools
 RUN <<EOF
 apt-get update && \
 apt-get install -y --no-install-recommends wget=1.21.2-2ubuntu1 ca-certificates=20230311ubuntu0.22.04.1 \
-    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.10 && \
+    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.10 squashfs-tools=1:4.5-3build1&& \
 wget -O machine-emulator-tools.deb https://github.com/cartesi/machine-emulator-tools/releases/download/v${MACHINE_EMULATOR_TOOLS_VERSION}/machine-emulator-tools-v${MACHINE_EMULATOR_TOOLS_VERSION}.deb && \
 rm -rf /var/lib/apt/lists/*
 EOF

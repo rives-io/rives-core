@@ -2,14 +2,16 @@ import { cache } from 'react';
 import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
+import CachedIcon from '@mui/icons-material/Cached';
+
 import { envClient } from '../utils/clientEnv';
 
 
 
 
 
-const getGeneralScoreboard = cache(async (cartridge_id:string) => {
-    const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+const getGeneralScoreboard = cache(async (cartridge_id:string, cache: "force-cache" | "no-store" = "force-cache"):Promise<Array<ReplayScore>> => {
+    const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache});
     return scores;
 })
 
@@ -28,13 +30,20 @@ const setMedal = (index:number) => {
 }
 
 async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:string,replay_function(replayScore: ReplayScore): void}) {
-    const generalScores = (await getGeneralScoreboard(cartridge_id)).sort((a, b) => b.score - a.score);
+    let generalScores = (await getGeneralScoreboard(cartridge_id)).sort((a, b) => b.score - a.score);
 
     const playReplay = (replayScore:ReplayScore) => {
         replay_function(replayScore);
     }
+
+    const reloadScores = async () => {
+        generalScores = (await getGeneralScoreboard(cartridge_id,"no-store")).sort((a, b) => b.score - a.score);
+    }
+    
     
     return (
+        <div className="relative">
+        <button className="absolute top-0 right-0" onClick={() => reloadScores()}><span><CachedIcon/></span></button>
         <table className="w-full text-sm text-left">
             <thead className="text-xsuppercase">
                 <tr>
@@ -77,7 +86,7 @@ async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id
                 }
             </tbody>
         </table>
-
+        </div>
     )
 }
 

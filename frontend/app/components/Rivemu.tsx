@@ -39,7 +39,7 @@ const DEFAULT_WIDTH = 640;
 const DEFAULT_HEIGTH = 400;
 
 function Rivemu() {
-    const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge} = useContext(selectedCartridgeContext);
+    const {selectedCartridge, setCartridgeData, setGameplay } = useContext(selectedCartridgeContext);
     const [overallScore, setOverallScore] = useState(0);
     // const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -49,7 +49,7 @@ function Rivemu() {
     const [canvasWidth, setCanvasWidth] = useState(DEFAULT_WIDTH);
     const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
     const [gameHeigth, setGameHeigth] = useState(0);
-    const prevPlayToggle = usePrevious(selectedCartridge?.playToggle);
+    const rnd = Math.random();
 
     useEffect(()=>{
         if (!selectedCartridge || !selectedCartridge?.play) return;
@@ -60,19 +60,19 @@ function Rivemu() {
     useEffect(()=>{
         let newHeight = DEFAULT_HEIGTH;
         let newWidth = DEFAULT_WIDTH;
-        var canvas: any = document.getElementById("canvas");
-        const aspectRatio = canvas ? canvas.width / canvas.height : 640/400;
-        if (isExpanded) {
-            const windowSizes = getWindowDimensions();
-            newHeight = windowSizes.height - 120;
-            newWidth = Math.floor(aspectRatio * newHeight);
-            if (newWidth > windowSizes.width - 10) {
-                newWidth = windowSizes.height - 10;
-                newHeight = Math.floor(newWidth / aspectRatio);
-            }
-        }
-
+        const canvas: any = document.getElementById("canvas");
         if (canvas) {
+            const aspectRatio = canvas ? canvas.width / canvas.height : 640/400;
+            if (isExpanded) {
+                const windowSizes = getWindowDimensions();
+                newHeight = windowSizes.height - 120;
+                newWidth = Math.floor(aspectRatio * newHeight);
+                if (newWidth > windowSizes.width - 10) {
+                    newWidth = windowSizes.height - 10;
+                    newHeight = Math.floor(newWidth / aspectRatio);
+                }
+            }
+
             canvas.height = Math.floor(newHeight / gameHeigth) * gameHeigth;
             canvas.width = Math.floor(aspectRatio * canvas.height);
         }
@@ -106,12 +106,12 @@ function Rivemu() {
 
     async function loadCartridge() {
         if (!selectedCartridge || !selectedCartridge?.play || selectedCartridge.cartridgeData != undefined) return;
-        const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes", cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+        const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes", cartesiNodeUrl: envClient.CARTESI_NODE_URL, cache:"force-cache"});
         setCartridgeData(data);
     }
 
     if (!selectedCartridge || !selectedCartridge.initCanvas) {
-       return  <></>;
+        return  <></>;
     }
 
     var decoder = new TextDecoder("utf-8");
@@ -232,7 +232,7 @@ function Rivemu() {
 
         // @ts-ignore:next-line
         window.rivemu_on_begin = function (width: any, height: any) {
-            var canvas: any = document.getElementById("canvas");
+            const canvas: any = document.getElementById("canvas");
             setGameHeigth(height);
             if (canvas) {
                 canvas.height = Math.floor(canvasHeight / height) * height;
@@ -320,7 +320,6 @@ function Rivemu() {
                     >
                     <div hidden={!isPlaying}>
                         <canvas
-                            // key={selectedCartridge.name+selectedCartridge.cartridgeData?.length}
                             id="canvas"
                             onContextMenu={(e) => e.preventDefault()}
                             tabIndex={1}
