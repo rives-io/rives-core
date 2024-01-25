@@ -38,10 +38,10 @@ def initialize_data():
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 
-    cartridge_example_file = open('misc/doom.sqfs','rb')
-    cartridge_example_data = cartridge_example_file.read()
-    cartridge_example_file.close()
-    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    # cartridge_example_file = open('misc/doom.sqfs','rb')
+    # cartridge_example_data = cartridge_example_file.read()
+    # cartridge_example_file.close()
+    # create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 
     cartridge_example_file = open('misc/antcopter.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()

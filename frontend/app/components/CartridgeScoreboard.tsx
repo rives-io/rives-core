@@ -1,4 +1,4 @@
-import { cache } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
@@ -8,12 +8,61 @@ import { envClient } from '../utils/clientEnv';
 
 
 
+function scoreboardFallback() {
+    const arr = Array.from(Array(3).keys());
+
+    return (
+        <table className="w-full text-sm text-left">
+            <thead className="text-xsuppercase">
+                <tr>
+                    <th scope="col" className="px-6 py-3">
+                        User
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                        Timestamp
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                        Score
+                    </th>
+                </tr>
+            </thead>
+            <tbody className='animate-pulse'>
+                {
+                    arr.map((num, index) => {
+                        return (
+                            <tr key={index} className='mb-3 h-16'>
+                                <td className="px-6 py-4 break-all">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+                                    </div>
+                                </td>
+
+                                <td className="px-6 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        31/12/1969, 21:06:36
+                                    </div>
+                                </td>
+
+                                <td className="px-6 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })
+                }
+
+            </tbody>
+        </table>
+    )
+}
 
 
-const getGeneralScoreboard = cache(async (cartridge_id:string, cache: "force-cache" | "no-store" = "force-cache"):Promise<Array<ReplayScore>> => {
+const getGeneralScoreboard = async (cartridge_id:string, cache: "force-cache" | "no-store" = "force-cache"):Promise<Array<ReplayScore>> => {
     const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache});
     return scores;
-})
+}
 
 
 const setMedal = (index:number) => {
@@ -29,20 +78,24 @@ const setMedal = (index:number) => {
     return <span className='ms-7'></span>;
 }
 
-async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:string,replay_function(replayScore: ReplayScore): void}) {
-    let generalScores = (await getGeneralScoreboard(cartridge_id)).sort((a, b) => b.score - a.score);
+function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:string,replay_function(replayScore: ReplayScore): void}) {
+    const [generalScores,setGeneralScores] = useState<ReplayScore[]>([]);
 
     const playReplay = (replayScore:ReplayScore) => {
         replay_function(replayScore);
     }
 
     const reloadScores = async () => {
-        generalScores = (await getGeneralScoreboard(cartridge_id,"no-store")).sort((a, b) => b.score - a.score);
+        setGeneralScores((await getGeneralScoreboard(cartridge_id,"no-store")).sort((a, b) => b.score - a.score));
     }
     
+    useEffect(() => {
+        reloadScores();
+    },[]);
     
     return (
         <div className="relative">
+        <Suspense fallback={scoreboardFallback()}>
         <button className="absolute top-0 right-0" onClick={() => reloadScores()}><span><CachedIcon/></span></button>
         <table className="w-full text-sm text-left">
             <thead className="text-xsuppercase">
@@ -86,6 +139,7 @@ async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id
                 }
             </tbody>
         </table>
+        </Suspense>
         </div>
     )
 }

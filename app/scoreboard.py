@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import logging
 from typing import Optional, List
 from hashlib import sha256
+from Crypto.Hash import keccak
 import json
 from py_expression_eval import Parser
 import re
@@ -275,7 +276,9 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         return False
 
     # process outcard
-    outcard_hash = sha256(outcard_raw.replace(b'\r',b"").replace(b'\t',b"").replace(b'\n',b"").replace(b' ',b"")).digest()
+    k = keccak.new(digest_bits=256)
+    # outcard_hash = k.update(outcard_raw.replace(b'\r',b"").replace(b'\t',b"").replace(b'\n',b"").replace(b' ',b"")).digest()
+    outcard_hash = k.update(outcard_raw).digest()
     outcard_valid = outcard_hash == replay.outcard_hash
 
     outcard_format = outcard_raw[:4]

@@ -395,6 +395,9 @@ def send_report(payload_data, **kwargs):
 
     report_format = OutputFormat[getattr(stg,'report_format')] if hasattr(stg,'report_format') else OutputFormat.json
     payload,class_name = normalize_output(payload_data,report_format)
+    if len(payload) > 4194248:
+        LOGGER.warn("Payload Data exceed maximum length. Truncating")
+    payload = payload[:4194248] # 4194248 = 4194304 (4MB) - 56 B (extra 0x and json formating)
 
     # Always chunk if len > MAX_OUTPUT_SIZE
     # if len(payload) > MAX_OUTPUT_SIZE: raise Exception("Maximum report length violation")

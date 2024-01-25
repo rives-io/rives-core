@@ -43,13 +43,14 @@ function Rivemu() {
     const [overallScore, setOverallScore] = useState(0);
     // const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [replayTip, setReplayTip] = useState(false);
     const [isReplaying, setIsReplaying] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [canvasHeight, setCanvasHeight] = useState(DEFAULT_HEIGTH);
+    const [descHeight, setDescHeight] = useState(100);
     const [canvasWidth, setCanvasWidth] = useState(DEFAULT_WIDTH);
     const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
     const [gameHeigth, setGameHeigth] = useState(0);
-    const rnd = Math.random();
 
     useEffect(()=>{
         if (!selectedCartridge || !selectedCartridge?.play) return;
@@ -92,15 +93,19 @@ function Rivemu() {
             setIsExpanded(false);
             setOverallScore(0);
             setReplayLog(undefined);
+            const windowSizes = getWindowDimensions();
+            setDescHeight(windowSizes.height - 150 - DEFAULT_HEIGTH);
         }
         await loadCartridge();
         movePageToBottom();
         if (selectedCartridge?.replay){
             setReplayLog(selectedCartridge.replay);
+            setReplayTip(true);
         }
         if (selectedCartridge?.gameplayLog) {
             setReplayLog(selectedCartridge.gameplayLog);
             setIsReplaying(false);
+            setReplayTip(true);
         }
     }
 
@@ -139,6 +144,7 @@ function Rivemu() {
         // setIsLoading(true);
         setIsPlaying(true);
         setIsReplaying(false);
+        setReplayTip(false);
         // @ts-ignore:next-line
         if (Module.quited) {
             // restart wasm when back to page
@@ -169,6 +175,7 @@ function Rivemu() {
         if (!selectedCartridge?.cartridgeData || !replayLog) return;
         console.log("rivemuReplay");
         setIsPlaying(true);
+        setReplayTip(false);
         if (selectedCartridge.cartridgeData == undefined || selectedCartridge.outcard != undefined)
             setIsReplaying(true);
         // @ts-ignore:next-line
@@ -222,7 +229,7 @@ function Rivemu() {
         // @ts-ignore:next-line
         window.rivemu_on_outcard_update = function (outcard: any) {
             const outcard_str = decoder.decode(outcard);
-            const outcard_json = JSON.parse(outcard_str.substring(4).replace(/\,(?!\s*?[\{\[\"\'\w])/g, ''));
+            const outcard_json = JSON.parse(outcard_str.substring(4)); // .replace(/\,(?!\s*?[\{\[\"\'\w])/g, '')
             let score = outcard_json.score;
             if (selectedCartridge?.scoreFunction) {
                 score = scoreFunction.evaluate(outcard_json);
@@ -250,7 +257,7 @@ function Rivemu() {
             outcard: ArrayBuffer
         ) {
             if (!isReplaying) {
-                setGameplay(new Uint8Array(rivlog),decoder.decode(outcard).replace(/\s|\n|\r|\t/g, ''));
+                setGameplay(new Uint8Array(rivlog),decoder.decode(outcard));
                 setReplayLog(new Uint8Array(rivlog));
             }
             console.log("rivemu_on_finish")
@@ -279,7 +286,7 @@ function Rivemu() {
                         <span>{isPlaying ? <ReplayIcon/> : <PlayArrowIcon/>}</span>
                         <span>{isPlaying ? "Restart" : "Start"}</span>
                     </button>
-                    <button className="button-57"
+                    <button className={`button-57 ${replayTip ? "animate-bounce" : ""}`}
                         id="replayButton"
                         onKeyDown={(e) => e.preventDefault()}
                         onClick={rivemuReplay}
@@ -336,11 +343,11 @@ function Rivemu() {
                 <h3 className={fontPressStart2P.className}>Score: <span>{overallScore}</span></h3>
             </div>
 
-            <div className="text-center d-flex justify-content-center" hidden={isExpanded}>
+            <div className="text-left d-flex justify-content-center" hidden={isExpanded}>
                 <div className='h-4'></div>
                 <div className='grid grid-cols-3 gap-4 content-start'>
                     <div></div>
-                    <fieldset>
+                    <fieldset className="overflow-auto custom-scrollbar" style={{maxHeight: descHeight}}>
                         <pre style={{whiteSpace: "pre-wrap"}}>
                             {selectedCartridge.info?.description}
                         </pre>

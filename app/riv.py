@@ -109,8 +109,8 @@ def replay_log(cartridge_id,log,riv_args,in_card):
             run_args.extend(["--setenv", "RIV_INCARD", incard_path])
         run_args.extend(["--setenv", "RIV_NO_YIELD", "y"])
         run_args.append("riv-run")
-        if riv_args is not None:
-            run_args.append(riv_args)
+        if riv_args is not None and len(riv_args) > 0:
+            run_args.extend(riv_args.split())
         result = subprocess.run(run_args, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception(f"Error processing replay: {str(result.stderr)}")
@@ -147,8 +147,8 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     if len(in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     run_args.append(f"-no-yield=y")
-    if riv_args is not None:
-        run_args.append(riv_args)
+    if riv_args is not None and len(riv_args) > 0:
+        run_args.extend(riv_args.split())
     p1 = subprocess.Popen(run_args,stdout=subprocess.PIPE, cwd=cwd)
     p2 = subprocess.Popen(["sed","-n","/==== BEGIN OUTCARD ====/,/==== END OUTCARD ====/p"],stdin=p1.stdout,stdout=subprocess.PIPE)
     p3 = subprocess.Popen(["head","-n","-1"],stdin=p2.stdout,stdout=subprocess.PIPE)
@@ -191,8 +191,8 @@ def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
         if len(in_card) > 0:
             run_args.extend(["--setenv", "RIV_INCARD", incard_path])
         run_args.append("riv-run")
-        if riv_args is not None:
-            run_args.append(riv_args)
+        if riv_args is not None and len(riv_args) > 0:
+            run_args.extend(riv_args.split())
         result = subprocess.run(run_args, capture_output=True, text=True)
         
         if result.returncode != 0:
@@ -225,8 +225,8 @@ def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     # run_args.append(f"-no-yield=y")
     run_args.append(f"-stop-frame={frame}")
-    if riv_args is not None:
-        run_args.append(riv_args)
+    if riv_args is not None and len(riv_args) > 0:
+        run_args.extend(riv_args.split())
     p1 = subprocess.Popen(run_args,stdout=subprocess.PIPE, cwd=cwd)
     p2 = subprocess.Popen(["grep","-A1","==== BEGIN OUTCARD ===="],stdin=p1.stdout,stdout=subprocess.PIPE)
 

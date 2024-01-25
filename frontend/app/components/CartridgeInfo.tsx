@@ -15,7 +15,6 @@ import StadiumIcon from '@mui/icons-material/Stadium';
 import CodeIcon from '@mui/icons-material/Code';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
-import { sha256 } from "js-sha256";
 
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
@@ -78,55 +77,6 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
     }
 }
 
-function scoreboardFallback() {
-    const arr = Array.from(Array(3).keys());
-
-    return (
-        <table className="w-full text-sm text-left">
-            <thead className="text-xsuppercase">
-                <tr>
-                    <th scope="col" className="px-6 py-3">
-                        User
-                    </th>
-                    <th scope="col" className="px-6 py-3">
-                        Timestamp
-                    </th>
-                    <th scope="col" className="px-6 py-3">
-                        Score
-                    </th>
-                </tr>
-            </thead>
-            <tbody className='animate-pulse'>
-                {
-                    arr.map((num, index) => {
-                        return (
-                            <tr key={index} className='mb-3 h-16'>
-                                <td className="px-6 py-4 break-all">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
-                                    </div>
-                                </td>
-
-                                <td className="px-6 py-4">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        31/12/1969, 21:06:36
-                                    </div>
-                                </td>
-
-                                <td className="px-6 py-4">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        100
-                                    </div>
-                                </td>
-                            </tr>
-                        );
-                    })
-                }
-
-            </tbody>
-        </table>
-    )
-}
 
 function CartridgeInfo() {
     const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
@@ -155,11 +105,14 @@ function CartridgeInfo() {
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
             cartridge_id:"0x"+selectedCartridge.id,
-            outcard_hash: "0x"+sha256(selectedCartridge.outcard),
+            outcard_hash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes(selectedCartridge.outcard)), // .replace(/\s|\n|\r|\t/g, '')
             args: selectedCartridge.args || "",
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
         }
+        console.log("Sending Replay:")
+        console.log("Replay Outcard",selectedCartridge.outcard)
+        console.log("Replay Outcard hash",ethers.utils.keccak256(ethers.utils.toUtf8Bytes(selectedCartridge.outcard)))
 
         setSubmitLogStatus({status: STATUS.VALIDATING});
         try {
@@ -368,9 +321,7 @@ function CartridgeInfo() {
                             <Tab.Panel
                                 className="game-tab-content"
                             >
-                                <Suspense fallback={scoreboardFallback()}>
-                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} replay_function={prepareReplay}/>
-                                </Suspense>
+                                <CartridgeScoreboard cartridge_id={selectedCartridge.id} replay_function={prepareReplay}/>
 
                             </Tab.Panel>
 
