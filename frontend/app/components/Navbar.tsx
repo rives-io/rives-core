@@ -2,15 +2,28 @@
 
 import Link from 'next/link'
 import { usePathname } from "next/navigation";
-import React from 'react'
+import React, { useEffect } from 'react'
 import ThemeSwitch from "@/app/components/ThemeSwitch";
-import { useConnectWallet } from '@web3-onboard/react';
+import { useConnectWallet, useSetChain } from '@web3-onboard/react';
 import rivesLogo from '../../public/rives_logo.png';
 import Image from 'next/image'
 
 function Navbar() {
     const pathname = usePathname();
-    const [{ wallet, connecting }, connect, disconnect] = useConnectWallet()
+    const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
+    const [{ chains, connectedChain }, setChain] = useSetChain();
+
+    useEffect(() => {
+        if (!connectedChain) return;
+
+        chains.forEach((chain) => {
+            if (connectedChain.id == chain.id) return;
+        })
+
+        setChain({chainId: chains[0].id});
+
+      }, [connectedChain])
+
 
     return (
         <header className='header'>
