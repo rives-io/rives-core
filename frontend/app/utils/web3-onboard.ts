@@ -26,7 +26,10 @@ const appMetadata = {
 const web3Onboard = init({
   wallets,
   chains,
-  appMetadata
+  appMetadata,
+  connect: {
+    autoConnectLastWallet: true
+  }
 })
 
 export default web3Onboard;

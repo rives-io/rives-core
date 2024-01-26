@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from "next/navigation";
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import ThemeSwitch from "@/app/components/ThemeSwitch";
 import { useConnectWallet, useSetChain } from '@web3-onboard/react';
 import rivesLogo from '../../public/rives_logo.png';
@@ -12,6 +12,7 @@ function Navbar() {
     const pathname = usePathname();
     const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
     const [{ chains, connectedChain }, setChain] = useSetChain();
+    const [connectButtonTxt, setConnectButtonTxt] = useState("Connect");
 
     useEffect(() => {
         if (!connectedChain) return;
@@ -24,6 +25,16 @@ function Navbar() {
 
       }, [connectedChain])
 
+
+    useEffect(() => {
+        if (connecting) {
+            setConnectButtonTxt('Connecting');
+        } else if (wallet) {
+            setConnectButtonTxt('Disconnect');
+        } else {
+            setConnectButtonTxt('Connect');
+        }
+    }, [connecting, wallet])
 
     return (
         <header className='header'>
@@ -51,7 +62,7 @@ function Navbar() {
                 <button className='web3-connect-btn' disabled={connecting}
                     onClick={() => (wallet ? disconnect(wallet) : connect())}
                 >
-                    {connecting ? 'Connecting' : wallet ? 'Disconnect' : 'Connect'}
+                    {connectButtonTxt}
                 </button>
 
             </div>
