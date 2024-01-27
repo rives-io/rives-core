@@ -57,7 +57,7 @@ def replay(replay: Replay) -> bool:
     metadata = get_metadata()
     
     if not GameplayHash.check(replay.cartridge_id.hex(),sha256(replay.log).hexdigest()):
-        msg = f"Gameplay hash already submitted"
+        msg = f"Gameplay already submitted"
         LOGGER.error(msg)
         add_output(msg,tags=['error'])
         return False
@@ -74,8 +74,8 @@ def replay(replay: Replay) -> bool:
 
     # process outcard
     k = keccak.new(digest_bits=256)
-    # outcard_hash = k.update(outcard_raw.replace(b'\r',b"").replace(b'\t',b"").replace(b'\n',b"").replace(b' ',b"")).digest()
-    outcard_hash = k.update(outcard_raw).digest()
+    outcard_hash = k.update(outcard_raw.replace(b'\r',b"").replace(b'\t',b"").replace(b'\n',b"").replace(b' ',b"")).digest()
+    # outcard_hash = k.update(outcard_raw).digest()
     outcard_valid = outcard_hash == replay.outcard_hash
 
     outcard_format = outcard_raw[:4]

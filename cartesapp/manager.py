@@ -4,7 +4,7 @@ import importlib
 from inspect import getmembers, isfunction, signature
 import sys, getopt
 from typing import Optional, List, get_type_hints
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 from Crypto.Hash import keccak
 from enum import Enum
 import json
@@ -17,11 +17,10 @@ from cartesi.abi import encode_model
 
 from .storage import Storage, helpers, add_output_index, OutputType, get_output_indexes
 from .utils import str2bytes, hex2bytes, bytes2hex
-
+from .output import MAX_OUTPUT_SIZE, MAX_AGGREGATED_OUTPUT_SIZE, MAX_SPLITTABLE_OUTPUT_SIZE
 
 LOGGER = logging.getLogger(__name__)
 
-MAX_OUTPUT_SIZE = 1048567 # (2097152-17)/2
 
 class EmptyClass(BaseModel):
     pass
@@ -57,11 +56,12 @@ class Manager(object):
     @classmethod
     def _register_queries(cls, add_to_router=True):
         query_selectors = []
-        for query_fn in Query.queries:
-            query_name = query_fn.__name__
-            module_name = query_fn.__module__.split('.')[0]
+        for func in Query.queries:
+            func_name = func.__name__
+            module_name = func.__module__.split('.')[0]
+            configs = Query.configs[f"{module_name}.{func_name}"]
 
-            sig = signature(query_fn)
+            sig = signature(func)
 
             if len(sig.parameters) > 1:
                 raise Exception("Queries shouldn't have more than one parameter")
@@ -74,24 +74,34 @@ class Manager(object):
                 model = EmptyClass
 
             # using url router
-            path = f"{module_name}/{query_name}"
+            path = f"{module_name}/{func_name}"
             if path in query_selectors:
                 raise Exception("Duplicate query selector")
             query_selectors.append(path)
+
+            original_model = model
+            func_configs = {}
+            if configs.get("splittable_output") is not None and configs["splittable_output"]:
+                model_kwargs = splittable_query_params.copy()
+                model_kwargs["__base__"] = model
+                model = create_model(model.__name__+'Splittable',**model_kwargs)
+                func_configs["extended_model"] = model
+            
             abi_types = [] # abi.get_abi_types_from_model(model)
-            cls.queries_info[f"{module_name}.{query_name}"] = {"selector":path,"module":module_name,"method":query_name,"abi_types":abi_types,"model":model}
+            cls.queries_info[f"{module_name}.{func_name}"] = {"selector":path,"module":module_name,"method":func_name,"abi_types":abi_types,"model":model,"configs":configs}
             if add_to_router:
-                LOGGER.info(f"Adding query {module_name}.{query_name} selector={path}, model={model.schema()}")
-                cls.url_router.inspect(path=path)(_make_query(query_fn,model,param is not None,module=module_name))
+                LOGGER.info(f"Adding query {module_name}.{func_name} selector={path}, model={model.__name__}")
+                cls.url_router.inspect(path=path)(_make_query(func,original_model,param is not None,module_name,**func_configs))
 
     @classmethod
     def _register_mutations(cls, add_to_router=True):
         mutation_selectors = []
-        for mutation_fn in Mutation.mutations:
-            mutation_name = mutation_fn.__name__
-            module_name = mutation_fn.__module__.split('.')[0]
+        for func in Mutation.mutations:
+            func_name = func.__name__
+            module_name = func.__module__.split('.')[0]
+            configs = Mutation.configs[f"{module_name}.{func_name}"]
             
-            sig = signature(mutation_fn)
+            sig = signature(func)
 
             if len(sig.parameters) > 1:
                 raise Exception("Mutations shouldn't have more than one parameter")
@@ -106,17 +116,17 @@ class Manager(object):
             # using abi router
             abi_types = abi.get_abi_types_from_model(model)
             header = ABIFunctionSelectorHeader(
-                function=f"{module_name}.{mutation_name}",
+                function=f"{module_name}.{func_name}",
                 argument_types=abi_types
             )
             header_selector = header.to_bytes().hex()
             if header_selector in mutation_selectors:
                 raise Exception("Duplicate mutation selector")
             mutation_selectors.append(header_selector)
-            cls.mutations_info[f"{module_name}.{mutation_name}"] = {"selector":header,"module":module_name,"method":mutation_name,"abi_types":abi_types,"model":model}
+            cls.mutations_info[f"{module_name}.{func_name}"] = {"selector":header,"module":module_name,"method":func_name,"abi_types":abi_types,"model":model,"configs":configs}
             if add_to_router:
-                LOGGER.info(f"Adding mutation {module_name}.{mutation_name} selector={header_selector}, model={model.schema()}")
-                cls.abi_router.advance(header=header)(_make_mut(mutation_fn,model,param is not None,module=module_name))
+                LOGGER.info(f"Adding mutation {module_name}.{func_name} selector={header_selector}, model={model.schema()}")
+                cls.abi_router.advance(header=header)(_make_mut(func,model,param is not None,module_name,**Mutation.configs[f"{module_name}.{func_name}"]))
 
     @classmethod
     def _setup_settings(cls):
@@ -182,29 +192,38 @@ class Manager(object):
 # Query
 class Query:
     queries = []
+    configs = {}
     def __new__(cls):
         return cls
     
     @classmethod
-    def add(cls, func):
+    def add(cls, func, **kwargs):
         cls.queries.append(func)
+        func_name = func.__name__
+        module_name = func.__module__.split('.')[0]
+        cls.configs[f"{module_name}.{func_name}"] = kwargs
 
 def query(**kwargs):
     def decorator(func):
-        Query.add(func)
+        Query.add(func,**kwargs)
         return func
     return decorator
 
+splittable_query_params = {"part":(int,None)}
 
 # Mutation
 class Mutation:
     mutations = []
+    configs = {}
     def __new__(cls):
         return cls
     
     @classmethod
-    def add(cls, func):
+    def add(cls, func, **kwargs):
         cls.mutations.append(func)
+        func_name = func.__name__
+        module_name = func.__module__.split('.')[0]
+        cls.configs[f"{module_name}.{func_name}"] = kwargs
 
 # TODO: decorator params to allow chunked and compressed mutations
 def mutation(**kwargs):
@@ -215,7 +234,7 @@ def mutation(**kwargs):
     if kwargs.get('sender_address') is not None:
         LOGGER.warning("Sender address filtering is not implemented yet")
     def decorator(func):
-        Mutation.add(func)
+        Mutation.add(func,**kwargs)
         return func
     return decorator
 
@@ -243,18 +262,21 @@ class Context(object):
     n_reports: int = 0
     n_notices: int = 0
     n_vouchers: int = 0
+    configs = None
+
 
     def __new__(cls):
         return cls
     
     @classmethod
-    def set_context(cls, rollup: Rollup, metadata: RollupMetadata, module: str):
+    def set_context(cls, rollup: Rollup, metadata: RollupMetadata, module: str, **kwargs):
         cls.rollup = rollup
         cls.metadata = metadata
         cls.module = module
         cls.n_reports = 0
         cls.n_notices = 0
         cls.n_vouchers = 0
+        cls.configs = kwargs
 
     @classmethod
     def clear_context(cls):
@@ -264,6 +286,7 @@ class Context(object):
         cls.n_reports: 0
         cls.n_notices = 0
         cls.n_vouchers = 0
+        cls.configs = None
 
 class Setup:
     setup_functions = []
@@ -395,9 +418,22 @@ def send_report(payload_data, **kwargs):
 
     report_format = OutputFormat[getattr(stg,'report_format')] if hasattr(stg,'report_format') else OutputFormat.json
     payload,class_name = normalize_output(payload_data,report_format)
-    if len(payload) > 4194248:
+
+    extended_params = ctx.configs.get("extended_params")
+    if extended_params is not None:
+        if ctx.metadata is None: # inspect
+            part = extended_params.part
+            payload_len = len(payload)
+            if payload_len > MAX_SPLITTABLE_OUTPUT_SIZE and part is not None:
+                if part >= 0:
+                    startb = MAX_SPLITTABLE_OUTPUT_SIZE*(part)
+                    endb = MAX_SPLITTABLE_OUTPUT_SIZE*(part+1)
+                    payload = payload[startb:endb]
+                    if endb < payload_len: payload += b'0'
+
+    if len(payload) > MAX_AGGREGATED_OUTPUT_SIZE:
         LOGGER.warn("Payload Data exceed maximum length. Truncating")
-    payload = payload[:4194248] # 4194248 = 4194304 (4MB) - 56 B (extra 0x and json formating)
+    payload = payload[:MAX_AGGREGATED_OUTPUT_SIZE]
 
     # Always chunk if len > MAX_OUTPUT_SIZE
     # if len(payload) > MAX_OUTPUT_SIZE: raise Exception("Maximum report length violation")
@@ -472,13 +508,11 @@ submit_contract_call = send_voucher
 ###
 # Helpers
 
-def _make_query(func,model,has_param, **kwargs):
-    module = kwargs.get('module')
+def _make_query(func,model,has_param,module,**func_configs):
     @helpers.db_session
     def query(rollup: Rollup, params: URLParameters) -> bool:
         try:
             ctx = Context
-            ctx.set_context(rollup,None,module)
             # TODO: accept abi encode or json (for larger post requests, configured in settings)
             # Decoding url parameters
             param_list = []
@@ -486,7 +520,8 @@ def _make_query(func,model,has_param, **kwargs):
                 hints = get_type_hints(model)
                 fields = []
                 values = []
-                for k in model.__fields__.keys():
+                model_fields = model.__fields__.keys()
+                for k in model_fields:
                     if k in params.query_params:
                         field_str = str(hints[k])
                         if field_str.startswith('typing.List') or field_str.startswith('typing.Optional[typing.List'):
@@ -495,8 +530,23 @@ def _make_query(func,model,has_param, **kwargs):
                         else:
                             fields.append(k)
                             values.append(params.query_params[k][0])
-                kwargs = dict(zip(fields, values))
-                param_list.append(model.parse_obj(kwargs))
+                param_list.append(model.parse_obj(dict(zip(fields, values))))
+                
+                extended_model = func_configs.get("extended_model")
+                if extended_model is not None:
+                    extended_hints = get_type_hints(extended_model)
+                    for k in list(set(extended_model.__fields__.keys()).difference(model_fields)):
+                        if k in params.query_params:
+                            field_str = str(extended_hints[k])
+                            if field_str.startswith('typing.List') or field_str.startswith('typing.Optional[typing.List'):
+                                fields.append(k)
+                                values.append(params.query_params[k])
+                            else:
+                                fields.append(k)
+                                values.append(params.query_params[k][0])
+                    func_configs["extended_params"] = extended_model.parse_obj(dict(zip(fields, values)))
+
+            ctx.set_context(rollup,None,module,**func_configs)
             res = func(*param_list)
         except Exception as e:
             msg = f"Error: {e}"
@@ -510,13 +560,12 @@ def _make_query(func,model,has_param, **kwargs):
         return res
     return query
 
-def _make_mut(func,model,has_param, **kwargs):
-    module = kwargs.get('module')
+def _make_mut(func,model,has_param,module, **kwargs):
     @helpers.db_session
     def mut(rollup: Rollup, data: RollupData) -> bool:
         try:
             ctx = Context
-            ctx.set_context(rollup,data.metadata,module)
+            ctx.set_context(rollup,data.metadata,module,**kwargs)
             payload = data.bytes_payload()[4:]
             param_list = []
             if has_param:

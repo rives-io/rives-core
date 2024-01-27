@@ -260,7 +260,7 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         return False
 
     if not GameplayHash.check(scoreboard.cartridge_id,sha256(replay.log).hexdigest()):
-        msg = f"Gameplay hash already submitted"
+        msg = f"Gameplay already submitted"
         LOGGER.error(msg)
         add_output(msg,tags=['error'])
         return False

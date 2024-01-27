@@ -37,16 +37,25 @@ def initialize_data():
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/snake.sqfs')
 
-    # cartridge_example_file = open('misc/doom.sqfs','rb')
-    # cartridge_example_data = cartridge_example_file.read()
-    # cartridge_example_file.close()
-    # create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    cartridge_example_file = open('misc/doom.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/doom.sqfs')
 
     cartridge_example_file = open('misc/antcopter.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/antcopter.sqfs')
+
+    cartridge_example_file = open('misc/freedoom.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/freedoom.sqfs')
 
 
 # Inputs
@@ -162,7 +171,7 @@ def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
 ###
 # Queries
 
-@query()
+@query(splittable_output=True)
 def cartridge(payload: CartridgePayload) -> bool:
     query = helpers.select(c for c in Cartridge if c.id == payload.id)
 

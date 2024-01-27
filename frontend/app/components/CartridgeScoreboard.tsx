@@ -3,6 +3,7 @@ import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import CachedIcon from '@mui/icons-material/Cached';
+import {CACHE_OPTIONS_TYPE } from "cartesi-client";
 
 import { envClient } from '../utils/clientEnv';
 
@@ -59,7 +60,7 @@ function scoreboardFallback() {
 }
 
 
-const getGeneralScoreboard = async (cartridge_id:string, cache: "force-cache" | "no-store" = "force-cache"):Promise<Array<ReplayScore>> => {
+const getGeneralScoreboard = async (cartridge_id:string, cache: CACHE_OPTIONS_TYPE):Promise<Array<ReplayScore>> => {
     const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache});
     return scores;
 }
@@ -85,18 +86,18 @@ function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:strin
         replay_function(replayScore);
     }
 
-    const reloadScores = async () => {
-        setGeneralScores((await getGeneralScoreboard(cartridge_id,"no-store")).sort((a, b) => b.score - a.score));
+    const reloadScores = async (cacheOption: CACHE_OPTIONS_TYPE | undefined = "force-cache") => {
+        setGeneralScores((await getGeneralScoreboard(cartridge_id,cacheOption)).sort((a, b) => b.score - a.score));
     }
     
     useEffect(() => {
         reloadScores();
-    },[]);
+    },[cartridge_id]);
     
     return (
         <div className="relative">
         <Suspense fallback={scoreboardFallback()}>
-        <button className="absolute top-0 right-0" onClick={() => reloadScores()}><span><CachedIcon/></span></button>
+        <button className="absolute top-0 right-0" onClick={() => reloadScores("no-store")}><span><CachedIcon/></span></button>
         <table className="w-full text-sm text-left">
             <thead className="text-xsuppercase">
                 <tr>
@@ -122,7 +123,7 @@ function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:strin
 
                                 <td scope="row" className="px-6 py-4 break-all">
                                     {/* {score.user_address.substring(0, 7)}...{score.user_address.substring(score.user_address.length-5)} */}
-                                    {setMedal(index)} {scoreInfo.user_address}
+                                    {setMedal(index)} {scoreInfo.user_address.substring(0,6)}...{scoreInfo.user_address.substring(scoreInfo.user_address.length-4,scoreInfo.user_address.length)}
                                 </td>
                                 <td className="px-6 py-4">
                                     {new Date(Number(scoreInfo.timestamp)*1000).toLocaleString()}

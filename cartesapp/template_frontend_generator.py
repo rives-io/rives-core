@@ -6,6 +6,8 @@ import tempfile
 from jinja2 import Template
 from packaging.version import Version
 
+from .output import MAX_SPLITTABLE_OUTPUT_SIZE
+
 FRONTEND_PATH = 'frontend'
 DEFAULT_LIB_PATH = 'src'
 PACKAGES_JSON_FILENAME = "package.json"
@@ -105,14 +107,16 @@ def render_templates(conf,settings,mutations_info,queries_info,notices_info,repo
                 "add_indexer_query": add_indexer_query,
                 "has_ifaces": has_ifaces,
                 "indexer_query_info": indexer_query_info,
-                "indexer_output_info": indexer_output_info
+                "indexer_output_info": indexer_output_info,
+                "MAX_SPLITTABLE_OUTPUT_SIZE":MAX_SPLITTABLE_OUTPUT_SIZE
             })
 
             with open(filepath, "w") as f:
                 f.write(helper_template_output)
         else:
             imports_template_output = Template(lib_imports).render({
-                "has_indexer_query": has_indexer_query
+                "has_indexer_query": has_indexer_query,
+                "MAX_SPLITTABLE_OUTPUT_SIZE":MAX_SPLITTABLE_OUTPUT_SIZE
             })
 
             with open(filepath, "w") as f:
@@ -283,6 +287,7 @@ ajv.addFormat("biginteger", (data) => {
 });
 const abiCoder = new ethers.utils.AbiCoder();
 export const CONVENTIONAL_TYPES: Array<string> = ["bytes","hex","str","int","dict","list","tuple","json"];
+const MAX_SPLITTABLE_OUTPUT_SIZE = {{ MAX_SPLITTABLE_OUTPUT_SIZE }};
 
 
 /**
@@ -721,6 +726,7 @@ ajv.addFormat("biginteger", (data) => {
     const dataTovalidate = data.startsWith('-') ? data.substring(1) : data;
     return ethers.utils.isHexString(dataTovalidate) && dataTovalidate.length % 2 == 0;
 });
+const MAX_SPLITTABLE_OUTPUT_SIZE = {{ MAX_SPLITTABLE_OUTPUT_SIZE }};
 
 '''
 lib_template = '''
@@ -759,9 +765,28 @@ export async function {{ convert_camel_case(info['method']) }}(
     options?:QueryOptions
 ):Promise<InspectReport|any> {
     const route = '{{ info["selector"] }}';
-    const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
     {# return genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options); -#}
+    {% if info["configs"].get("splittable_output") -%}
+    let part:number = 0;
+    let hasMoreParts:boolean = false;
+    const output: InspectReport = {payload: "0x"}
+    do {
+        hasMoreParts = false;
+        let inputDataSplittable = Object.assign({part},inputData);
+        const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputDataSplittable);
+        const partOutput: InspectReport = await genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options);
+        let payloadHex = partOutput.payload.substring(2);
+        if (payloadHex.length/2 > MAX_SPLITTABLE_OUTPUT_SIZE) {
+            part++;
+            payloadHex = payloadHex.substring(0, payloadHex.length - 2);
+            hasMoreParts = true;
+        }
+        output.payload += payloadHex;
+    } while (hasMoreParts)
+    {% else -%}
+    const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
     const output: InspectReport = await genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options);
+    {% endif -%}
     if (options?.decode) { return decodeToModel(output,options.decodeModel || "json"); }
     return output;
 }

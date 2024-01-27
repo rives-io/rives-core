@@ -19,7 +19,7 @@ ARG MACHINE_EMULATOR_TOOLS_VERSION
 
 LABEL io.sunodo.sdk_version=${SUNODORIV_SDK_VERSION}
 LABEL io.cartesi.rollups.ram_size=128Mi
-#LABEL io.cartesi.rollups.data_size=32Mb
+LABEL io.cartesi.rollups.data_size=128Mb
 
 WORKDIR /opt/tools
 
@@ -77,7 +77,8 @@ COPY main.py .
 COPY cartesapp cartesapp
 COPY app app
 COPY misc/snake.sqfs misc/snake.sqfs
-# COPY misc/doom.sqfs misc/doom.sqfs
+COPY misc/doom.sqfs misc/doom.sqfs
+COPY misc/freedoom.sqfs misc/freedoom.sqfs
 COPY misc/antcopter.sqfs misc/antcopter.sqfs
 
 FROM base as dapp
