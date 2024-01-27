@@ -1,23 +1,14 @@
 import { init } from '@web3-onboard/react'
 import injectedModule from '@web3-onboard/injected-wallets'
+import { envClient } from './clientEnv'
 
-const INFURA_KEY = ''
 
-const ethereumRopsten = {
-  id: '0x3',
-  token: 'rETH',
-  label: 'Ethereum Ropsten',
-  rpcUrl: `https://ropsten.infura.io/v3/${INFURA_KEY}`
+const chain = {
+  id: envClient.NETWORK_CHAIN_ID
 }
 
-const polygonMainnet = {
-  id: '0x89',
-  token: 'MATIC',
-  label: 'Polygon',
-  rpcUrl: 'https://matic-mainnet.chainstacklabs.com'
-}
 
-const chains = [ethereumRopsten, polygonMainnet]
+const chains = [chain]
 
 const wallets = [injectedModule()]
 
@@ -35,7 +26,10 @@ const appMetadata = {
 const web3Onboard = init({
   wallets,
   chains,
-  appMetadata
+  appMetadata,
+  connect: {
+    autoConnectLastWallet: true
+  }
 })
 
 export default web3Onboard;
