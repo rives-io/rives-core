@@ -1,0 +1,11 @@
+# Dockerfile.node -- create a node image with the cartesi machine included.
+# This image should be built **after** the `sunodo build` command, with
+# the command line below
+#
+# docker build -f Dockerfile.node .sunodo/ -t ghcr.io/prototyp3-dev/world-arcade-node:$(date -u +%Y%m%d.%H%M).$(git rev-parse --short HEAD)
+#
+ARG ROLLUPS_NODE_VERSION=0.5.1
+
+FROM sunodo/rollups-node:$ROLLUPS_NODE_VERSION
+
+COPY ./image /tmp/machine-snapshots/0_0
