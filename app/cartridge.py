@@ -261,13 +261,12 @@ def create_cartridge(cartridge_data,**metadata):
 
     cartridge_info = riv_get_cartridge_info(data_hash)
     
-    outcard_raw = riv_get_cartridge_outcard(data_hash,0,None,None)
-    if outcard_raw is None or len(outcard_raw) == 0:
-        raise Exception(f"Error getting outcard")
-
     # validate info
     cartridge_info_json = json.loads(cartridge_info)
     Info(**cartridge_info_json)
+
+    # check if cartridge runs
+    riv_get_cartridge_outcard(data_hash,0,None,None)
 
     cartridge_cover = riv_get_cover(data_hash)
     if cartridge_cover is None or len(cartridge_cover) == 0:

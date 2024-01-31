@@ -25,6 +25,9 @@ function scoreboardFallback() {
                     <th scope="col" className="px-6 py-3">
                         Score
                     </th>
+                    <th scope="col" className="px-6 py-3">
+                        
+                    </th>
                 </tr>
             </thead>
             <tbody className='animate-pulse'>
@@ -48,6 +51,9 @@ function scoreboardFallback() {
                                     <div className='fallback-bg-color rounded-md'>
                                         100
                                     </div>
+                                </td>
+                                <td className="py-4">
+                                    
                                 </td>
                             </tr>
                         );
@@ -87,6 +93,7 @@ function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:strin
     }
 
     const reloadScores = async (cacheOption: CACHE_OPTIONS_TYPE | undefined = "force-cache") => {
+        setGeneralScores([]);
         setGeneralScores((await getGeneralScoreboard(cartridge_id,cacheOption)).sort((a, b) => b.score - a.score));
     }
     
@@ -97,7 +104,7 @@ function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:strin
     return (
         <div className="relative">
         <Suspense fallback={scoreboardFallback()}>
-        <button className="absolute top-0 right-0" onClick={() => reloadScores("no-store")}><span><CachedIcon/></span></button>
+        <button className="absolute top-0 right-0" onClick={() => reloadScores("reload")}><span><CachedIcon/></span></button>
         <table className="w-full text-sm text-left">
             <thead className="text-xsuppercase">
                 <tr>

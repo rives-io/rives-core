@@ -106,6 +106,7 @@ function Rivemu() {
         movePageToBottom();
         if (selectedCartridge?.replay){
             setReplayLog(selectedCartridge.replay);
+            setIsReplaying(true);
             setReplayTip(true);
         }
         if (selectedCartridge?.gameplayLog) {
