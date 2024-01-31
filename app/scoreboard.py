@@ -3,7 +3,6 @@ from pydantic import BaseModel
 import logging
 from typing import Optional, List
 from hashlib import sha256
-from Crypto.Hash import keccak
 import json
 from py_expression_eval import Parser
 import re
@@ -44,30 +43,30 @@ class Score(Entity):
     score           = helpers.Required(int)
     scoreboard      = helpers.Required(Scoreboard, index=True)
 
-@seed()
-def initialize_data():
-    name = "simple"
-    s = Scoreboard(
-        id = sha256(str2bytes(name)).hexdigest(),
-        cartridge_id = "907ab088197625939b2137998b0efd59f30b3683093733c1ca4e0a62d638e09f",
-        name = name,
-        created_by = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        created_at = 1704078000,
-        args = "",
-        in_card = b'',
-        score_function = "score"
-    )
-    name = "apple 2 seconds"
-    s = Scoreboard(
-        id = sha256(str2bytes(name)).hexdigest(),
-        cartridge_id = "907ab088197625939b2137998b0efd59f30b3683093733c1ca4e0a62d638e09f",
-        name = name,
-        created_by = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        created_at = 0,
-        args = "",
-        in_card = b'',
-        score_function = "1000 * apples - 50*frame"
-    )
+# @seed()
+# def initialize_data():
+#     name = "simple"
+#     s = Scoreboard(
+#         id = sha256(str2bytes(name)).hexdigest(),
+#         cartridge_id = "907ab088197625939b2137998b0efd59f30b3683093733c1ca4e0a62d638e09f",
+#         name = name,
+#         created_by = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+#         created_at = 1704078000,
+#         args = "",
+#         in_card = b'',
+#         score_function = "score"
+#     )
+#     name = "apple 2 seconds"
+#     s = Scoreboard(
+#         id = sha256(str2bytes(name)).hexdigest(),
+#         cartridge_id = "907ab088197625939b2137998b0efd59f30b3683093733c1ca4e0a62d638e09f",
+#         name = name,
+#         created_by = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+#         created_at = 0,
+#         args = "",
+#         in_card = b'',
+#         score_function = "1000 * apples - 50*frame"
+#     )
 
 # Inputs
 
@@ -268,7 +267,7 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
     # process replay
     LOGGER.info(f"Processing scoreboard replay...")
     try:
-        outcard_raw = replay_log(scoreboard.cartridge_id,replay.log,scoreboard.args,scoreboard.in_card)
+        outcard_raw, outhash = replay_log(scoreboard.cartridge_id,replay.log,scoreboard.args,scoreboard.in_card)
     except Exception as e:
         msg = f"Couldn't replay log: {e}"
         LOGGER.error(msg)
@@ -276,10 +275,9 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         return False
 
     # process outcard
-    k = keccak.new(digest_bits=256)
-    # outcard_hash = k.update(outcard_raw.replace(b'\r',b"").replace(b'\t',b"").replace(b'\n',b"").replace(b' ',b"")).digest()
-    outcard_hash = k.update(outcard_raw).digest()
-    outcard_valid = outcard_hash == replay.outcard_hash
+    # outcard_hash = sha256(outcard_raw).digest()
+    # outcard_valid = outcard_hash == replay.outcard_hash
+    outcard_valid = outhash == replay.outcard_hash
 
     outcard_format = outcard_raw[:4]
     if outcard_format != b"JSON":
@@ -294,7 +292,8 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
     LOGGER.info(outcard_str)
     LOGGER.info("==== END OUTCARD ====")
     LOGGER.info(f"Expected Outcard Hash: {replay.outcard_hash.hex()}")
-    LOGGER.info(f"Computed Outcard Hash: {outcard_hash.hex()}")
+    # LOGGER.info(f"Computed Outcard Hash: {outcard_hash.hex()}")
+    LOGGER.info(f"Computed Outcard Hash: {outhash.hex()}")
     LOGGER.info(f"Valid Outcard Hash : {outcard_valid}")
 
     if not outcard_valid:
@@ -304,9 +303,9 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         return False
 
     try:
-        outcard_json = json.loads(re.sub(r'\,(?!\s*?[\{\[\"\'\w])', '', outcard_str))
+        outcard_json = json.loads(outcard_str) # re.sub(r'\,(?!\s*?[\{\[\"\'\w])', '', outcard_str)
         parser = Parser()
-        default_score = outcard_json['scores']
+        default_score = outcard_json['score']
         score = parser.parse(scoreboard.score_function).evaluate(outcard_json)
     except Exception as e:
         msg = f"Couldn't parse score: {e}"

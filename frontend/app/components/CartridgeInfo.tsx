@@ -87,13 +87,15 @@ function CartridgeInfo() {
 
     if (!selectedCartridge) return <></>;
 
+    var decoder = new TextDecoder("utf-8");
+
     async function submitLog() {
         // replay({car});
         if (!selectedCartridge || !selectedCartridge.gameplayLog){
             alert("No gameplay data.");
             return;
         }
-        if (!selectedCartridge.outcard){
+        if (!selectedCartridge.outcard || !selectedCartridge.outhash ){
             alert("No gameplay output yet, you should run it.");
             return;
         }
@@ -102,18 +104,21 @@ function CartridgeInfo() {
             return;
         }
 
-        const outcardhash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(selectedCartridge.outcard.replace(/\s|\n|\r|\t/g, '')));
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
             cartridge_id:"0x"+selectedCartridge.id,
-            outcard_hash: outcardhash,
+            outcard_hash: '0x' + selectedCartridge.outhash,
             args: selectedCartridge.args || "",
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
         }
         console.log("Sending Replay:")
-        console.log("Replay Outcard",selectedCartridge.outcard)
-        console.log("Replay Outcard hash",outcardhash)
+        if (decoder.decode(selectedCartridge.outcard.slice(0,4)) == 'JSON') {
+            console.log("Replay Outcard",JSON.parse(decoder.decode(selectedCartridge.outcard).substring(4)))
+        } else {
+            console.log("Replay Outcard",selectedCartridge.outcard)
+        }
+        console.log("Replay Outcard hash",selectedCartridge.outhash)
 
         setSubmitLogStatus({status: STATUS.VALIDATING});
         try {
@@ -218,7 +223,7 @@ function CartridgeInfo() {
                         </button>
 
                         <button className={"button-57"} onClick={() => {submitLog()}}
-                        disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
+                        disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || selectedCartridge?.outhash == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
 
                             {
                                 submitLogStatus.status === STATUS.READY?

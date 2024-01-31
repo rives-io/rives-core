@@ -77,7 +77,7 @@ COPY main.py .
 COPY cartesapp cartesapp
 COPY app app
 COPY misc/snake.sqfs misc/snake.sqfs
-COPY misc/doom.sqfs misc/doom.sqfs
+COPY misc/2048.sqfs misc/2048.sqfs
 COPY misc/freedoom.sqfs misc/freedoom.sqfs
 COPY misc/antcopter.sqfs misc/antcopter.sqfs
 

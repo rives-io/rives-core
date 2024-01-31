@@ -12,7 +12,7 @@ from cartesi.abi import String, Bytes, Bytes32, UInt
 from cartesapp.storage import Entity, helpers, seed
 from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call
 
-from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path, riv_get_cover
+from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path, riv_get_cover, riv_get_cartridge_outcard
 from .setup import AppSettings
 
 LOGGER = logging.getLogger(__name__)
@@ -39,11 +39,11 @@ def initialize_data():
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
     if AppSettings.rivemu_path is None: os.remove('misc/snake.sqfs')
 
-    cartridge_example_file = open('misc/doom.sqfs','rb')
+    cartridge_example_file = open('misc/freedoom.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
-    if AppSettings.rivemu_path is None: os.remove('misc/doom.sqfs')
+    if AppSettings.rivemu_path is None: os.remove('misc/freedoom.sqfs')
 
     cartridge_example_file = open('misc/antcopter.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()
@@ -51,11 +51,11 @@ def initialize_data():
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
     if AppSettings.rivemu_path is None: os.remove('misc/antcopter.sqfs')
 
-    cartridge_example_file = open('misc/freedoom.sqfs','rb')
+    cartridge_example_file = open('misc/2048.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
-    if AppSettings.rivemu_path is None: os.remove('misc/freedoom.sqfs')
+    if AppSettings.rivemu_path is None: os.remove('misc/2048.sqfs')
 
 
 # Inputs
@@ -261,6 +261,10 @@ def create_cartridge(cartridge_data,**metadata):
 
     cartridge_info = riv_get_cartridge_info(data_hash)
     
+    outcard_raw = riv_get_cartridge_outcard(data_hash,0,None,None)
+    if outcard_raw is None or len(outcard_raw) == 0:
+        raise Exception(f"Error getting outcard")
+
     # validate info
     cartridge_info_json = json.loads(cartridge_info)
     Info(**cartridge_info_json)

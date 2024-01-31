@@ -3,7 +3,6 @@ from pydantic import BaseModel
 import logging
 from typing import Optional
 from hashlib import sha256
-from Crypto.Hash import keccak
 import json
 import re
 
@@ -65,7 +64,7 @@ def replay(replay: Replay) -> bool:
     # process replay
     LOGGER.info("Replaying cartridge...")
     try:
-        outcard_raw = replay_log(replay.cartridge_id.hex(),replay.log,replay.args,replay.in_card)
+        outcard_raw, outhash = replay_log(replay.cartridge_id.hex(),replay.log,replay.args,replay.in_card)
     except Exception as e:
         msg = f"Couldn't replay log: {e}"
         LOGGER.error(msg)
@@ -73,10 +72,9 @@ def replay(replay: Replay) -> bool:
         return False
 
     # process outcard
-    k = keccak.new(digest_bits=256)
-    outcard_hash = k.update(outcard_raw.replace(b'\r',b"").replace(b'\t',b"").replace(b'\n',b"").replace(b' ',b"")).digest()
-    # outcard_hash = k.update(outcard_raw).digest()
-    outcard_valid = outcard_hash == replay.outcard_hash
+    # outcard_hash = sha256(outcard_raw).digest()
+    # outcard_valid = outcard_hash == replay.outcard_hash
+    outcard_valid = outhash == replay.outcard_hash
 
     outcard_format = outcard_raw[:4]
     LOGGER.info(f"==== BEGIN OUTCARD ({outcard_format}) ====")
@@ -89,7 +87,8 @@ def replay(replay: Replay) -> bool:
     
     LOGGER.info("==== END OUTCARD ====")
     LOGGER.info(f"Expected Outcard Hash: {replay.outcard_hash.hex()}")
-    LOGGER.info(f"Computed Outcard Hash: {outcard_hash.hex()}")
+    # LOGGER.info(f"Computed Outcard Hash: {outcard_hash.hex()}")
+    LOGGER.info(f"Computed Outcard Hash: {outhash.hex()}")
     LOGGER.info(f"Valid Outcard Hash : {outcard_valid}")
 
     if not outcard_valid:
@@ -101,7 +100,7 @@ def replay(replay: Replay) -> bool:
     score = 0
     if outcard_format == b"JSON":
         try:
-            score = int(json.loads(re.sub(r'\,(?!\s*?[\{\[\"\'\w])', '', outcard_str)).get('score')) or 0
+            score = int(json.loads(outcard_str).get('score')) or 0 # re.sub(r'\,(?!\s*?[\{\[\"\'\w])', '', outcard_str)
         except Exception as e:
             LOGGER.info(f"Couldn't load score from json: {e}")
 

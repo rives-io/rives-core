@@ -46,6 +46,7 @@ function Rivemu() {
     const [replayTip, setReplayTip] = useState(false);
     const [isReplaying, setIsReplaying] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [playedOnce, setPlayedOnce] = useState(false);
     const [canvasHeight, setCanvasHeight] = useState(DEFAULT_HEIGTH);
     const [descHeight, setDescHeight] = useState(100);
     const [canvasWidth, setCanvasWidth] = useState(DEFAULT_WIDTH);
@@ -95,6 +96,11 @@ function Rivemu() {
             setReplayLog(undefined);
             const windowSizes = getWindowDimensions();
             setDescHeight(windowSizes.height - 150 - DEFAULT_HEIGTH);
+            const canvas: any = document.getElementById("canvas");
+            if (canvas) {
+                canvas.height = DEFAULT_HEIGTH;
+                canvas.width = DEFAULT_HEIGTH;
+            }
         }
         await loadCartridge();
         movePageToBottom();
@@ -137,20 +143,31 @@ function Rivemu() {
             />
         );
     }
+    
+    function waitEvent(name: string) {
+        return new Promise((resolve) => {
+            const listener = (e: any) => {
+                window.removeEventListener(name, listener);
+                resolve(e);
+            }
+            window.addEventListener(name, listener);
+        })
+    }
 
     async function rivemuStart() {
         if (!selectedCartridge?.cartridgeData) return;
         console.log("rivemuStart");
         // setIsLoading(true);
-        setIsPlaying(true);
         setIsReplaying(false);
         setReplayTip(false);
-        // @ts-ignore:next-line
-        if (Module.quited) {
-            // restart wasm when back to page
-            // @ts-ignore:next-line
-            Module._main();
-        }
+        // // @ts-ignore:next-line
+        // if (Module.quited) {
+        //     // restart wasm when back to page
+        //     // @ts-ignore:next-line
+        //     Module._main();
+        // }
+        await rivemuHalt();
+        setIsPlaying(true);
 
         if (selectedCartridge.scoreFunction)
             scoreFunction = parser.parse(selectedCartridge.scoreFunction);
@@ -158,32 +175,45 @@ function Rivemu() {
         let buf = Module._malloc(selectedCartridge.cartridgeData.length);
         // @ts-ignore:next-line
         Module.HEAPU8.set(selectedCartridge.cartridgeData, buf);
+        // @ts-ignore:next-line
+        let incardBuf = Module._malloc(selectedCartridge.inCard?.length || 0);
+        // @ts-ignore:next-line
+        if (selectedCartridge?.inCard) Module.HEAPU8.set(selectedCartridge.inCard, incardBuf);
         let params = selectedCartridge?.args || "";
         // @ts-ignore:next-line
         Module.ccall(
-            "rivemu_start_ex",
-            selectedCartridge.inCard || null,
-            ["number", "number", "string"],
-            [buf, selectedCartridge.cartridgeData.length, params]
+            "rivemu_start_record",
+            null,
+            ['number', 'number', 'number', 'number', 'string'],
+            [
+                buf,
+                selectedCartridge.cartridgeData.length,
+                incardBuf,
+                selectedCartridge.inCard?.length || 0,
+                params
+            ]
         );
         // @ts-ignore:next-line
         Module._free(buf);
+        // @ts-ignore:next-line
+        Module._free(incardBuf);
     }
 
     async function rivemuReplay() {
         // TODO: fix rivemuReplay
         if (!selectedCartridge?.cartridgeData || !replayLog) return;
         console.log("rivemuReplay");
-        setIsPlaying(true);
         setReplayTip(false);
-        if (selectedCartridge.cartridgeData == undefined || selectedCartridge.outcard != undefined)
+        if (selectedCartridge.cartridgeData == undefined || selectedCartridge.outcard != undefined || selectedCartridge.outhash != undefined)
             setIsReplaying(true);
-        // @ts-ignore:next-line
-        if (Module.quited) {
-            // restart wasm when back to page
-            // @ts-ignore:next-line
-            Module._main();
-        }
+        // // @ts-ignore:next-line
+        // if (Module.quited) {
+        //     // restart wasm when back to page
+        //     // @ts-ignore:next-line
+        //     Module._main();
+        // }
+        await rivemuHalt();
+        setIsPlaying(true);
 
         if (selectedCartridge.scoreFunction)
             scoreFunction = parser.parse(selectedCartridge.scoreFunction);
@@ -195,31 +225,46 @@ function Rivemu() {
         Module.HEAPU8.set(selectedCartridge.cartridgeData, cartridgeBuf);
         // @ts-ignore:next-line
         Module.HEAPU8.set(replayLog, rivlogBuf);
+        // @ts-ignore:next-line
+        let incardBuf = Module._malloc(selectedCartridge.inCard?.length || 0);
+        // @ts-ignore:next-line
+        if (selectedCartridge?.inCard) Module.HEAPU8.set(selectedCartridge.inCard, incardBuf);
         let params = selectedCartridge?.args || "";
         // @ts-ignore:next-line
         Module.ccall(
-            "rivemu_start_replay_ex",
-            selectedCartridge.inCard || null,
-            ["number", "number", "number", "number", "string"],
+            "rivemu_start_replay",
+            null,
+            ['number', 'number', 'number', 'number', 'string', 'number', 'number'],
             [
                 cartridgeBuf,
                 selectedCartridge.cartridgeData.length,
-                rivlogBuf,
-                replayLog.length,
+                incardBuf,
+                selectedCartridge.inCard?.length || 0,
                 params,
+                rivlogBuf,
+                replayLog.length
             ]
         );
         // @ts-ignore:next-line
         Module._free(cartridgeBuf);
         // @ts-ignore:next-line
         Module._free(rivlogBuf);
+        // @ts-ignore:next-line
+        Module._free(incardBuf);
+    }
+
+    async function rivemuHalt() {
+        // @ts-ignore:next-line
+        if (Module.ccall('rivemu_stop')) {
+            await waitEvent('rivemu_on_shutdown');
+        }
     }
 
     async function rivemuStop() {
         console.log("rivemuStop");
         setIsPlaying(false);
         // @ts-ignore:next-line
-        Module.cwrap("rivemu_stop")();
+        rivemuHalt();
         movePageToTop();
         // stopCartridge();
     }
@@ -227,18 +272,29 @@ function Rivemu() {
 
     if (typeof window !== "undefined") {
         // @ts-ignore:next-line
-        window.rivemu_on_outcard_update = function (outcard: any) {
-            const outcard_str = decoder.decode(outcard);
-            const outcard_json = JSON.parse(outcard_str.substring(4)); // .replace(/\,(?!\s*?[\{\[\"\'\w])/g, '')
-            let score = outcard_json.score;
-            if (selectedCartridge?.scoreFunction) {
-                score = scoreFunction.evaluate(outcard_json);
+        window.rivemu_on_frame = function (
+            outcard: ArrayBuffer,
+            frame: number, 
+            fps: number, 
+            mips: number, 
+            cpu_usage: number, 
+            cycles: number
+        ) {
+            let score = 0;
+            if (decoder.decode(outcard.slice(0,4)) == 'JSON') {
+                const outcard_str = decoder.decode(outcard);
+                const outcard_json = JSON.parse(outcard_str.substring(4));
+                score = outcard_json.score;
+                if (selectedCartridge?.scoreFunction) {
+                    score = scoreFunction.evaluate(outcard_json);
+                }
             }
             setOverallScore(score);
         };
 
         // @ts-ignore:next-line
-        window.rivemu_on_begin = function (width: any, height: any) {
+        window.rivemu_on_begin = function (width: number, height: number, target_fps: number, total_frames: number) {
+            if (!playedOnce) setPlayedOnce(true);
             const canvas: any = document.getElementById("canvas");
             setGameHeigth(height);
             if (canvas) {
@@ -254,10 +310,11 @@ function Rivemu() {
         // @ts-ignore:next-line
         window.rivemu_on_finish = function (
             rivlog: ArrayBuffer,
-            outcard: ArrayBuffer
+            outcard: ArrayBuffer,
+            outhash: string
         ) {
             if (!isReplaying) {
-                setGameplay(new Uint8Array(rivlog),decoder.decode(outcard));
+                setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash);
                 setReplayLog(new Uint8Array(rivlog));
             }
             console.log("rivemu_on_finish")
@@ -319,13 +376,13 @@ function Rivemu() {
             {/* <div className="flex justify-center max-h-400"> */}
                 {/* TODO: fix suspense rivemu canvas */}
                 {/* <Suspense fallback={coverFallback()}> */}
-                <div 
-                    // style={{
-                    //     height: canvasHeight,
-                    //     width: canvasWidth
-                    // }}
+                <div className='relative'
+                    style={{
+                        height: canvasHeight,
+                        width: canvasWidth
+                    }}
                     >
-                    <div hidden={!isPlaying}>
+                    <div hidden={!isPlaying && playedOnce} className='flex justify-center'>
                         <canvas
                             id="canvas"
                             onContextMenu={(e) => e.preventDefault()}
@@ -333,7 +390,7 @@ function Rivemu() {
                         />
                     </div>
                     {/* <div hidden={isPlaying} style={{backgroundColor: "black"}}> */}
-                    <div hidden={isPlaying}>
+                    <div hidden={isPlaying} className='absolute top-0'>
                         {coverFallback()}
                     </div>
                 {/* </Suspense> */}

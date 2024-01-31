@@ -30,7 +30,8 @@ export interface PlayableCartridge extends Cartridge {
     scoreFunction: string | undefined;
     replay: Uint8Array | undefined;
     gameplayLog: Uint8Array | undefined;
-    outcard: string | undefined;
+    outcard: Uint8Array | undefined;
+    outhash: string | undefined;
 }
 
 export function SelectedCartridgeProvider({ children }:{ children: React.ReactNode }) {
@@ -39,13 +40,13 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
     const changeCartridge = (cartridge:Cartridge) => {
         const aux = {...cartridge, play:false, cartridgeData:undefined, inCard:undefined, 
             args:undefined, scoreFunction:undefined, replay:undefined, gameplayLog:undefined, 
-            outcard:undefined, initCanvas:selectedCartridge?.initCanvas};
+            outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
         setSelectedCartridge(aux as PlayableCartridge);
     }
  
     const playCartridge = () => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:true, replay:undefined, playToggle:!selectedCartridge.playToggle, initCanvas:true});
+            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay:undefined, playToggle:!selectedCartridge.playToggle, initCanvas:true});
         }
     }
 
@@ -57,7 +58,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
 
     const setReplay = (replay: Uint8Array) => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, replay, playToggle:!selectedCartridge.playToggle, initCanvas:true});
+            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay, playToggle:!selectedCartridge.playToggle, initCanvas:true});
         }
     }
 
@@ -73,15 +74,15 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         }
     }
     
-    const setGameplay = (gameplayLog: Uint8Array, outcard: string) => {
+    const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string) => {
         if (selectedCartridge) {
             if (outcard == undefined)
                 if (gameplayLog == undefined)
-                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard});
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash});
                 else
-                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, play: true, playToggle:!selectedCartridge.playToggle, initCanvas:true});
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, play: true, playToggle:!selectedCartridge.playToggle, initCanvas:true});
             else
-                setSelectedCartridge({...selectedCartridge, gameplayLog, outcard});
+                setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash});
         }
     }
     
