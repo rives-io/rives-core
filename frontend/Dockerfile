@@ -29,6 +29,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ARG NEXT_PUBLIC_CARTESI_NODE_URL
+ARG NEXT_PUBLIC_DAPP_ADDR
 ENV NEXT_TELEMETRY_DISABLED 1
 
 RUN npm run build
