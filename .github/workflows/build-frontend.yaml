@@ -22,8 +22,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build image
-        run: docker build frontend/ --file frontend/Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}" --build-arg "NEXT_PUBLIC_CARTESI_NODE_URL=$NEXT_PUBLIC_CARTESI_NODE_URL"
+        run: docker build frontend/ --file frontend/Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}" --build-arg "NEXT_PUBLIC_CARTESI_NODE_URL=$NEXT_PUBLIC_CARTESI_NODE_URL" --build-arg "NEXT_PUBLIC_DAPP_ADDR=$NEXT_PUBLIC_DAPP_ADDR"
         env:
+          NEXT_PUBLIC_DAPP_ADDR: ${{ vars.NEXT_PUBLIC_DAPP_ADDR }}
           NEXT_PUBLIC_CARTESI_NODE_URL: ${{ vars.NEXT_PUBLIC_CARTESI_NODE_URL }}
 
       - name: Log in to registry
