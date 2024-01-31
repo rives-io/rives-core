@@ -121,7 +121,7 @@ function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:strin
                         return (
                             <tr key={`${scoreInfo.user_address}-${scoreInfo.timestamp}`} className="">
 
-                                <td scope="row" className="px-6 py-4 break-all">
+                                <td scope="row" title={scoreInfo.user_address} className="px-6 py-4 break-all">
                                     {/* {score.user_address.substring(0, 7)}...{score.user_address.substring(score.user_address.length-5)} */}
                                     {setMedal(index)} {scoreInfo.user_address.substring(0,6)}...{scoreInfo.user_address.substring(scoreInfo.user_address.length-4,scoreInfo.user_address.length)}
                                 </td>
