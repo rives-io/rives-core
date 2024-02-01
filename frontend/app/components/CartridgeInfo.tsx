@@ -15,12 +15,11 @@ import StadiumIcon from '@mui/icons-material/Stadium';
 import CodeIcon from '@mui/icons-material/Code';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
-import { sha256 } from "js-sha256";
 
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
 import Loader from "../components/Loader";
-import { replay } from '../backend-libs/app/lib';
+import { ReplayScore, getOutputs, replay } from '../backend-libs/app/lib';
 import { Replay } from '../backend-libs/app/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
@@ -78,6 +77,7 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
     }
 }
 
+
 function scoreboardFallback() {
     const arr = Array.from(Array(3).keys());
 
@@ -94,6 +94,9 @@ function scoreboardFallback() {
                     <th scope="col" className="px-6 py-3">
                         Score
                     </th>
+                    <th scope="col" className="px-6 py-3">
+
+                    </th>
                 </tr>
             </thead>
             <tbody className='animate-pulse'>
@@ -103,7 +106,7 @@ function scoreboardFallback() {
                             <tr key={index} className='mb-3 h-16'>
                                 <td className="px-6 py-4 break-all">
                                     <div className='fallback-bg-color rounded-md'>
-                                        0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+                                        0xf39f...2266
                                     </div>
                                 </td>
 
@@ -114,6 +117,11 @@ function scoreboardFallback() {
                                 </td>
 
                                 <td className="px-6 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                                <td className="px-6">
                                     <div className='fallback-bg-color rounded-md'>
                                         100
                                     </div>
@@ -129,18 +137,25 @@ function scoreboardFallback() {
 }
 
 function CartridgeInfo() {
-    const {selectedCartridge, playCartridge, setGameplay} = useContext(selectedCartridgeContext);
+    const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
     const fileRef = useRef<HTMLInputElement | null>(null);
-    const [{ wallet }, connect] = useConnectWallet();
+    const [{ wallet }] = useConnectWallet();
     const { download } = useDownloader();
     const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
+    const reloadScoreboard = submitLogStatus.status === STATUS.VALID? true:false;
 
     if (!selectedCartridge) return <></>;
 
+    var decoder = new TextDecoder("utf-8");
+
     async function submitLog() {
         // replay({car});
-        if (!selectedCartridge || !selectedCartridge.gameplayLog || !selectedCartridge.outcard){
+        if (!selectedCartridge || !selectedCartridge.gameplayLog){
             alert("No gameplay data.");
+            return;
+        }
+        if (!selectedCartridge.outcard || !selectedCartridge.outhash ){
+            alert("No gameplay output yet, you should run it.");
             return;
         }
         if (!wallet) {
@@ -151,16 +166,22 @@ function CartridgeInfo() {
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
             cartridge_id:"0x"+selectedCartridge.id,
-            outcard_hash: "0x"+sha256(selectedCartridge.outcard),
+            outcard_hash: '0x' + selectedCartridge.outhash,
             args: selectedCartridge.args || "",
             in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
             log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
         }
+        console.log("Sending Replay:")
+        if (decoder.decode(selectedCartridge.outcard.slice(0,4)) == 'JSON') {
+            console.log("Replay Outcard",JSON.parse(decoder.decode(selectedCartridge.outcard).substring(4)))
+        } else {
+            console.log("Replay Outcard",selectedCartridge.outcard)
+        }
+        console.log("Replay Outcard hash",selectedCartridge.outhash)
 
         setSubmitLogStatus({status: STATUS.VALIDATING});
         try {
-            const replayRes = await replay(signer, envClient.DAPP_ADDR, inputData, {decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
-            console.log(replayRes);
+            await replay(signer, envClient.DAPP_ADDR, inputData, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
             setSubmitLogStatus({status: STATUS.VALID});
         } catch (error) {
             setSubmitLogStatus({status: STATUS.INVALID, error: (error as Error).message});
@@ -188,12 +209,30 @@ function CartridgeInfo() {
         reader.onload = async (readerEvent) => {
             const data = readerEvent.target?.result;
             if (data) {
-                setGameplay(new Uint8Array(data as ArrayBuffer));
+                setGameplay(new Uint8Array(data as ArrayBuffer), undefined);
+                e.target.value = null;
             }
         };
         reader.readAsArrayBuffer(e.target.files[0])
     }
 
+    async function prepareReplay(replayScore: ReplayScore) {
+        if (selectedCartridge) {
+            const replayLog: Array<Uint8Array> = await getOutputs(
+                {
+                    tags: ["replay", selectedCartridge?.id],
+                    timestamp_gte: replayScore.timestamp.toNumber(),
+                    timestamp_lte: replayScore.timestamp.toNumber(),
+                    msg_sender: replayScore.user_address,
+                    output_type: 'report'
+                },
+                {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
+            );
+            if (replayLog.length > 0) {
+                setReplay(replayLog[0]);
+            }
+        }
+    }
     return (
         <fieldset className='h-full custom-shadow'>
             <legend className="ms-2 px-1">
@@ -243,7 +282,8 @@ function CartridgeInfo() {
                         </button>
 
                         <button className={"button-57"} onClick={() => {submitLog()}}
-                        disabled={!selectedCartridge.gameplayLog || !wallet || submitLogStatus.status != STATUS.READY}>
+                        disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || selectedCartridge?.outhash == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
+
                             {
                                 submitLogStatus.status === STATUS.READY?
                                     <>
@@ -347,7 +387,7 @@ function CartridgeInfo() {
                                 className="game-tab-content"
                             >
                                 <Suspense fallback={scoreboardFallback()}>
-                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id}/>
+                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboard} replay_function={prepareReplay}/>
                                 </Suspense>
 
                             </Tab.Panel>

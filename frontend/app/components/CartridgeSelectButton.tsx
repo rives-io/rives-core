@@ -19,9 +19,7 @@ function CartridgeSelectButton({cartridge, index}:{cartridge:Cartridge, index:nu
 
     const handleCartridgeSelection = async (e:React.MouseEvent<HTMLElement>) => {
 
-        const cartridgeWithInfo = await cartridgeInfo({id:cartridge.id},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL});
-
-        console.log('Select')
+        const cartridgeWithInfo = await cartridgeInfo({id:cartridge.id},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"});
 
 		changeCartridge(cartridgeWithInfo);
 	}

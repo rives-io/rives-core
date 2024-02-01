@@ -5,7 +5,7 @@ import { envClient } from '../utils/clientEnv';
 
 
 const getCartridges = cache(async () => {
-	const cartridges: any[] = (await cartridgerequest({},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL})).data;
+	const cartridges: any[] = (await cartridgerequest({},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"})).data;
 
     return cartridges;
   })

@@ -19,7 +19,7 @@ ARG MACHINE_EMULATOR_TOOLS_VERSION
 
 LABEL io.sunodo.sdk_version=${SUNODORIV_SDK_VERSION}
 LABEL io.cartesi.rollups.ram_size=128Mi
-#LABEL io.cartesi.rollups.data_size=32Mb
+LABEL io.cartesi.rollups.data_size=128Mb
 
 WORKDIR /opt/tools
 
@@ -27,7 +27,7 @@ WORKDIR /opt/tools
 RUN <<EOF
 apt-get update && \
 apt-get install -y --no-install-recommends wget=1.21.2-2ubuntu1 ca-certificates=20230311ubuntu0.22.04.1 \
-    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.10 && \
+    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.10 squashfs-tools=1:4.5-3build1&& \
 wget -O machine-emulator-tools.deb https://github.com/cartesi/machine-emulator-tools/releases/download/v${MACHINE_EMULATOR_TOOLS_VERSION}/machine-emulator-tools-v${MACHINE_EMULATOR_TOOLS_VERSION}.deb && \
 rm -rf /var/lib/apt/lists/*
 EOF
@@ -77,7 +77,9 @@ COPY main.py .
 COPY cartesapp cartesapp
 COPY app app
 COPY misc/snake.sqfs misc/snake.sqfs
-COPY misc/doom.sqfs misc/doom.sqfs
+COPY misc/2048.sqfs misc/2048.sqfs
+COPY misc/freedoom.sqfs misc/freedoom.sqfs
+COPY misc/antcopter.sqfs misc/antcopter.sqfs
 
 FROM base as dapp
 

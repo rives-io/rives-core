@@ -12,7 +12,7 @@ from cartesi.abi import String, Bytes, Bytes32, UInt
 from cartesapp.storage import Entity, helpers, seed
 from cartesapp.manager import query, mutation, get_metadata, event, output, add_output, emit_event, contract_call
 
-from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path
+from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path, riv_get_cover, riv_get_cartridge_outcard
 from .setup import AppSettings
 
 LOGGER = logging.getLogger(__name__)
@@ -37,12 +37,25 @@ def initialize_data():
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/snake.sqfs')
 
-    cartridge_example_file = open('misc/doom.sqfs','rb')
+    cartridge_example_file = open('misc/freedoom.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/freedoom.sqfs')
 
+    cartridge_example_file = open('misc/antcopter.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/antcopter.sqfs')
+
+    cartridge_example_file = open('misc/2048.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    if AppSettings.rivemu_path is None: os.remove('misc/2048.sqfs')
 
 
 # Inputs
@@ -158,7 +171,7 @@ def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
 ###
 # Queries
 
-@query()
+@query(splittable_output=True)
 def cartridge(payload: CartridgePayload) -> bool:
     query = helpers.select(c for c in Cartridge if c.id == payload.id)
 
@@ -252,7 +265,10 @@ def create_cartridge(cartridge_data,**metadata):
     cartridge_info_json = json.loads(cartridge_info)
     Info(**cartridge_info_json)
 
-    cartridge_cover = cartridge_info_json.get("cover")
+    # check if cartridge runs
+    riv_get_cartridge_outcard(data_hash,0,None,None)
+
+    cartridge_cover = riv_get_cover(data_hash)
     if cartridge_cover is None or len(cartridge_cover) == 0:
         cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
 

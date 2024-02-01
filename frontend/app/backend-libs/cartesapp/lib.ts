@@ -31,6 +31,7 @@ ajv.addFormat("biginteger", (data) => {
 });
 const abiCoder = new ethers.utils.AbiCoder();
 export const CONVENTIONAL_TYPES: Array<string> = ["bytes","hex","str","int","dict","list","tuple","json"];
+const MAX_SPLITTABLE_OUTPUT_SIZE = 4194247;
 
 
 /**

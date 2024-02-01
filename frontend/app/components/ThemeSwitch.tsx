@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import DarkIcon from "@/app/components/svg/DarkIcon";
 import LightIcon from "@/app/components/svg/LightIcon";
+import { setCookieTheme } from "../utils/theme";
 
 const LIGHT_TRANSLATE = "-translate-x-2";
 const LIGHT_BTN = "bg-yellow-500";
@@ -18,20 +19,13 @@ type ThemeButton = {
     btnColor: string;
 }
 
-function setSiteTheme(theme:string) {
-    document.documentElement.setAttribute("data-theme", theme);
-    console.log(theme)
-}
 
 function ThemeSwitch() {
     const [theme, setTheme] = useState<ThemeButton | null>(null);
-    // set theme
-    if (theme) setSiteTheme(theme.theme);
-
 
     // retrieve theme from localStorage
     useEffect(() => {
-        if (window.localStorage.getItem("data-theme") == "light") {
+        if (document.documentElement.getAttribute("data-theme") == "light") {
             setTheme({
                 theme: "light", "translate": LIGHT_TRANSLATE, "btnColor": LIGHT_BTN
             });
@@ -48,12 +42,12 @@ function ThemeSwitch() {
             setTheme({
                 theme: "light", "translate": LIGHT_TRANSLATE, "btnColor": LIGHT_BTN
             });
-            window.localStorage.setItem("data-theme", "light");
+            setCookieTheme("light");
         } else {
             setTheme({
                 theme: "dark", "translate": DARK_TRANSLATE, "btnColor": DARK_BTN
             });
-            window.localStorage.setItem("data-theme", "dark");
+            setCookieTheme("dark");
         }
     }
 
