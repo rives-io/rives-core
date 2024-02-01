@@ -78,12 +78,71 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
 }
 
 
+function scoreboardFallback() {
+    const arr = Array.from(Array(3).keys());
+
+    return (
+        <table className="w-full text-sm text-left">
+            <thead className="text-xsuppercase">
+                <tr>
+                    <th scope="col" className="px-6 py-3">
+                        User
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                        Timestamp
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                        Score
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+
+                    </th>
+                </tr>
+            </thead>
+            <tbody className='animate-pulse'>
+                {
+                    arr.map((num, index) => {
+                        return (
+                            <tr key={index} className='mb-3 h-16'>
+                                <td className="px-6 py-4 break-all">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        0xf39f...2266
+                                    </div>
+                                </td>
+
+                                <td className="px-6 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        31/12/1969, 21:06:36
+                                    </div>
+                                </td>
+
+                                <td className="px-6 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                                <td className="px-6">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })
+                }
+
+            </tbody>
+        </table>
+    )
+}
+
 function CartridgeInfo() {
     const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
     const fileRef = useRef<HTMLInputElement | null>(null);
-    const [{ wallet }, connect] = useConnectWallet();
+    const [{ wallet }] = useConnectWallet();
     const { download } = useDownloader();
     const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
+    const reloadScoreboard = submitLogStatus.status === STATUS.VALID? true:false;
 
     if (!selectedCartridge) return <></>;
 
@@ -166,7 +225,7 @@ function CartridgeInfo() {
                     timestamp_lte: replayScore.timestamp.toNumber(),
                     msg_sender: replayScore.user_address,
                     output_type: 'report'
-                }, 
+                },
                 {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
             );
             if (replayLog.length > 0) {
@@ -327,7 +386,9 @@ function CartridgeInfo() {
                             <Tab.Panel
                                 className="game-tab-content"
                             >
-                                <CartridgeScoreboard cartridge_id={selectedCartridge.id} replay_function={prepareReplay}/>
+                                <Suspense fallback={scoreboardFallback()}>
+                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboard} replay_function={prepareReplay}/>
+                                </Suspense>
 
                             </Tab.Panel>
 
