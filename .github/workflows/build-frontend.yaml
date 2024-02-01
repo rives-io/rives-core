@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'frontend/**'
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: world-arcade-front
