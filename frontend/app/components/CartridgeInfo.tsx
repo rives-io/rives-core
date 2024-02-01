@@ -142,6 +142,7 @@ function CartridgeInfo() {
     const [{ wallet }] = useConnectWallet();
     const { download } = useDownloader();
     const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
+    const reloadScoreboard = submitLogStatus.status === STATUS.VALID? true:false;
 
     if (!selectedCartridge) return <></>;
 
@@ -386,7 +387,7 @@ function CartridgeInfo() {
                                 className="game-tab-content"
                             >
                                 <Suspense fallback={scoreboardFallback()}>
-                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} replay_function={prepareReplay}/>
+                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboard} replay_function={prepareReplay}/>
                                 </Suspense>
 
                             </Tab.Panel>

@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
-import CachedIcon from '@mui/icons-material/Cached';
 import {CACHE_OPTIONS_TYPE } from "cartesi-client";
 
 import { envClient } from '../utils/clientEnv';
@@ -29,8 +27,8 @@ const setMedal = (index:number) => {
     return <span className='ms-7'></span>;
 }
 
-async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id:string,replay_function(replayScore: ReplayScore): void}) {
-    const [reload, setReload] = useState(0);
+async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
+    cartridge_id:string, reload:boolean, replay_function(replayScore: ReplayScore): void}) {
 
     const playReplay = (replayScore:ReplayScore) => {
         replay_function(replayScore);
@@ -41,7 +39,7 @@ async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id
     }
 
     let generalScores:ReplayScore[];
-    if (reload > 0) {
+    if (reload) {
         generalScores = await reloadScores("no-store");
     } else {
         generalScores = await reloadScores();
@@ -49,7 +47,6 @@ async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id
 
     return (
         <div className="relative">
-            <button className="absolute top-0 right-0" onClick={() => setReload(reload+1)}><span><CachedIcon/></span></button>
             <table className="w-full text-sm text-left">
                 <thead className="text-xsuppercase">
                     <tr>
@@ -72,9 +69,7 @@ async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id
                         generalScores.map((scoreInfo, index) => {
                             return (
                                 <tr key={`${scoreInfo.user_address}-${scoreInfo.timestamp}`} className="">
-
                                     <td scope="row" className="px-6 py-4 break-all">
-                                        {/* {score.user_address.substring(0, 7)}...{score.user_address.substring(score.user_address.length-5)} */}
                                         {setMedal(index)} {scoreInfo.user_address.substring(0,6)}...{scoreInfo.user_address.substring(scoreInfo.user_address.length-4,scoreInfo.user_address.length)}
                                     </td>
                                     <td className="px-6 py-4">
@@ -99,11 +94,11 @@ async function CartridgeScoreboard({cartridge_id, replay_function}:{cartridge_id
 //export default CartridgeScoreboard;
 
 
-const notRender = (prevProps, nextProps) => {
-    if (prevProps.cartridge_id === nextProps.cartridge_id) {
-      return true                                    // donot re-render
+const notRender = (prevProps:{cartridge_id:string, reload:boolean}, nextProps:{cartridge_id:string, reload:boolean}) => {
+    if ((prevProps.cartridge_id !== nextProps.cartridge_id) || nextProps.reload) {
+      return false                                   // will re-render
     }
-    return false                                     // will re-render
+    return true                                      // donot re-render
 }
 
 export default React.memo(CartridgeScoreboard, notRender)
