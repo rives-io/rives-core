@@ -9,12 +9,15 @@ import re
 
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt
 
-from cartesapp.storage import helpers # TODO: create repo to avoid this relative import hassle
-from cartesapp.manager import mutation, get_metadata, add_output, event, emit_event, contract_call # TODO: create repo to avoid this relative import hassle
+from cartesapp.storage import helpers
+from cartesapp.context import get_metadata
+from cartesapp.input import mutation
+from cartesapp.output import add_output, event, emit_event, contract_call
 from cartesapp.utils import bytes2str
 
-from .setup import AppSettings, ScoreType, GameplayHash
+from .settings import AppSettings
 from .riv import replay_log
+from .model import ScoreType, GameplayHash
 
 LOGGER = logging.getLogger(__name__)
 
