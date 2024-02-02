@@ -17,7 +17,7 @@ export default function Home() {
           </p>
 
           <div className="w-1/2 flex items-center justify-center">
-            <YoutubeVideo videoId="1x5B1xJY7as" />
+            <YoutubeVideo videoId="7y22pdgGIE0" />
           </div>
 
       </section>

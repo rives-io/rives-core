@@ -1,15 +1,13 @@
 import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
-import {CACHE_OPTIONS_TYPE } from "cartesi-client";
-
 import { envClient } from '../utils/clientEnv';
 import React from 'react';
 
 
 
-const getGeneralScoreboard = async (cartridge_id:string, cache: CACHE_OPTIONS_TYPE):Promise<Array<ReplayScore>> => {
-    const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache});
+const getGeneralScoreboard = async (cartridge_id:string):Promise<Array<ReplayScore>> => {
+    const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
     return scores;
 }
 
@@ -28,22 +26,17 @@ const setMedal = (index:number) => {
 }
 
 async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
-    cartridge_id:string, reload:boolean, replay_function(replayScore: ReplayScore): void}) {
+    cartridge_id:string, reload:number, replay_function(replayScore: ReplayScore): void}) {
 
     const playReplay = (replayScore:ReplayScore) => {
         replay_function(replayScore);
     }
 
-    const reloadScores = async (cacheOption: CACHE_OPTIONS_TYPE | undefined = "force-cache") => {
-        return (await getGeneralScoreboard(cartridge_id, cacheOption)).sort((a, b) => b.score - a.score);
+    const reloadScores = async () => {
+        return (await getGeneralScoreboard(cartridge_id)).sort((a, b) => b.score - a.score);
     }
 
-    let generalScores:ReplayScore[];
-    if (reload) {
-        generalScores = await reloadScores("no-store");
-    } else {
-        generalScores = await reloadScores();
-    }
+    const generalScores:ReplayScore[] = await reloadScores();
 
     return (
         <div className="relative">
@@ -79,7 +72,7 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
                                         {scoreInfo.score.toLocaleString()}
                                     </td>
                                     <td className="py-4">
-                                        <button onClick={() => playReplay(scoreInfo)}><span><OndemandVideoIcon/></span></button>
+                                        <button className='scoreboard-btn' onClick={() => playReplay(scoreInfo)}><span><OndemandVideoIcon/></span></button>
                                     </td>
                                 </tr>
                             );
@@ -94,11 +87,12 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
 //export default CartridgeScoreboard;
 
 
-const notRender = (prevProps:{cartridge_id:string, reload:boolean}, nextProps:{cartridge_id:string, reload:boolean}) => {
-    if ((prevProps.cartridge_id !== nextProps.cartridge_id) || nextProps.reload) {
-      return false                                   // will re-render
+const arePropsEqual = (prevProps:{cartridge_id:string, reload:number}, nextProps:{cartridge_id:string, reload:number}) => {
+    // change cartridge || log validated reload or reload btn
+    if ((prevProps.cartridge_id !== nextProps.cartridge_id) || (prevProps.reload !== nextProps.reload)) {
+        return false                                   // will re-render
     }
     return true                                      // donot re-render
 }
 
-export default React.memo(CartridgeScoreboard, notRender)
+export default React.memo(CartridgeScoreboard, arePropsEqual)

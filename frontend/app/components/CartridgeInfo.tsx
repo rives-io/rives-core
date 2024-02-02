@@ -1,7 +1,7 @@
 "use client"
 
 import { ethers } from "ethers";
-import React, { Suspense, useContext, useRef, useState } from 'react'
+import React, { Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import PublishIcon from '@mui/icons-material/Publish';
@@ -11,6 +11,7 @@ import { Tab } from '@headlessui/react'
 import { Canvas } from '@react-three/fiber';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
+import CachedIcon from '@mui/icons-material/Cached';
 import StadiumIcon from '@mui/icons-material/Stadium';
 import CodeIcon from '@mui/icons-material/Code';
 import useDownloader from "react-use-downloader";
@@ -40,6 +41,7 @@ enum STATUS {
 }
 
 interface LOG_STATUS {
+    cartridgeId:string,
     status:STATUS,
     error?:string
 }
@@ -142,7 +144,15 @@ function CartridgeInfo() {
     const [{ wallet }] = useConnectWallet();
     const { download } = useDownloader();
     const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
-    const reloadScoreboard = submitLogStatus.status === STATUS.VALID? true:false;
+    const [reloadScoreboardCount, setReloadScoreboardCount] = useState(0);
+
+    useEffect(() => {
+        // auto reload scoreboard only if
+        // gameplay log sent is valid and the selected cartridge is the same of the gameplay sent
+        if (submitLogStatus.status === STATUS.VALID && submitLogStatus.cartridgeId === selectedCartridge?.id) {
+            setReloadScoreboardCount(reloadScoreboardCount+1);
+        }
+    }, [submitLogStatus])
 
     if (!selectedCartridge) return <></>;
 
@@ -179,12 +189,12 @@ function CartridgeInfo() {
         }
         console.log("Replay Outcard hash",selectedCartridge.outhash)
 
-        setSubmitLogStatus({status: STATUS.VALIDATING});
+        setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALIDATING});
         try {
             await replay(signer, envClient.DAPP_ADDR, inputData, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
-            setSubmitLogStatus({status: STATUS.VALID});
+            setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALID});
         } catch (error) {
-            setSubmitLogStatus({status: STATUS.INVALID, error: (error as Error).message});
+            setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.INVALID, error: (error as Error).message});
         }
     }
 
@@ -285,7 +295,7 @@ function CartridgeInfo() {
                         disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || selectedCartridge?.outhash == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
 
                             {
-                                submitLogStatus.status === STATUS.READY?
+                                submitLogStatus.status === STATUS.READY || submitLogStatus.cartridgeId !== selectedCartridge.id?
                                     <>
                                         <span><PublishIcon/></span>
                                         <span>Submit Log</span>
@@ -386,8 +396,11 @@ function CartridgeInfo() {
                             <Tab.Panel
                                 className="game-tab-content"
                             >
+                                <div className="w-full flex">
+                                    <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
+                                </div>
                                 <Suspense fallback={scoreboardFallback()}>
-                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboard} replay_function={prepareReplay}/>
+                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
                                 </Suspense>
 
                             </Tab.Panel>
