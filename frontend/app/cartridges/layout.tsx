@@ -1,3 +1,4 @@
+import SubmitedLogsModal from '../components/SubmitedLogsModal';
 import { SelectedCartridgeProvider } from './selectedCartridgeProvider';
 
 export default async function CartridgesLayout({
@@ -8,6 +9,7 @@ export default async function CartridgesLayout({
 
     return (
         <SelectedCartridgeProvider>
+          <SubmitedLogsModal/>
             {children}
         </SelectedCartridgeProvider>
     )
