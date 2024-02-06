@@ -7,7 +7,7 @@ import json
 from py_expression_eval import Parser
 import re
 
-from cartesi.abi import String, Bytes, Bytes32, Int, UInt
+from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address
 
 from cartesapp.storage import Entity, helpers, seed
 from cartesapp.context import get_metadata
@@ -18,7 +18,8 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2str
 from .settings import AppSettings
 from .riv import replay_log, riv_get_cartridge_outcard
 from .cartridge import Cartridge
-from .model import ScoreType, GameplayHash
+from .common import ScoreType, GameplayHash, screenshot_add_score, get_cid
+from .cartridge import Cartridge
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class Scoreboard(Entity):
     id              = helpers.PrimaryKey(str, 64)
     name            = helpers.Required(str, index=True, unique=True)
     cartridge_id    = helpers.Required(str, 64, index=True)
-    created_by      = helpers.Required(str, 66)
+    created_by      = helpers.Required(str, 42)
     created_at      = helpers.Required(int)
     args            = helpers.Optional(str)
     in_card         = helpers.Optional(bytes)
@@ -41,7 +42,8 @@ class Scoreboard(Entity):
 
 class Score(Entity):
     id              = helpers.PrimaryKey(int, auto=True)
-    user_address    = helpers.Required(str, 66, index=True)
+    user_address    = helpers.Required(str, 42, index=True)
+    user_alias      = helpers.Required(str, 42, index=True)
     timestamp       = helpers.Required(int)
     score           = helpers.Required(int)
     scoreboard      = helpers.Required(Scoreboard, index=True)
@@ -85,6 +87,7 @@ class ScoreboardReplayPayload(BaseModel):
     scoreboard_id:  Bytes32
     outcard_hash:   Bytes32
     log:            Bytes
+    user_alias:     String
 
 class ScoreboardsPayload(BaseModel):
     cartridge_id:   str
@@ -113,12 +116,15 @@ class ScoreboardRemoved(BaseModel):
 @event()
 class ScoreboardReplayScore(BaseModel):
     cartridge_id:   Bytes32
-    user_address:   String
+    user_address:   Address
     timestamp:      UInt
     score:          Int # default score
     score_type:     Int = ScoreType.scoreboard.value
     extra_score:    Int
     scoreboard_id:  String
+    user_alias:     String = ''
+    screenshot_cid: String = ''
+    gameplay_hash:  Bytes32
 
 class ScoreboardInfo(BaseModel):
     id: String
@@ -261,8 +267,18 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         add_output(msg,tags=['error'])
         return False
 
-    if not GameplayHash.check(scoreboard.cartridge_id,sha256(replay.log).hexdigest()):
+    gameplay_hash = sha256(replay.log)
+    
+    if not GameplayHash.check(scoreboard.cartridge_id,gameplay_hash.hexdigest()):
         msg = f"Gameplay already submitted"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
+        return False
+
+    cartridge = helpers.select(c for c in Cartridge if c.id == scoreboard.cartridge_id).first()
+
+    if cartridge is None:
+        msg = f"Game not found"
         LOGGER.error(msg)
         add_output(msg,tags=['error'])
         return False
@@ -270,7 +286,7 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
     # process replay
     LOGGER.info(f"Processing scoreboard replay...")
     try:
-        outcard_raw, outhash = replay_log(scoreboard.cartridge_id,replay.log,scoreboard.args,scoreboard.in_card)
+        outcard_raw, outhash, screenshot = replay_log(scoreboard.cartridge_id,replay.log,scoreboard.args,scoreboard.in_card)
     except Exception as e:
         msg = f"Couldn't replay log: {e}"
         LOGGER.error(msg)
@@ -316,26 +332,35 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         add_output(msg,tags=['error'])
         return False
 
+    user_alias = replay.user_alias if len(replay.user_alias) else f"{metadata.msg_sender[:6]}...{metadata.msg_sender[:-4]}"
+
     s = Score(
         user_address = metadata.msg_sender,
+        user_alias = user_alias,
         timestamp = metadata.timestamp,
         score = score,
         scoreboard = scoreboard
     )
 
+    final_screenshot = screenshot_add_score(screenshot,cartridge.name,score,user_alias)
+    cid = get_cid(final_screenshot)
+
     replay_score = ScoreboardReplayScore(
         cartridge_id = hex2bytes(scoreboard.cartridge_id),
         user_address = metadata.msg_sender,
+        user_alias = user_alias,
         timestamp = metadata.timestamp,
         score = default_score,
         extra_score = score,
         scoreboard_id = replay.scoreboard_id.hex(),
+        gameplay_hash = gameplay_hash.digest()
     )
 
     add_output(replay.log,tags=['replay',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
+    add_output(final_screenshot,tags=['screenshot',replay.cartridge_id.hex()])
     emit_event(replay_score,tags=['score',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
 
-    GameplayHash.add(scoreboard.cartridge_id,sha256(replay.log).hexdigest())
+    GameplayHash.add(scoreboard.cartridge_id,gameplay_hash.hexdigest())
 
     return True
 

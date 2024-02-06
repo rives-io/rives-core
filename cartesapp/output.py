@@ -2,8 +2,8 @@ from enum import Enum
 import json
 from pydantic import BaseModel
 import logging
+from Crypto.Hash import keccak
 
-from cartesi.abi import encode_model
 from cartesi import abi
 
 from .utils import str2bytes, hex2bytes, bytes2hex
@@ -93,8 +93,8 @@ def normalize_output(data,encode_format) -> [bytes, str]:
     if isinstance(data, dict) or isinstance(data, list) or isinstance(data, tuple):
         return str2bytes(json.dumps(data)),class_name
     if issubclass(data.__class__,BaseModel): 
-        if encode_format == OutputFormat.abi: return encode_model(data),class_name
-        if encode_format == OutputFormat.packed_abi: return encode_model(data,True),class_name
+        if encode_format == OutputFormat.abi: return abi.encode_model(data),class_name
+        if encode_format == OutputFormat.packed_abi: return abi.encode_model(data,True),class_name
         if encode_format == OutputFormat.json: return str2bytes(data.json(exclude_unset=True,exclude_none=True)),class_name
     raise Exception("Invalid output format")
 
@@ -102,13 +102,25 @@ def normalize_voucher(*kargs):
     if len(kargs) == 1:
         if isinstance(kargs[0], bytes): return kargs[0],'bytes'
         if isinstance(kargs[0], str): return hex2bytes(kargs[0]),'hex'
+        if issubclass(kargs[0].__class__,BaseModel):
+
+            args_types = abi.get_abi_types_from_model(kargs[0])
+            signature = f'{kargs[0].__class__.__name__}({",".join(args_types)})'
+            sig_hash = keccak.new(digest_bits=256)
+            sig_hash.update(signature.encode('utf-8'))
+
+            selector = sig_hash.digest()[:4]
+            data = abi.encode_model(kargs[0])
+            return selector+data,kargs[0].__class__.__name__
         raise Exception("Invalid voucher payload")
     if len(kargs) == 2:
         if not isinstance(kargs[0], str): raise Exception("Invalid voucher selector")
         if not issubclass(kargs[1].__class__,BaseModel): raise Exception("Invalid voucher model")
 
+        args_types = abi.get_abi_types_from_model(kargs[1])
+        signature = f'{kargs[0]}({",".join(args_types)})'
         sig_hash = keccak.new(digest_bits=256)
-        sig_hash.update(kargs[0].encode('utf-8'))
+        sig_hash.update(signature.encode('utf-8'))
 
         selector = sig_hash.digest()[:4]
         data = abi.encode_model(kargs[1])
@@ -121,7 +133,8 @@ def normalize_voucher(*kargs):
 def send_report(payload_data, **kwargs):
     ctx = Context
     # only one output to allow always chunking
-    if ctx.n_reports > 0: raise Exception("Can't add multiple reports")
+    if ctx.metadata is None and ctx.n_reports > 0: # single report per inspect
+        raise Exception("Can't add multiple reports")
     
     stg = Setting.settings.get(ctx.module)
 
@@ -144,8 +157,9 @@ def send_report(payload_data, **kwargs):
         LOGGER.warn("Payload Data exceed maximum length. Truncating")
     payload = payload[:MAX_AGGREGATED_OUTPUT_SIZE]
 
-    # Always chunk if len > MAX_OUTPUT_SIZE
-    # if len(payload) > MAX_OUTPUT_SIZE: raise Exception("Maximum report length violation")
+    # For inspects always chunk if len > MAX_OUTPUT_SIZE, for advance raise error
+    if ctx.metadata is not None and len(payload) > MAX_OUTPUT_SIZE:
+        raise Exception("Maximum report length violation")
 
     tags = kwargs.get('tags')
     add_idx = ctx.metadata is not None and stg is not None \
@@ -191,7 +205,7 @@ def send_notice(payload_data, **kwargs):
     ctx.n_notices += 1
 
 def send_voucher(destination: str, *kargs, **kwargs):
-    payload,class_name = normalize_voucher()
+    payload,class_name = normalize_voucher(*kargs)
 
     if len(payload) > MAX_OUTPUT_SIZE: raise Exception("Maximum output length violation")
 
@@ -205,7 +219,7 @@ def send_voucher(destination: str, *kargs, **kwargs):
         Output.add_output_index(ctx.metadata,OutputType.voucher,ctx.n_vouchers,ctx.module,splited_class_name,tags)
 
     LOGGER.debug(f"Sending voucher{inds}")
-    ctx.rollup.voucher({destination:destination,payload:bytes2hex(payload)})
+    ctx.rollup.voucher({"destination":destination,"payload":bytes2hex(payload)})
     ctx.n_vouchers += 1
 
 

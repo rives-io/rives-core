@@ -53,6 +53,7 @@ class Manager(object):
 
         add_dapp_relay = False
         add_indexer_query = False
+        add_wallet = False
         for module_name in cls.modules_to_add:
             stg = importlib.import_module(f"{module_name}.settings")
             if not hasattr(stg,'FILES'):
@@ -69,8 +70,11 @@ class Manager(object):
             if not add_dapp_relay and hasattr(stg,'ENABLE_DAPP_RELAY') and getattr(stg,'ENABLE_DAPP_RELAY'):
                 add_dapp_relay = True
             
-            if hasattr(stg,'ENABLE_WALLET'):
-                LOGGER.warning("Wallet is not implemented yet")
+            if not add_wallet and hasattr(stg,'ENABLE_WALLET') and getattr(stg,'ENABLE_WALLET'):
+                if not add_dapp_relay:
+                    raise Exception(f"To enable wallet you should enable dapp relay")
+                add_dapp_relay = True
+                
 
             for f in files_to_import:
                 importlib.import_module(f"{module_name}.{f}")
@@ -81,6 +85,9 @@ class Manager(object):
             
         if add_dapp_relay:
             importlib.import_module(f"cartesapp.relay.dapp_relay")
+
+        if add_dapp_relay:
+            importlib.import_module(f"cartesapp.wallet.dapp_wallet")
 
     @classmethod
     def _register_queries(cls, add_to_router=True):
@@ -108,7 +115,7 @@ class Manager(object):
             path_params = configs.get('path_params')
             if path_params is not None:
                 for p in path_params:
-                    path = f"{path}/{{p}}"
+                    path = f"{path}/{'{'+p+'}'}"
             if path in query_selectors:
                 raise Exception("Duplicate query selector")
             query_selectors.append(path)
@@ -169,12 +176,11 @@ class Manager(object):
 
             cls.mutations_info[f"{module_name}.{func_name}"] = {"selector":header,"module":module_name,"method":func_name,"abi_types":abi_types,"model":model,"configs":configs}
             if add_to_router:
-                LOGGER.info(f"Adding mutation {module_name}.{func_name} selector={header_selector}, model={model.schema()}")
+                LOGGER.info(f"Adding mutation {module_name}.{func_name} selector={header_selector}, model={model.__name__}")
                 advance_kwargs = {}
                 if has_header: advance_kwargs['header'] = header
                 msg_sender = configs.get('msg_sender')
                 if msg_sender is not None: advance_kwargs['msg_sender'] = msg_sender
-                print("=== debug ===",advance_kwargs)
                 cls.abi_router.advance(**advance_kwargs)(_make_mut(func,model,param is not None,module_name,**func_configs))
 
     @classmethod
@@ -210,6 +216,7 @@ class Manager(object):
             cls.queries_info,
             Output.notices_info,
             Output.reports_info,
+            Output.vouchers_info,
             cls.modules_to_add]
         if lib_path is not None: params.append(lib_path)
         render_templates(*params)

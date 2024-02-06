@@ -8,6 +8,7 @@ import { ethers, Signer, ContractReceipt } from "ethers";
 import { 
     advanceInput, inspect, 
     AdvanceOutput, InspectOptions, AdvanceInputOptions, GraphqlOptions,
+    EtherDepositOptions, ERC20DepositOptions, ERC721DepositOptions,
     Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher, 
     advanceDAppRelay, advanceERC20Deposit, advanceERC721Deposit, advanceEtherDeposit,
     queryNotice, queryReport, queryVoucher

@@ -1,6 +1,7 @@
 import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
+import ImageIcon from '@mui/icons-material/Image';
 import { envClient } from '../utils/clientEnv';
 import React from 'react';
 
@@ -72,7 +73,8 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
                                         {scoreInfo.score.toLocaleString()}
                                     </td>
                                     <td className="py-4">
-                                        <button className='scoreboard-btn' onClick={() => playReplay(scoreInfo)}><span><OndemandVideoIcon/></span></button>
+                                        <button title='Play Log' className='scoreboard-btn' onClick={() => playReplay(scoreInfo)}><span><OndemandVideoIcon/></span></button>
+                                        <button title='Mint Screenshot' className='scoreboard-btn' onClick={() => window.open(`/mint/${scoreInfo._inputIndex}`, "_blank", "noopener,noreferrer")}><span><ImageIcon/></span></button>
                                     </td>
                                 </tr>
                             );

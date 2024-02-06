@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@cartesi/rollups": "^1.2.0",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
     "@headlessui/react": "^1.7.18",
@@ -28,6 +29,7 @@
     "next": "14.0.4",
     "react": "^18",
     "react-dom": "^18",
+    "react-qr-code": "^2.0.12",
     "react-use-downloader": "^1.2.4",
     "react-youtube": "^10.1.0",
     "three": "^0.159.0"

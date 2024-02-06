@@ -1,6 +1,6 @@
 "use client"
 
-import { ethers } from "ethers";
+import { ContractReceipt, ethers } from "ethers";
 import React, { Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
@@ -16,6 +16,7 @@ import StadiumIcon from '@mui/icons-material/Stadium';
 import CodeIcon from '@mui/icons-material/Code';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
+import QRCode from "react-qr-code";
 
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
@@ -31,7 +32,10 @@ import { delay } from "../utils/util";
 import CheckIcon from "./svg/CheckIcon";
 import ErrorIcon from "./svg/ErrorIcon";
 import CloseIcon from "./svg/CloseIcon";
+import { sha256 } from "js-sha256";
+import nftAbiFile from "../contracts/RivesScoreNFT.sol/RivesScoreNFT.json"
 
+const nftAbi: any = nftAbiFile;
 
 enum STATUS {
     READY,
@@ -145,6 +149,11 @@ function CartridgeInfo() {
     const { download } = useDownloader();
     const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
     const [reloadScoreboardCount, setReloadScoreboardCount] = useState(0);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [showNftLinkModal, setShowNftLinkModal] = useState(false);
+    const [mintUrl, setMintUrl] = useState("/mint/1");
+    const [userAlias, setUserAlias] = useState('');
+    const [bypassSubmitModal, setBypassSubmitModal] = useState(false);
 
     useEffect(() => {
         // auto reload scoreboard only if
@@ -173,8 +182,27 @@ function CartridgeInfo() {
             return;
         }
 
+        if (bypassSubmitModal) 
+            submitLogWithAlias(userAlias);
+        else
+            setShowSubmitModal(true);
+    }
+
+    async function submitLogWithAlias(userAliasToSubmit:string = "") {
+        // replay({car});
+        if (!selectedCartridge || !selectedCartridge.gameplayLog){
+            return;
+        }
+        if (!selectedCartridge.outcard || !selectedCartridge.outhash ){
+            return;
+        }
+        if (!wallet) {
+            return;
+        }
+        setUserAlias(userAliasToSubmit);
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
+            user_alias:userAliasToSubmit,
             cartridge_id:"0x"+selectedCartridge.id,
             outcard_hash: '0x' + selectedCartridge.outhash,
             args: selectedCartridge.args || "",
@@ -189,13 +217,40 @@ function CartridgeInfo() {
         }
         console.log("Replay Outcard hash",selectedCartridge.outhash)
 
+
         setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALIDATING});
         try {
-            await replay(signer, envClient.DAPP_ADDR, inputData, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+            const receipt = await replay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+            
+            if (receipt == undefined || receipt.events == undefined)
+                throw new Error("Couldn't send transaction");
+
+            const inputEvent = receipt.events[0];
+            const inputIndex = inputEvent.args && inputEvent.args[1];
+            if (inputIndex == undefined)
+                throw new Error("Couldn't get input index");
+
+            console.log(receipt, Number(inputIndex._hex))
+
             setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALID});
+
+            let signature = "";
+            const nftContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,signer);
+            if ((await signer.getAddress()).toLowerCase() == (await nftContract.operator()).toLowerCase()) {
+                const gameplayHash = sha256(selectedCartridge.gameplayLog);
+                const signedHash = await signer.signMessage(ethers.utils.arrayify("0x"+gameplayHash));
+                console.log("gameplayHash",gameplayHash)
+                console.log("signedHash",signedHash)
+                signature = `?signature=${signedHash}`;
+            }
+
+            setMintUrl(`/mint/${Number(inputIndex._hex)}${signature}`)
+            setShowNftLinkModal(true);
+
         } catch (error) {
             setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.INVALID, error: (error as Error).message});
         }
+        // TODO: test mint
     }
 
     async function uploadLog() {
@@ -244,6 +299,7 @@ function CartridgeInfo() {
         }
     }
     return (
+        <>
         <fieldset className='h-full custom-shadow'>
             <legend className="ms-2 px-1">
                 <span className={`cartridge-title-text ${fontPressStart2P.className}`}>{selectedCartridge.name}</span>
@@ -426,7 +482,138 @@ function CartridgeInfo() {
             }
 
         </fieldset>
+        <NftLinkModal showModal={showNftLinkModal} setShowModal={setShowNftLinkModal} url={mintUrl} />
+        <SubmitModal showModal={showSubmitModal} setShowModal={setShowSubmitModal} acceptFunction={submitLogWithAlias} bypassModal={setBypassSubmitModal} />
+        </>
     )
 }
 
+
+function NftLinkModal({showModal,setShowModal,url}:{showModal:boolean,setShowModal(s:boolean):void,url:String}) {
+    return (
+      <>
+        {showModal ? (
+          <>
+            <div
+              className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-50 outline-none focus:outline-none"
+            >
+              <div className="relative w-auto my-6 mx-auto max-w-3xl">
+                {/*content*/}
+                <div className="border-0 rounded-lg shadow-lg relative flex flex-col w-full bg-zinc-700 outline-none focus:outline-none">
+                  {/*header*/}
+                  <div className="flex items-start justify-between p-5 border-b border-solid border-blueGray-200 rounded-t">
+                    <h3 className={`font-bold text-xl ${fontPressStart2P.className}`}>
+                      Score NFT
+                    </h3>
+                    <button
+                      className="p-1 ml-auto bg-transparent border-0 text-black opacity-75 float-right text-3xl leading-none font-semibold outline-none focus:outline-none "
+                      onClick={() => setShowModal(false)}
+                    >
+                      <span className="bg-transparent text-black opacity-75 h-6 w-6 text-2xl block outline-none focus:outline-none text-white">
+                        ×
+                      </span>
+                    </button>
+                  </div>
+                  {/*body*/}
+                  <div className="relative p-6 flex-auto items-center">
+                    <button className="place-self-center" title='Nft Score Screenshot' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
+                        <div style={{ height: "auto", margin: "0 auto", maxWidth: 200, width: "100%" }} >
+                            <QRCode
+                            size={200}
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                            value={`${window.location.origin}${url}`}
+                            viewBox={`0 0 200 200`}
+                            />
+                        </div>
+                    </button>
+                  </div>
+                  {/*footer*/}
+                  <div className="flex items-center justify-end p-6 border-t border-solid border-blueGray-200 rounded-b">
+                    <button
+                      className={`text-white active:bg-gray-300 font-bold uppercase text-sm px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150 ${fontPressStart2P.className}`}
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="opacity-25 fixed inset-0 z-40 bg-black"></div>
+          </>
+        ) : null}
+      </>
+    );
+  }
+
+function SubmitModal({showModal,setShowModal,acceptFunction,bypassModal}:{showModal:boolean,setShowModal(s:boolean):void,acceptFunction(s:string):void,bypassModal(s:boolean):void}) {
+    const [alias, setAlias] = useState('');
+    const [bypass, setBypass] = useState(false);
+
+    return (
+      <>
+        {showModal ? (
+          <>
+            <div
+              className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-50 outline-none focus:outline-none"
+            >
+              <div className="relative w-auto my-6 mx-auto max-w-3xl">
+                {/*content*/}
+                <div className="border-0 rounded-lg shadow-lg relative flex flex-col w-full bg-zinc-700 outline-none focus:outline-none">
+                  {/*header*/}
+                  <div className="flex items-start justify-between p-5 border-b border-solid border-blueGray-200 rounded-t">
+                    <h3 className={`font-bold text-xl ${fontPressStart2P.className}`}>
+                      Submit Gameplay
+                    </h3>
+                    <button
+                      className="p-1 ml-auto bg-transparent border-0 text-black opacity-75 float-right text-3xl leading-none font-semibold outline-none focus:outline-none "
+                      onClick={() => setShowModal(false)}
+                    >
+                      <span className="bg-transparent text-black opacity-75 h-6 w-6 text-2xl block outline-none focus:outline-none text-white">
+                        ×
+                      </span>
+                    </button>
+                  </div>
+                  {/*body*/}
+                    <fieldset className={`relative p-6 flex-auto h-full ${fontPressStart2P.className}`}>
+                        <div >
+                            <legend className="px-1">
+                                user alias
+                            </legend>
+                            <input className="text-black" type="text" value={alias} onChange={e => setAlias(e.target.value)} />
+                        </div>
+                        <div className="mt-5">
+                            <input id="bypass-checkbox" type="checkbox" checked={bypass} onChange={e => setBypass(e.target.checked)} >
+                            </input>
+                            <label htmlFor="bypass-checkbox" className="ms-2 mt-5 px-1">
+                                remember my alias
+                            </label>
+                        </div>
+                    </fieldset>
+                  <div className="flex items-center justify-end p-6 border-t border-solid border-blueGray-200 rounded-b">
+                    <button
+                      className={`text-red-500 background-transparent font-bold uppercase px-6 py-2 text-sm outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150 ${fontPressStart2P.className}`}
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className={`bg-emerald-500 text-white active:bg-emerald-600 font-bold uppercase text-sm px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150 ${fontPressStart2P.className}`}
+                      type="button"
+                      onClick={() => {acceptFunction(alias);bypassModal(bypass);setShowModal(false);}}
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="opacity-25 fixed inset-0 z-40 bg-black"></div>
+          </>
+        ) : null}
+      </>
+    );
+  }
 export default CartridgeInfo

@@ -14,7 +14,7 @@ from cartesapp.context import get_metadata
 from cartesapp.input import query, mutation
 from cartesapp.output import event, output, add_output, emit_event, contract_call
 
-from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path, riv_get_cover, riv_get_cartridge_outcard
+from .riv import riv_get_cartridge_info, riv_get_cartridge_screenshot, riv_get_cartridges_path, riv_get_cover, riv_get_cartridge_outcard, replay_log
 from .settings import AppSettings
 
 LOGGER = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ LOGGER = logging.getLogger(__name__)
 class Cartridge(Entity):
     id              = helpers.PrimaryKey(str, 64)
     name            = helpers.Required(str, index=True, unique=True)
-    user_address    = helpers.Required(str, 66)
+    user_address    = helpers.Required(str, 42)
     info            = helpers.Optional(helpers.Json, lazy=True)
     created_at      = helpers.Required(int)
     cover           = helpers.Optional(bytes, lazy=True)
@@ -38,26 +38,32 @@ def initialize_data():
     cartridge_example_file = open('misc/snake.sqfs','rb')
     cartridge_example_data = cartridge_example_file.read()
     cartridge_example_file.close()
-    create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+    create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
     if AppSettings.rivemu_path is None: os.remove('misc/snake.sqfs')
 
-#     cartridge_example_file = open('misc/freedoom.sqfs','rb')
-#     cartridge_example_data = cartridge_example_file.read()
-#     cartridge_example_file.close()
-#     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
-#     if AppSettings.rivemu_path is None: os.remove('misc/freedoom.sqfs')
+    cartridge_example_file = open('misc/freedoom.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
+    if AppSettings.rivemu_path is None: os.remove('misc/freedoom.sqfs')
 
-#     cartridge_example_file = open('misc/antcopter.sqfs','rb')
-#     cartridge_example_data = cartridge_example_file.read()
-#     cartridge_example_file.close()
-#     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
-#     if AppSettings.rivemu_path is None: os.remove('misc/antcopter.sqfs')
+    cartridge_example_file = open('misc/antcopter.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
+    if AppSettings.rivemu_path is None: os.remove('misc/antcopter.sqfs')
 
-#     cartridge_example_file = open('misc/2048.sqfs','rb')
-#     cartridge_example_data = cartridge_example_file.read()
-#     cartridge_example_file.close()
-#     create_cartridge(cartridge_example_data,msg_sender="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
-#     if AppSettings.rivemu_path is None: os.remove('misc/2048.sqfs')
+    cartridge_example_file = open('misc/monky.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
+    if AppSettings.rivemu_path is None: os.remove('misc/monky.sqfs')
+
+    cartridge_example_file = open('misc/2048.sqfs','rb')
+    cartridge_example_data = cartridge_example_file.read()
+    cartridge_example_file.close()
+    create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
+    if AppSettings.rivemu_path is None: os.remove('misc/2048.sqfs')
 
 
 # Inputs
@@ -192,8 +198,6 @@ def cartridge(payload: CartridgePayload) -> bool:
 def cartridge_info(payload: CartridgePayload) -> bool:
     cartridge = helpers.select(c for c in Cartridge if c.id == payload.id).first()
 
-    LOGGER.info(cartridge)
-
     if cartridge is not None:
         cartridge_dict = cartridge.to_dict(with_lazy=True)
         cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
@@ -268,16 +272,25 @@ def create_cartridge(cartridge_data,**metadata):
     Info(**cartridge_info_json)
 
     # check if cartridge runs
-    riv_get_cartridge_outcard(data_hash,0,None,None)
+    test_replay_file = open('misc/test.rivlog','rb')
+    test_replay = test_replay_file.read()
+    test_replay_file.close()
+
+    # TODO: allow one of theses tests
+    # outcard_raw, outhash, screenshot = replay_log(data_hash,test_replay,'',b'')
+    # riv_get_cartridge_outcard(data_hash,0,None,None)
 
     cartridge_cover = riv_get_cover(data_hash)
     if cartridge_cover is None or len(cartridge_cover) == 0:
         cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
+        # cartridge_cover = screenshot
 
+    user_address = metadata.get('msg_sender')
+    if user_address is not None: user_address = user_address.lower()
     c = Cartridge(
         id = data_hash,
         name = cartridge_info_json['name'],
-        user_address = metadata.get('msg_sender'),
+        user_address = user_address,
         created_at = metadata.get('timestamp') or 0,
         info = cartridge_info_json,
         cover = cartridge_cover
@@ -292,7 +305,7 @@ def delete_cartridge(cartridge_id,**metadata):
     if cartridge is None:
         raise Exception(f"Cartridge doesn't exist")
 
-    if cartridge.user_address != metadata['msg_sender']:
+    if cartridge.user_address != metadata['msg_sender'].lower():
         raise Exception(f"Sender not allowed")
 
     cartridge.delete()

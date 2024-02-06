@@ -67,6 +67,7 @@ def _make_query(func,model,has_param,module,**func_configs):
     @helpers.db_session
     def query(rollup: Rollup, params: URLParameters) -> bool:
         try:
+            res = False
             ctx = Context
             # TODO: accept abi encode or json (for larger post requests, configured in settings)
             # Decoding url parameters
@@ -112,8 +113,8 @@ def _make_query(func,model,has_param,module,**func_configs):
             if logging.root.level <= logging.DEBUG:
                 traceback.print_exc()
                 add_output(msg)
-            return False
         finally:
+            helpers.rollback()
             ctx.clear_context()
         return res
     return query
@@ -122,6 +123,7 @@ def _make_mut(func,model,has_param,module, **kwargs):
     @helpers.db_session
     def mut(rollup: Rollup, data: RollupData) -> bool:
         try:
+            res = False
             ctx = Context
             ctx.set_context(rollup,data.metadata,module,**kwargs)
             payload = data.bytes_payload()[(4 if kwargs.get('has_header') else 0):]
@@ -141,8 +143,8 @@ def _make_mut(func,model,has_param,module, **kwargs):
             if logging.root.level <= logging.DEBUG:
                 traceback.print_exc()
                 add_output(msg,tags=['error'])
-            return False
         finally:
+            if not res: helpers.rollback()
             ctx.clear_context()
         return res
     return mut

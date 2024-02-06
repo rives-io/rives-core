@@ -8,7 +8,6 @@ INDEX_OUTPUTS = True # Defaul: False
 
 ENABLE_DAPP_RELAY = False # Defaul: False
 
-# TODO: Wallets
 ENABLE_WALLET = False # Defaul: False (required to set ENABLE_DAPP_RELAY)
 
 
