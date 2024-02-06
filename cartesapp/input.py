@@ -112,8 +112,9 @@ def _make_query(func,model,has_param,module,**func_configs):
             if logging.root.level <= logging.DEBUG:
                 traceback.print_exc()
                 add_output(msg)
-            return False
+            res = False
         finally:
+            helpers.rollback()
             ctx.clear_context()
         return res
     return query
@@ -141,8 +142,9 @@ def _make_mut(func,model,has_param,module, **kwargs):
             if logging.root.level <= logging.DEBUG:
                 traceback.print_exc()
                 add_output(msg,tags=['error'])
-            return False
+            res = False
         finally:
+            if not res: helpers.rollback()
             ctx.clear_context()
         return res
     return mut

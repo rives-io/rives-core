@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from jinja2 import Template
 from packaging.version import Version
+import re
 
 from .output import MAX_SPLITTABLE_OUTPUT_SIZE
 
@@ -13,20 +14,24 @@ DEFAULT_LIB_PATH = 'src'
 PACKAGES_JSON_FILENAME = "package.json"
 TSCONFIG_JSON_FILENAME = "tsconfig.json"
 
-def convert_camel_case(s):
-    splitted = s.split('_')
-    return splitted[0] + ''.join(i.title() for i in splitted[1:])
+def convert_camel_case(s, title_first = False):
+    snaked = re.sub(r'(?<!^)(?=[A-Z])', '_', s).lower()
+    splitted = snaked.split('_')
+    return (splitted[0] if not title_first else splitted[0].title()) + ''.join(i.title() for i in splitted[1:])
 
-def render_templates(settings,mutations_info,queries_info,notices_info,reports_info,modules_to_add,libs_path=DEFAULT_LIB_PATH):
+def render_templates(settings,mutations_info,queries_info,notices_info,reports_info,vouchers_info,modules_to_add,libs_path=DEFAULT_LIB_PATH):
 
     add_indexer_query = False
     add_dapp_relay = False
+    add_wallet = False
     for module_name in settings:
         if not add_indexer_query and hasattr(settings[module_name],'INDEX_OUTPUTS') and getattr(settings[module_name],'INDEX_OUTPUTS'): 
             add_indexer_query = True
         if not add_dapp_relay and hasattr(settings[module_name],'ENABLE_DAPP_RELAY') and getattr(settings[module_name],'ENABLE_DAPP_RELAY'):
             add_dapp_relay = True
-        if add_indexer_query and add_dapp_relay:
+        if not add_wallet and hasattr(settings[module_name],'ENABLE_WALLET') and getattr(settings[module_name],'ENABLE_WALLET'):
+            add_wallet = True
+        if add_indexer_query and add_dapp_relay and add_wallet:
             break
             
 
@@ -54,6 +59,9 @@ def render_templates(settings,mutations_info,queries_info,notices_info,reports_i
 
     if add_dapp_relay:
         modules.append('relay')
+
+    if add_wallet:
+        modules.append('wallet')
 
     if create_lib_file:
         helper_lib_template_output = Template(cartesapp_lib_template).render({
@@ -751,6 +759,7 @@ import { ethers, Signer, ContractReceipt } from "ethers";
 import { 
     advanceInput, inspect, 
     AdvanceOutput, InspectOptions, AdvanceInputOptions, GraphqlOptions,
+    EtherDepositOptions, ERC20DepositOptions, ERC721DepositOptions,
     Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher, 
     advanceDAppRelay, advanceERC20Deposit, advanceERC721Deposit, advanceEtherDeposit,
     queryNotice, queryReport, queryVoucher
@@ -800,19 +809,19 @@ const MAX_SPLITTABLE_OUTPUT_SIZE = {{ MAX_SPLITTABLE_OUTPUT_SIZE }};
 export async function {{ convert_camel_case(info['method']) }}(
     client:Signer,
     dappAddress:string,
-    inputData: ifaces.{{ info['model'].__name__ }},
+    inputData: ifaces.{{ convert_camel_case(info['model'].__name__,True) }},
     options?:MutationOptions
 ):Promise<AdvanceOutput|ContractReceipt|any[]> {
-    const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
+    const data: {{ convert_camel_case(info['model'].__name__,True) }} = new {{ convert_camel_case(info['model'].__name__,True) }}(inputData);
     {% if has_indexer_query -%}
     if (options?.decode) { options.sync = true; }
-    const result = await genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options)
+    const result = await genericAdvanceInput<ifaces.{{ convert_camel_case(info['model'].__name__,True) }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options)
     if (options?.decode) {
         return decodeAdvance(result as AdvanceOutput,decodeToModel,options);
     }
     return result;
 {% else -%}
-    return genericAdvanceInput<ifaces.{{ info['model'].__name__ }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options);
+    return genericAdvanceInput<ifaces.{{ convert_camel_case(info['model'].__name__,True) }}>(client,dappAddress,'{{ "0x"+info["selector"].to_bytes().hex() }}',data, options);
 {% endif -%}
 }
 
@@ -823,11 +832,11 @@ export async function {{ convert_camel_case(info['method']) }}(
 
 {% for info in queries_info -%}
 export async function {{ convert_camel_case(info['method']) }}(
-    inputData: ifaces.{{ info['model'].__name__ }},
+    inputData: ifaces.{{ convert_camel_case(info['model'].__name__,True) }},
     options?:QueryOptions
 ):Promise<InspectReport|any> {
     const route = '{{ info["selector"] }}';
-    {# return genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options); -#}
+    {# return genericInspect<ifaces.{{ convert_camel_case(info['model'].__name__,True) }}>(data,route,options); -#}
     {% if info["configs"].get("splittable_output") -%}
     let part:number = 0;
     let hasMoreParts:boolean = false;
@@ -835,8 +844,8 @@ export async function {{ convert_camel_case(info['method']) }}(
     do {
         hasMoreParts = false;
         let inputDataSplittable = Object.assign({part},inputData);
-        const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputDataSplittable);
-        const partOutput: InspectReport = await genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options);
+        const data: {{ convert_camel_case(info['model'].__name__,True) }} = new {{ convert_camel_case(info['model'].__name__,True) }}(inputDataSplittable);
+        const partOutput: InspectReport = await genericInspect<ifaces.{{ convert_camel_case(info['model'].__name__,True) }}>(data,route,options);
         let payloadHex = partOutput.payload.substring(2);
         if (payloadHex.length/2 > MAX_SPLITTABLE_OUTPUT_SIZE) {
             part++;
@@ -846,8 +855,8 @@ export async function {{ convert_camel_case(info['method']) }}(
         output.payload += payloadHex;
     } while (hasMoreParts)
     {% else -%}
-    const data: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(inputData);
-    const output: InspectReport = await genericInspect<ifaces.{{ info['model'].__name__ }}>(data,route,options);
+    const data: {{ convert_camel_case(info['model'].__name__,True) }} = new {{ convert_camel_case(info['model'].__name__,True) }}(inputData);
+    const output: InspectReport = await genericInspect<ifaces.{{ convert_camel_case(info['model'].__name__,True) }}>(data,route,options);
     {% endif -%}
     if (options?.decode) { return decodeToModel(output,options.decodeModel || "json"); }
     return output;
@@ -890,39 +899,39 @@ export function exportToModel(data: any, modelName: string): string {
 }
 
 {% for info in mutations_payload_info -%}
-export class {{ info['model'].__name__ }} extends IOData<ifaces.{{ info['model'].__name__ }}> { constructor(data: ifaces.{{ info["model"].__name__ }}, validate: boolean = true) { super(models['{{ info["model"].__name__ }}'],data,validate); } }
-export function exportTo{{ info['model'].__name__ }}(data: ifaces.{{ info["model"].__name__ }}): string {
-    const dataToExport: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(data);
+export class {{ convert_camel_case(info['model'].__name__,True) }} extends IOData<ifaces.{{ convert_camel_case(info['model'].__name__,True) }}> { constructor(data: ifaces.{{ info["model"].__name__ }}, validate: boolean = true) { super(models['{{ info["model"].__name__ }}'],data,validate); } }
+export function exportTo{{ convert_camel_case(info['model'].__name__,True) }}(data: ifaces.{{ info["model"].__name__ }}): string {
+    const dataToExport: {{ convert_camel_case(info['model'].__name__,True) }} = new {{ convert_camel_case(info['model'].__name__,True) }}(data);
     return dataToExport.export();
 }
 
 {% endfor -%}
 {% for info in queries_payload_info -%}
-export class {{ info['model'].__name__ }} extends IOData<ifaces.{{ info['model'].__name__ }}> { constructor(data: ifaces.{{ info["model"].__name__ }}, validate: boolean = true) { super(models['{{ info["model"].__name__ }}'],data,validate); } }
-export function exportTo{{ info['model'].__name__ }}(data: ifaces.{{ info["model"].__name__ }}): string {
-    const dataToExport: {{ info['model'].__name__ }} = new {{ info['model'].__name__ }}(data);
+export class {{ convert_camel_case(info['model'].__name__,True) }} extends IOData<ifaces.{{ convert_camel_case(info['model'].__name__,True) }}> { constructor(data: ifaces.{{ info["model"].__name__ }}, validate: boolean = true) { super(models['{{ info["model"].__name__ }}'],data,validate); } }
+export function exportTo{{ convert_camel_case(info['model'].__name__,True) }}(data: ifaces.{{ info["model"].__name__ }}): string {
+    const dataToExport: {{ convert_camel_case(info['model'].__name__,True) }} = new {{ convert_camel_case(info['model'].__name__,True) }}(data);
     return dataToExport.export();
 }
 
 {% endfor -%}
 {% for info in reports_info -%}
-export class {{ info['class'] }} extends Output<ifaces.{{ info['class'] }}> { constructor(output: CartesiReport | InspectReport) { super(models['{{ info["class"] }}'],output); } }
-export function decodeTo{{ info['class'] }}(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): {{ info['class'] }} {
-    return new {{ info['class'] }}(output as CartesiReport);
+export class {{ convert_camel_case(info['class'],True) }} extends Output<ifaces.{{ convert_camel_case(info['class'],True) }}> { constructor(output: CartesiReport | InspectReport) { super(models['{{ info["class"] }}'],output); } }
+export function decodeTo{{ convert_camel_case(info['class'],True) }}(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): {{ convert_camel_case(info['class'],True) }} {
+    return new {{ convert_camel_case(info['class'],True) }}(output as CartesiReport);
 }
 
 {% endfor -%}
 {% for info in notices_info -%}
-export class {{ info['class'] }} extends Event<ifaces.{{ info['class'] }}> { constructor(output: CartesiNotice) { super(models['{{ info["class"] }}'],output); } }
-export function decodeTo{{ info['class'] }}(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): {{ info['class'] }} {
-    return new {{ info['class'] }}(output as CartesiNotice);
+export class {{ convert_camel_case(info['class'],True) }} extends Event<ifaces.{{ convert_camel_case(info['class'],True) }}> { constructor(output: CartesiNotice) { super(models['{{ info["class"] }}'],output); } }
+export function decodeTo{{ convert_camel_case(info['class'],True) }}(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): {{ convert_camel_case(info['class'],True) }} {
+    return new {{ convert_camel_case(info['class'],True) }}(output as CartesiNotice);
 }
 
 {% endfor -%}
 {% for info in vouchers_info -%}
-export class {{ info['class'] }} extends ConrtacCall<ifaces.{{ info['class'] }}> { constructor(output: CartesiVoucher) { super(models['{{ info["class"] }}'],output); } }
-export function decodeTo{{ info['class'] }}(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): {{ info['class'] }} {
-    return new {{ info['class'] }}(output as CartesiVoucher);
+export class {{ convert_camel_case(info['class'],True) }} extends ContractCall<ifaces.{{ convert_camel_case(info['class'],True) }}> { constructor(output: CartesiVoucher) { super(models['{{ info["class"] }}'],output); } }
+export function decodeTo{{ convert_camel_case(info['class'],True) }}(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): {{ convert_camel_case(info['class'],True) }} {
+    return new {{ convert_camel_case(info['class'],True) }}(output as CartesiVoucher);
 }
 
 {% endfor %}
@@ -954,8 +963,8 @@ export const models: Models = {
         ioType:IOType.report,
         abiTypes:{{ info['abi_types'] }},
         params:{{ list(info["model"].__fields__.keys()) }},
-        decoder: decodeTo{{ info['class'] }},
-        validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'))
+        decoder: decodeTo{{ convert_camel_case(info['class'],True) }},
+        validator: ajv.compile<ifaces.{{ convert_camel_case(info['class'],True) }}>(JSON.parse('{{ info["model"].schema_json() }}'))
     },
     {% endfor -%}
     {% for info in notices_info -%}
@@ -963,8 +972,8 @@ export const models: Models = {
         ioType:IOType.notice,
         abiTypes:{{ info['abi_types'] }},
         params:{{ list(info["model"].__fields__.keys()) }},
-        decoder: decodeTo{{ info['class'] }},
-        validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replaceAll('integer','string","format":"biginteger')))
+        decoder: decodeTo{{ convert_camel_case(info['class'],True) }},
+        validator: ajv.compile<ifaces.{{ convert_camel_case(info['class'],True) }}>(JSON.parse('{{ info["model"].schema_json() }}'.replaceAll('integer','string","format":"biginteger')))
     },
     {% endfor -%}
     {% for info in vouchers_info -%}
@@ -972,8 +981,8 @@ export const models: Models = {
         ioType:IOType.voucher,
         abiTypes:{{ info['abi_types'] }},
         params:{{ list(info["model"].__fields__.keys()) }},
-        decoder: decodeTo{{ info['class'] }},
-        validator: ajv.compile<ifaces.{{ info['class'] }}>(JSON.parse('{{ info["model"].schema_json() }}'.replaceAll('integer','string","format":"biginteger')))
+        decoder: decodeTo{{ convert_camel_case(info['class'],True) }},
+        validator: ajv.compile<ifaces.{{ convert_camel_case(info['class'],True) }}>(JSON.parse('{{ info["model"].schema_json() }}'.replaceAll('integer','string","format":"biginteger')))
     },
     {% endfor -%}
 };

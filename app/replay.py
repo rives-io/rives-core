@@ -17,7 +17,7 @@ from cartesapp.utils import bytes2str
 
 from .settings import AppSettings
 from .riv import replay_log
-from .model import ScoreType, GameplayHash
+from .common import ScoreType, GameplayHash
 
 LOGGER = logging.getLogger(__name__)
 

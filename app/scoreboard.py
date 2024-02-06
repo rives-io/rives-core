@@ -18,7 +18,7 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2str
 from .settings import AppSettings
 from .riv import replay_log, riv_get_cartridge_outcard
 from .cartridge import Cartridge
-from .model import ScoreType, GameplayHash
+from .common import ScoreType, GameplayHash
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class Scoreboard(Entity):
     id              = helpers.PrimaryKey(str, 64)
     name            = helpers.Required(str, index=True, unique=True)
     cartridge_id    = helpers.Required(str, 64, index=True)
-    created_by      = helpers.Required(str, 66)
+    created_by      = helpers.Required(str, 42)
     created_at      = helpers.Required(int)
     args            = helpers.Optional(str)
     in_card         = helpers.Optional(bytes)
@@ -41,7 +41,7 @@ class Scoreboard(Entity):
 
 class Score(Entity):
     id              = helpers.PrimaryKey(int, auto=True)
-    user_address    = helpers.Required(str, 66, index=True)
+    user_address    = helpers.Required(str, 42, index=True)
     timestamp       = helpers.Required(int)
     score           = helpers.Required(int)
     scoreboard      = helpers.Required(Scoreboard, index=True)

@@ -47,4 +47,4 @@ def get_metadata() -> RollupMetadata:
     return Context.metadata
 
 def get_dapp_address() -> str | None:
-    return dapp_address
+    return Context.dapp_address

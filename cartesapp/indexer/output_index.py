@@ -12,7 +12,7 @@ from cartesapp.output import output, add_output
 class Output(Entity):
     id              = helpers.PrimaryKey(int, auto=True)
     output_type     = helpers.Required(str) # helpers.Required(OutputType)
-    msg_sender      = helpers.Required(str, 66, lazy=True, index=True)
+    msg_sender      = helpers.Required(str, 42, lazy=True, index=True)
     block_number    = helpers.Required(int, lazy=True)
     timestamp       = helpers.Required(int, lazy=True, index=True)
     epoch_index     = helpers.Required(int, lazy=True)
