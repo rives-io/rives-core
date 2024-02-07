@@ -58,7 +58,7 @@ function SubmitedLogsModal() {
                 <span className="sr-only">Close menu</span>
             </button>
             <Suspense fallback={logsFallback()}>
-                <SubmitedLogs userAddress={wallet.accounts[0].address} />
+                <SubmitedLogs userAddress={wallet.accounts[0].address} provider={wallet.provider} />
             </Suspense>
         </div>
     </>
