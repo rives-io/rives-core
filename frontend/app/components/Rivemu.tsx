@@ -1,7 +1,7 @@
 "use client"
 
 
-import React, { useContext, useState, useEffect, Suspense } from 'react'
+import React, { useContext, useState, useEffect } from 'react'
 import Script from "next/script";
 import Image from 'next/image';
 import {Parser} from 'expr-eval';
@@ -16,7 +16,7 @@ import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvide
 import { cartridge } from '../backend-libs/app/lib';
 import { fontPressStart2P } from '../utils/font';
 import { envClient } from '../utils/clientEnv';
-import { delay, usePrevious } from '../utils/util';
+import { delay } from '../utils/util';
 
 // let rivlogData: Uint8Array | undefined = undefined;
 
@@ -132,9 +132,9 @@ function Rivemu() {
 
     function coverFallback() {
         return (
-            <Image alt={"Cover " + selectedCartridge?.name} 
-            id="canvas-cover" className="cartridge-cover" 
-            height={canvasHeight} width={canvasWidth} 
+            <Image alt={"Cover " + selectedCartridge?.name}
+            id="canvas-cover" className="cartridge-cover"
+            height={canvasHeight} width={canvasWidth}
             src={selectedCartridge?.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
             style={{
                 maxHeight: canvasHeight,
@@ -144,7 +144,7 @@ function Rivemu() {
             />
         );
     }
-    
+
     function waitEvent(name: string) {
         return new Promise((resolve) => {
             const listener = (e: any) => {
@@ -275,10 +275,10 @@ function Rivemu() {
         // @ts-ignore:next-line
         window.rivemu_on_frame = function (
             outcard: ArrayBuffer,
-            frame: number, 
-            fps: number, 
-            mips: number, 
-            cpu_usage: number, 
+            frame: number,
+            fps: number,
+            mips: number,
+            cpu_usage: number,
             cycles: number
         ) {
             let score = 0;

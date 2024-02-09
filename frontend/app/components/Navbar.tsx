@@ -3,10 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from 'react'
-import ThemeSwitch from "@/app/components/ThemeSwitch";
 import { useConnectWallet, useSetChain } from '@web3-onboard/react';
-import rivesLogo from '../../public/rives_logo.png';
-import Image from 'next/image'
+import RivesLogo from './svg/RivesLogo';
 
 function Navbar() {
     const pathname = usePathname();
@@ -38,33 +36,24 @@ function Navbar() {
 
     return (
         <header className='header'>
-            {/* <Link href={"/"} className={`font-semibold title-color ${fontPressStart2P.className}`}>
-                <span>RiVES</span>
-            </Link> */}
-
-            <Link href={"/"}>
-                <Image src={rivesLogo} alt='RiVES' width={96} ></Image>
+            <Link href={"/"} className={`h-full grid grid-cols-1 items-center navbar-item ${pathname === "/" ? "link-active" : "" }`}>
+                <RivesLogo style={{width:100}}/>
             </Link>
 
-            <nav className='flex gap-7 font-medium'>
-                <a href={"/cartridges"} className={ pathname === "/cartridges" ? "link-active" : "link-2step-hover" }>
-                    <p>Cartridges</p>
-                </a>
+            <a href={"/cartridges"} className={`h-full grid grid-cols-1 items-center navbar-item ${pathname === "/cartridges" ? "link-active" : "" }`}>
+                <p>Cartridges</p>
+            </a>
 
-                <Link href={"/insert-cartridge"} className={ pathname === "/insert-cartridge" ? "link-active" : "link-2step-hover" }>
-                    <p>Insert Cartridge</p>
-                </Link>
-            </nav>
+            <Link href={"/insert-cartridge"} className={`h-full grid grid-cols-1 items-center navbar-item ${pathname === "/insert-cartridge" ? "link-active" : "" }`}>
+                Insert Cartridge
+            </Link>
 
-            <div className='flex space-x-6'>
-                <ThemeSwitch/>
-
-                <button className='web3-connect-btn' disabled={connecting}
+            <div className='flex-1 flex justify-end'>
+                <button className='navbar-item' disabled={connecting}
                     onClick={() => (wallet ? disconnect(wallet) : connect())}
                 >
                     {connectButtonTxt}
                 </button>
-
             </div>
         </header>
     )
