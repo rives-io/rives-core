@@ -26,7 +26,6 @@ import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
 import { envClient } from "../utils/clientEnv";
-import { fontPressStart2P } from '../utils/font';
 import { delay } from "../utils/util";
 import CheckIcon from "./svg/CheckIcon";
 import ErrorIcon from "./svg/ErrorIcon";
@@ -243,190 +242,253 @@ function CartridgeInfo() {
             }
         }
     }
+    // return (
+    //     <fieldset className='h-full custom-shadow'>
+    //         <legend className="ms-2 px-1">
+    //             <span className={`cartridge-title-text ${fontPressStart2P.className}`}>{selectedCartridge.name}</span>
+    //             <br/>
+    //             <span className='muted-text'>
+    //                 Uploaded by {selectedCartridge.user_address} on {new Date(selectedCartridge.created_at*1000).toLocaleString()}
+    //             </span>
+    //         </legend>
+    //         <div className="flex flex-row h-full">
+    //             <div className="basis-1/4 h-1/2">
+                    // <Canvas shadows camera={ {near: 0.1, far: 1000, position: [0,0,0]} }>
+
+                    //     <Suspense fallback={<Loader />}>
+                    //         <ambientLight intensity={1} />
+                    //         <pointLight position={[4, -5, -10]} intensity={20} />
+                    //         <pointLight position={[-4, -5, -10]} intensity={20} />
+                    //         <spotLight
+                    //             position={[0, -5, -10]}
+                    //             angle={Math.PI}
+                    //             penumbra={1}
+                    //             intensity={80}
+                    //         />
+                    //         <hemisphereLight
+                    //             color='#b1e1ff'
+                    //             groundColor='#000000'
+                    //             intensity={1}
+                    //         />
+
+                    //         <Cartridge
+                    //         rotation={[0, -Math.PI/2, 0]}
+                    //             key={selectedCartridge.cover}
+                    //             position={[0,0,-10]}
+                    //             cover={selectedCartridge.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
+                    //             scale={[1, 1, 1]}
+                    //         />
+                    //         <SciFiPedestal position={[0, -5, -10]} scale={[0.3,0.3,0.3]}/>
+
+                    //     </Suspense>
+
+                    // </Canvas>
+    //                 <input type="file" ref={fileRef} onChange={(e) => handleOnChange(e)} style={{ display: 'none' }}/>
+    //                 <div className="flex flex-wrap place-content-evenly">
+    //                     <button className="button-57" onClick={() => {playCartridge()}}>
+    //                         <span><PowerSettingsNewIcon/></span>
+    //                         <span>Turn on</span>
+    //                     </button>
+
+    //                     <button className={"button-57"} onClick={() => {submitLog()}}
+    //                     disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || selectedCartridge?.outhash == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
+
+    //                         {
+    //                             submitLogStatus.status === STATUS.READY || submitLogStatus.cartridgeId !== selectedCartridge.id?
+    //                                 <>
+    //                                     <span><PublishIcon/></span>
+    //                                     <span>Submit Log</span>
+    //                                 </>
+    //                             :
+    //                                 <>
+    //                                     <span>
+                                            // <div className='w-5 h-5 border-2 rounded-full border-current animate-spin'>
+                                            // </div>
+    //                                     </span>
+
+    //                                     <span>
+    //                                         Validating
+    //                                     </span>
+    //                                 </>
+    //                         }
+    //                     </button>
+
+    //                     <button className="button-57" onClick={() => {uploadLog()}}>
+    //                         <span><UploadIcon/></span>
+    //                         <span>Upload Log</span>
+    //                     </button>
+
+    //                     <button className={"button-57"} onClick={() => {downloadLog()}} disabled={!selectedCartridge.gameplayLog}>
+    //                         <span><DownloadIcon/></span>
+    //                         <span>Download Gameplay</span>
+    //                     </button>
+
+    //                 </div>
+
+    //                 {
+    //                     !(selectedCartridge.info?.authors)?
+    //                         <></>
+    //                     :
+    //                         <div className='mt-3'>
+    //                             <span className={`ms-2 font-bold text-xl ${fontPressStart2P.className}`}>
+    //                                 Creators
+    //                             </span>
+
+    //                             <ul className='flex flex-col space-y-1'>
+    //                                 {selectedCartridge.info?.authors?.map((author) => (
+    //                                     <li key={author.name}><Link className='ms-8 font-semibold link-2step-hover' href={author.link}>{author.name}</Link></li>
+    //                                 ))}
+    //                             </ul>
+
+    //                         </div>
+    //                 }
+
+    //             </div>
+
+    //             <div className="basis-3/4 flex flex-col py-2 max-h-full">
+    //                 <Tab.Group>
+    //                     <Tab.List className="game-option-tabs-header">
+    //                         <Tab
+    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+    //                             >
+    //                                 <span className='game-tabs-option-text'>
+    //                                     <DescriptionIcon/>
+    //                                     <span>Description</span>
+    //                                 </span>
+    //                         </Tab>
+
+    //                         <Tab
+    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+    //                             >
+    //                                 <span className='game-tabs-option-text'>
+    //                                     <LeaderboardIcon/>
+    //                                     <span>Scoreboards</span>
+    //                                 </span>
+    //                         </Tab>
+
+    //                         <Tab
+    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+    //                             >
+    //                                 <span className='game-tabs-option-text'>
+    //                                     <StadiumIcon/>
+    //                                     <span>Tournaments</span>
+    //                                 </span>
+    //                         </Tab>
+
+    //                         <Tab
+    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+    //                             >
+    //                                 <span className='game-tabs-option-text'>
+    //                                     <CodeIcon/>
+    //                                     <span>Mods</span>
+    //                                 </span>
+    //                         </Tab>
+    //                     </Tab.List>
+
+    //                     <Tab.Panels className="mt-2 pr-1 overflow-auto custom-scrollbar">
+    //                         <Tab.Panel
+    //                             className="game-tab-content"
+    //                         >
+    //                             <CartridgeDescription/>
+    //                         </Tab.Panel>
+
+    //                         <Tab.Panel
+    //                             className="game-tab-content"
+    //                         >
+                                // <div className="w-full flex">
+                                //     <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
+                                // </div>
+                                // <Suspense fallback={scoreboardFallback()}>
+                                //     <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
+                                // </Suspense>
+
+    //                         </Tab.Panel>
+
+    //                         <Tab.Panel
+    //                             className="game-tab-content"
+    //                         >
+    //                             <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
+    //                         </Tab.Panel>
+
+    //                         <Tab.Panel
+    //                             className="game-tab-content"
+    //                         >
+    //                             <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
+    //                         </Tab.Panel>
+    //                     </Tab.Panels>
+    //                 </Tab.Group>
+    //             </div>
+    //         </div>
+
+    //         {
+    //             logFeedback(submitLogStatus, setSubmitLogStatus)
+    //         }
+
+    //     </fieldset>
+    // )
+
+
     return (
-        <fieldset className='h-full custom-shadow'>
-            <legend className="ms-2 px-1">
-                <span className={`cartridge-title-text ${fontPressStart2P.className}`}>{selectedCartridge.name}</span>
-                <br/>
-                <span className='muted-text'>
-                    Uploaded by {selectedCartridge.user_address} on {new Date(selectedCartridge.created_at*1000).toLocaleString()}
-                </span>
-            </legend>
-            <div className="flex flex-row h-full">
-                <div className="basis-1/4 h-1/2">
-                    <Canvas shadows camera={ {near: 0.1, far: 1000, position: [0,0,0]} }>
+        <div className="flex flex-wrap justify-center h-full w-full">
+            <div className="w-64 h-96">
+                <Canvas shadows camera={ {near: 0.1, far: 1000, position: [0,0,0]} }>
+                    <Suspense fallback={<Loader />}>
+                        <ambientLight intensity={1} />
+                        <pointLight position={[4, -5, -10]} intensity={20} />
+                        <pointLight position={[-4, -5, -10]} intensity={20} />
+                        <spotLight
+                            position={[0, -5, -10]}
+                            angle={Math.PI}
+                            penumbra={1}
+                            intensity={80}
+                        />
+                        <hemisphereLight
+                            color='#b1e1ff'
+                            groundColor='#000000'
+                            intensity={1}
+                        />
 
-                        <Suspense fallback={<Loader />}>
-                            <ambientLight intensity={1} />
-                            <pointLight position={[4, -5, -10]} intensity={20} />
-                            <pointLight position={[-4, -5, -10]} intensity={20} />
-                            <spotLight
-                                position={[0, -5, -10]}
-                                angle={Math.PI}
-                                penumbra={1}
-                                intensity={80}
-                            />
-                            <hemisphereLight
-                                color='#b1e1ff'
-                                groundColor='#000000'
-                                intensity={1}
-                            />
+                        <Cartridge
+                        rotation={[0, -Math.PI/2, 0]}
+                            key={selectedCartridge.cover}
+                            position={[0,0,-10]}
+                            cover={selectedCartridge.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
+                            scale={[1, 1, 1]}
+                        />
+                        <SciFiPedestal position={[0, -5, -10]} scale={[0.3,0.3,0.3]}/>
 
-                            <Cartridge
-                            rotation={[0, -Math.PI/2, 0]}
-                                key={selectedCartridge.cover}
-                                position={[0,0,-10]}
-                                cover={selectedCartridge.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
-                                scale={[1, 1, 1]}
-                            />
-                            <SciFiPedestal position={[0, -5, -10]} scale={[0.3,0.3,0.3]}/>
-
-                        </Suspense>
-
-                    </Canvas>
-                    <input type="file" ref={fileRef} onChange={(e) => handleOnChange(e)} style={{ display: 'none' }}/>
-                    <div className="flex flex-wrap place-content-evenly">
-                        <button className="button-57" onClick={() => {playCartridge()}}>
-                            <span><PowerSettingsNewIcon/></span>
-                            <span>Turn on</span>
-                        </button>
-
-                        <button className={"button-57"} onClick={() => {submitLog()}}
-                        disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || selectedCartridge?.outhash == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
-
-                            {
-                                submitLogStatus.status === STATUS.READY || submitLogStatus.cartridgeId !== selectedCartridge.id?
-                                    <>
-                                        <span><PublishIcon/></span>
-                                        <span>Submit Log</span>
-                                    </>
-                                :
-                                    <>
-                                        <span>
-                                            <div className='w-5 h-5 border-2 rounded-full border-current animate-spin'>
-                                            </div>
-                                        </span>
-
-                                        <span>
-                                            Validating
-                                        </span>
-                                    </>
-                            }
-                        </button>
-
-                        <button className="button-57" onClick={() => {uploadLog()}}>
-                            <span><UploadIcon/></span>
-                            <span>Upload Log</span>
-                        </button>
-
-                        <button className={"button-57"} onClick={() => {downloadLog()}} disabled={!selectedCartridge.gameplayLog}>
-                            <span><DownloadIcon/></span>
-                            <span>Download Gameplay</span>
-                        </button>
-
-                    </div>
-
-                    {
-                        !(selectedCartridge.info?.authors)?
-                            <></>
-                        :
-                            <div className='mt-3'>
-                                <span className={`ms-2 font-bold text-xl ${fontPressStart2P.className}`}>
-                                    Creators
-                                </span>
-
-                                <ul className='flex flex-col space-y-1'>
-                                    {selectedCartridge.info?.authors?.map((author) => (
-                                        <li key={author.name}><Link className='ms-8 font-semibold link-2step-hover' href={author.link}>{author.name}</Link></li>
-                                    ))}
-                                </ul>
-
-                            </div>
-                    }
-
-                </div>
-
-                <div className="basis-3/4 flex flex-col py-2 max-h-full">
-                    <Tab.Group>
-                        <Tab.List className="game-option-tabs-header">
-                            <Tab
-                                className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-                                >
-                                    <span className='game-tabs-option-text'>
-                                        <DescriptionIcon/>
-                                        <span>Description</span>
-                                    </span>
-                            </Tab>
-
-                            <Tab
-                                className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-                                >
-                                    <span className='game-tabs-option-text'>
-                                        <LeaderboardIcon/>
-                                        <span>Scoreboards</span>
-                                    </span>
-                            </Tab>
-
-                            <Tab
-                                className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-                                >
-                                    <span className='game-tabs-option-text'>
-                                        <StadiumIcon/>
-                                        <span>Tournaments</span>
-                                    </span>
-                            </Tab>
-
-                            <Tab
-                                className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-                                >
-                                    <span className='game-tabs-option-text'>
-                                        <CodeIcon/>
-                                        <span>Mods</span>
-                                    </span>
-                            </Tab>
-                        </Tab.List>
-
-                        <Tab.Panels className="mt-2 pr-1 overflow-auto custom-scrollbar">
-                            <Tab.Panel
-                                className="game-tab-content"
-                            >
-                                <CartridgeDescription/>
-                            </Tab.Panel>
-
-                            <Tab.Panel
-                                className="game-tab-content"
-                            >
-                                <div className="w-full flex">
-                                    <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
-                                </div>
-                                <Suspense fallback={scoreboardFallback()}>
-                                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
-                                </Suspense>
-
-                            </Tab.Panel>
-
-                            <Tab.Panel
-                                className="game-tab-content"
-                            >
-                                <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
-                            </Tab.Panel>
-
-                            <Tab.Panel
-                                className="game-tab-content"
-                            >
-                                <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
-                            </Tab.Panel>
-                        </Tab.Panels>
-                    </Tab.Group>
-                </div>
+                    </Suspense>
+                </Canvas>
             </div>
 
-            {
-                logFeedback(submitLogStatus, setSubmitLogStatus)
-            }
+            <div className="max-w-md">
+                <div>
+                    <CartridgeDescription/>
+                </div>
 
-        </fieldset>
-    )
+                {
+                    selectedCartridge.downloading?
+                        <button className="btn w-full mt-2 flex justify-center">
+                            <div className='w-5 h-5 border-2 rounded-full border-current animate-spin'></div>
+                        </button>
+                    :
+                        <button className="btn w-full mt-2" onClick={() => {playCartridge()}}>
+                            PLAY
+                        </button>
+
+                }
+            </div>
+
+            {/* <div className="bg-white justify-self-end -mt-[152px]">
+                <div className="w-full flex">
+                    <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
+                </div>
+                <Suspense fallback={scoreboardFallback()}>
+                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
+                </Suspense>
+            </div> */}
+        </div>
+    );
 }
 
 export default CartridgeInfo

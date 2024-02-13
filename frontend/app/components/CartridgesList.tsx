@@ -14,11 +14,11 @@ async function CartridgesList() {
     let cartridges = await getCartridges();
 
     return (
-        <ul>
+        <ul className='games-list'>
             {
                 cartridges.map((cartridge: any, index: number) => {
                     return (
-                        <li key={`${cartridge.name}-${index}`} className="flex">
+                        <li key={index}>
                             <CartridgeSelectButton index={index} cartridge={cartridge} />
                         </li>
                     );

@@ -34,7 +34,7 @@ body {
 
 @layer base {
   :root {
-    --foreground-rgb: 241, 245, 249;
+    --foreground-rgb: 0,0,0;
     --foreground-rgb-muted: rgba(241, 245, 249, 0.6);
     --background-start-rgb: 36, 36, 36;
     --background-end-rgb: 105, 105, 105;
@@ -216,7 +216,7 @@ body {
   }
 
   .second-section {
-    @apply mx-auto md:p-16 pb-12 !pt-[126px] px-8 h-svh flex flex-row;
+    @apply pb-12 !pt-[64px] h-svh flex flex-col;
   }
 
   .custom-scrollbar {
@@ -240,12 +240,17 @@ body {
     @apply font-semibold sm:text-4xl text-xl relative title-color;
   }
 
+
+  .games-list {
+    @apply flex flex-wrap ms-[148px] mb-24;
+  }
+
   .games-list-item {
-    @apply sm:w-auto px-4 py-2 grow break-all text-start hover-2;
+    @apply p-4 text-center bg-gray-400 hover:games-list-selected-item;
   }
 
   .games-list-selected-item {
-    @apply hover-2-selected;
+    @apply bg-gradient-to-r from-yellow-100 to-pink-300;
   }
 
   .fallback-bg-color {
@@ -297,18 +302,27 @@ body {
   }
 
   .header {
-    @apply w-full h-16 bg-[var(--highlight-text-end-hex)] px-12 flex absolute top-0 z-10;
+    @apply w-full h-16 bg-[var(--highlight-text-end-hex)] flex absolute top-0 z-10;
   }
 
   .link-active {
-    @apply bg-[rgb(var(--background-start-rgb))];
+    @apply bg-[rgb(var(--background-start-rgb))] text-white;
   }
 
   .navbar-item {
-    @apply px-6 hover:bg-[rgb(var(--background-start-rgb))];
+    @apply px-6 hover:bg-[rgb(var(--background-start-rgb))] hover:text-white;
   }
 
   .btn {
     @apply p-3 bg-[var(--highlight-text-end-hex)] border border-[var(--highlight-text-end-hex)] hover:bg-[rgb(var(--background-start-rgb))] hover:text-[var(--highlight-text-end-hex)];
+  }
+
+
+  .gameplay-screen {
+    @apply w-[640px] h-[400px] md:w-[720px] md:h-[480px] lg:w-[960px] lg:h-[720px];
+  }
+
+  .gameplay-section {
+    @apply gameplay-screen fixed z-50 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2;
   }
 }

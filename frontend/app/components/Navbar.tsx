@@ -40,11 +40,11 @@ function Navbar() {
                 <RivesLogo style={{width:100}}/>
             </Link>
 
-            <a href={"/cartridges"} className={`h-full grid grid-cols-1 items-center navbar-item ${pathname === "/cartridges" ? "link-active" : "" }`}>
+            <a href={"/cartridges"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/cartridges" ? "link-active" : "" }`}>
                 <p>Cartridges</p>
             </a>
 
-            <Link href={"/insert-cartridge"} className={`h-full grid grid-cols-1 items-center navbar-item ${pathname === "/insert-cartridge" ? "link-active" : "" }`}>
+            <Link href={"/insert-cartridge"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/insert-cartridge" ? "link-active" : "" }`}>
                 Insert Cartridge
             </Link>
 

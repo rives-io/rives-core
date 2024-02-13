@@ -11,7 +11,7 @@ export default function Home() {
           <Image src={rivesLogo} alt='RiVES logo'/>
         </div>
 
-        <div className=' max-w-[640px] text-center'>
+        <div className=' max-w-[640px] text-center text-white'>
           <h2 className='mt-6 text-xl'>
             Rives is the World Arcade
           </h2>
@@ -27,11 +27,9 @@ export default function Home() {
           <YoutubeVideo videoId="7y22pdgGIE0" />
         </div>
 
-        <button className='mt-10 btn'>
-          <a href={"/cartridges"}>
-            Start Playing
-          </a>
-        </button>
+        <a className='mt-10 btn' href={"/cartridges"}>
+          Start Playing
+        </a>
 
       </section>
       {/* <section id="statistical-section" className="h-svh">

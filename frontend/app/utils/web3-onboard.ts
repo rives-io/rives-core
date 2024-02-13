@@ -29,7 +29,8 @@ const web3Onboard = init({
   appMetadata,
   connect: {
     autoConnectLastWallet: true
-  }
+  },
+  accountCenter: {desktop: {enabled: false}, mobile: {enabled: false}}
 })
 
 export default web3Onboard;

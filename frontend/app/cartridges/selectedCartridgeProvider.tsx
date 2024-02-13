@@ -6,12 +6,12 @@ import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
 
 
 export const selectedCartridgeContext = createContext<{
-    selectedCartridge: PlayableCartridge|null, changeCartridge:Function, playCartridge:Function, 
-        setReplay:Function, setCartridgeData:Function, setGameParameters:Function, 
-        setGameplay:Function, stopCartridge:Function
-}>({selectedCartridge: null, changeCartridge: () => null, playCartridge: () => null, 
-    setReplay: () => null, setCartridgeData: () => null, setGameParameters: () => null, 
-    setGameplay: () => null, stopCartridge: () => null});
+    selectedCartridge: PlayableCartridge|null, changeCartridge:Function, playCartridge:Function,
+        setReplay:Function, setCartridgeData:Function, setGameParameters:Function,
+        setGameplay:Function, stopCartridge:Function, setDownloadingCartridge:Function
+}>({selectedCartridge: null, changeCartridge: () => null, playCartridge: () => null,
+    setReplay: () => null, setCartridgeData: () => null, setGameParameters: () => null,
+    setGameplay: () => null, stopCartridge: () => null, setDownloadingCartridge: () => null});
 
 // export type Cartridge = {
 // 	id: number,
@@ -23,6 +23,7 @@ export const selectedCartridgeContext = createContext<{
 export interface PlayableCartridge extends Cartridge {
     initCanvas: boolean;
     play: boolean;
+    downloading: boolean;
     playToggle: boolean;
     cartridgeData: Uint8Array | undefined;
     inCard: Uint8Array | undefined;
@@ -38,12 +39,14 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
     const [selectedCartridge, setSelectedCartridge] = useState<PlayableCartridge|null>(null);
 
     const changeCartridge = (cartridge:Cartridge) => {
-        const aux = {...cartridge, play:false, cartridgeData:undefined, inCard:undefined, 
-            args:undefined, scoreFunction:undefined, replay:undefined, gameplayLog:undefined, 
+        if (selectedCartridge?.downloading) return; // change only if download already finished
+
+        const aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
+            args:undefined, scoreFunction:undefined, replay:undefined, gameplayLog:undefined,
             outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
         setSelectedCartridge(aux as PlayableCartridge);
     }
- 
+
     const playCartridge = () => {
         if (selectedCartridge) {
             setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay:undefined, playToggle:!selectedCartridge.playToggle, initCanvas:true});
@@ -52,8 +55,15 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
 
     const stopCartridge = () => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:false});
+            setSelectedCartridge({...selectedCartridge, play:false, initCanvas:false});
         }
+    }
+
+    const setDownloadingCartridge = (download:boolean) => {
+        if (selectedCartridge) {
+            setSelectedCartridge({...selectedCartridge, downloading:download});
+        }
+
     }
 
     const setReplay = (replay: Uint8Array) => {
@@ -64,7 +74,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
 
     const setCartridgeData = (cartridgeData: Uint8Array) => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, cartridgeData});
+            setSelectedCartridge({...selectedCartridge, downloading:false, cartridgeData});
         }
     }
 
@@ -73,7 +83,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
             setSelectedCartridge({...selectedCartridge, args, inCard, scoreFunction, gameplayLog:undefined, replay:undefined});
         }
     }
-    
+
     const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string) => {
         if (selectedCartridge) {
             if (outcard == undefined)
@@ -85,11 +95,11 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
                 setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash});
         }
     }
-    
+
     return (
-        <selectedCartridgeContext.Provider value={ {selectedCartridge, changeCartridge, playCartridge, 
-                setReplay, setCartridgeData, setGameParameters, 
-                setGameplay, stopCartridge} }>
+        <selectedCartridgeContext.Provider value={ {selectedCartridge, changeCartridge, playCartridge,
+                setReplay, setCartridgeData, setGameParameters,
+                setGameplay, stopCartridge, setDownloadingCartridge} }>
             { children }
         </selectedCartridgeContext.Provider>
     );

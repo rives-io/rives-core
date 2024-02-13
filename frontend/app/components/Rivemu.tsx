@@ -11,47 +11,24 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
+import CloseIcon from '@mui/icons-material/Close';
 
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import { cartridge } from '../backend-libs/app/lib';
-import { fontPressStart2P } from '../utils/font';
 import { envClient } from '../utils/clientEnv';
-import { delay } from '../utils/util';
 
-// let rivlogData: Uint8Array | undefined = undefined;
 
-async function movePageToBottom() {
-    await delay(500);
-    window.scrollTo({left: 0, top: document.body.scrollHeight, behavior: 'smooth'});
-}
-
-async function movePageToTop() {
-    await delay(500);
-    window.scrollTo({left: 0, top: 0, behavior: 'smooth'});
-}
-
-function getWindowDimensions() {
-    const { innerWidth: width, innerHeight: height } = window;
-    return { width, height };
-}
-
-const DEFAULT_WIDTH = 640;
-const DEFAULT_HEIGTH = 400;
 
 function Rivemu() {
-    const {selectedCartridge, setCartridgeData, setGameplay } = useContext(selectedCartridgeContext);
+    const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge, setDownloadingCartridge } = useContext(selectedCartridgeContext);
     const [overallScore, setOverallScore] = useState(0);
-    // const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
     const [replayTip, setReplayTip] = useState(false);
     const [isReplaying, setIsReplaying] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [playedOnce, setPlayedOnce] = useState(false);
-    const [canvasHeight, setCanvasHeight] = useState(DEFAULT_HEIGTH);
-    const [descHeight, setDescHeight] = useState(100);
-    const [canvasWidth, setCanvasWidth] = useState(DEFAULT_WIDTH);
     const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
-    const [gameHeigth, setGameHeigth] = useState(0);
+
 
     useEffect(()=>{
         if (!selectedCartridge || !selectedCartridge?.play) return;
@@ -59,51 +36,28 @@ function Rivemu() {
     }
     ,[selectedCartridge?.playToggle])
 
-    useEffect(()=>{
-        let newHeight = DEFAULT_HEIGTH;
-        let newWidth = DEFAULT_WIDTH;
-        const canvas: any = document.getElementById("canvas");
-        if (canvas) {
-            const aspectRatio = canvas ? canvas.width / canvas.height : 640/400;
-            if (isExpanded) {
-                const windowSizes = getWindowDimensions();
-                newHeight = windowSizes.height - 120;
-                newWidth = Math.floor(aspectRatio * newHeight);
-                if (newWidth > windowSizes.width - 10) {
-                    newWidth = windowSizes.height - 10;
-                    newHeight = Math.floor(newWidth / aspectRatio);
-                }
-            }
 
-            canvas.height = Math.floor(newHeight / gameHeigth) * gameHeigth;
-            canvas.width = Math.floor(aspectRatio * canvas.height);
-        }
-        setCanvasHeight(newHeight);
-        setCanvasWidth(newWidth);
-        window.dispatchEvent(new Event("resize"));
-        movePageToBottom();
-    }
-    ,[isExpanded])
+    // useEffect(() => {
+    //     interface keyboardEvent {key:string}
+    //     const escPressed = (event: keyboardEvent) => {
+    //         console.log(event, isPlaying);
+    //         if (event.key === "Escape" && !isPlaying) {
+    //             stopCartridge();
+    //         }
+    //     }
+
+    //     document.addEventListener("keydown", escPressed);
+
+    // })
 
     async function initialize() {
         if (!selectedCartridge || selectedCartridge.cartridgeData == undefined) {
-            setGameHeigth(0);
-            setCanvasHeight(DEFAULT_HEIGTH);
-            setCanvasWidth(DEFAULT_WIDTH);
             setIsPlaying(false);
             setIsExpanded(false);
             setOverallScore(0);
             setReplayLog(undefined);
-            const windowSizes = getWindowDimensions();
-            setDescHeight(windowSizes.height - 150 - DEFAULT_HEIGTH);
-            const canvas: any = document.getElementById("canvas");
-            if (canvas) {
-                canvas.height = DEFAULT_HEIGTH;
-                canvas.width = DEFAULT_HEIGTH;
-            }
         }
         await loadCartridge();
-        movePageToBottom();
         if (selectedCartridge?.replay){
             setReplayLog(selectedCartridge.replay);
             setIsReplaying(true);
@@ -118,8 +72,9 @@ function Rivemu() {
 
     async function loadCartridge() {
         if (!selectedCartridge || !selectedCartridge?.play || selectedCartridge.cartridgeData != undefined) return;
+        setDownloadingCartridge(true);
         const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes", cartesiNodeUrl: envClient.CARTESI_NODE_URL, cache:"force-cache"});
-        setCartridgeData(data);
+        setCartridgeData(data); // setCartridgeData also sets downloading to false
     }
 
     if (!selectedCartridge || !selectedCartridge.initCanvas) {
@@ -132,16 +87,16 @@ function Rivemu() {
 
     function coverFallback() {
         return (
-            <Image alt={"Cover " + selectedCartridge?.name}
-            id="canvas-cover" className="cartridge-cover"
-            height={canvasHeight} width={canvasWidth}
-            src={selectedCartridge?.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
-            style={{
-                maxHeight: canvasHeight,
-                maxWidth: canvasWidth,
-                objectFit:'contain'
-            }}
-            />
+            <button className='relative h-full w-full' onClick={rivemuStart}>
+                <Image alt={"Cover " + selectedCartridge?.name}
+                id="canvas-cover"
+                fill={true}
+                src={selectedCartridge?.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
+                />
+
+                <span className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white'>Click to Play!</span>
+
+            </button>
         );
     }
 
@@ -266,7 +221,6 @@ function Rivemu() {
         setIsPlaying(false);
         // @ts-ignore:next-line
         rivemuHalt();
-        movePageToTop();
         // stopCartridge();
     }
 
@@ -296,14 +250,7 @@ function Rivemu() {
         // @ts-ignore:next-line
         window.rivemu_on_begin = function (width: number, height: number, target_fps: number, total_frames: number) {
             if (!playedOnce) setPlayedOnce(true);
-            const canvas: any = document.getElementById("canvas");
-            setGameHeigth(height);
-            if (canvas) {
-                canvas.height = Math.floor(canvasHeight / height) * height;
-                canvas.width = Math.floor(width / height * canvas.height);
-            }
             console.log("rivemu_on_begin");
-            // setIsLoading(false);
             // force canvas resize
             window.dispatchEvent(new Event("resize"));
         };
@@ -324,93 +271,45 @@ function Rivemu() {
 
 
     return (
-        <section className='h-svh' hidden={selectedCartridge?.cartridgeData==undefined}>
-            <div className='h-24 grid grid-cols-3 gap-4 content-start'>
-                <div></div>
-                <div className="flex flex-wrap place-content-evenly">
-                    <button className="button-57"
-                        onKeyDown={(e) => e.preventDefault()}
-                        onClick={rivemuStart}
-                        disabled={selectedCartridge?.cartridgeData == undefined}
-                        // loading={isLoading}
-                        // leftSection={
-                        //     isPlaying ? (
-                        //         <TbPlayerSkipBackFilled />
-                        //     ) : (
-                        //         <TbPlayerPlayFilled />
-                        //     )
-                        // }
-                    >
-                        <span>{isPlaying ? <ReplayIcon/> : <PlayArrowIcon/>}</span>
-                        <span>{isPlaying ? "Restart" : "Start"}</span>
-                    </button>
-                    <button className={`button-57 ${replayTip ? "animate-bounce" : ""}`}
-                        id="replayButton"
-                        onKeyDown={(e) => e.preventDefault()}
-                        onClick={rivemuReplay}
-                        // leftSection={<TbPlayerStopFilled />}
-                        disabled={selectedCartridge?.cartridgeData == undefined || replayLog == undefined}
-                    >
-                        <span><OndemandVideoIcon/></span>
-                        <span>Replay</span>
-                    </button>
-                    <button className="button-57"
-                        onKeyDown={(e) => e.preventDefault()}
-                        onClick={rivemuStop}
-                        // leftSection={<TbPlayerStopFilled />}
-                    >
-                        <span><Stop/></span>
-                        <span>Stop</span>
-                    </button>
-                    <button className="button-57"
-                        onKeyDown={(e) => e.preventDefault()}
-                        onClick={()=>setIsExpanded(!isExpanded)}
-                        // leftSection={<TbPlayerStopFilled />}
-                        disabled={gameHeigth == 0}
-                    >
-                        <span>{isExpanded ? <CloseFullscreenIcon/> : <OpenInFullIcon/>}</span>
-                        <span>{isExpanded ? "Shrink" : "Expand"}</span>
-                    </button>
-                </div>
-            </div>
-            <div className="flex justify-center">
-            {/* <div className="flex justify-center max-h-400"> */}
-                {/* TODO: fix suspense rivemu canvas */}
-                {/* <Suspense fallback={coverFallback()}> */}
-                <div className='relative'
-                    style={{
-                        height: canvasHeight,
-                        width: canvasWidth
-                    }}
-                    >
-                    <div hidden={!isPlaying && playedOnce} className='flex justify-center'>
-                        <canvas
-                            id="canvas"
-                            onContextMenu={(e) => e.preventDefault()}
-                            tabIndex={1}
-                        />
-                    </div>
-                    {/* <div hidden={isPlaying} style={{backgroundColor: "black"}}> */}
-                    <div hidden={isPlaying} className='absolute top-0'>
-                        {coverFallback()}
-                    </div>
-                {/* </Suspense> */}
-                </div>
-            </div>
-            <div className="text-center d-flex justify-content-center" hidden={selectedCartridge?.cartridgeData == undefined}>
-                <h3 className={fontPressStart2P.className}>Score: <span>{overallScore}</span></h3>
+        <section className='gameplay-section' hidden={selectedCartridge?.cartridgeData==undefined}>
+            <div className='relative bg-gray-500 p-2 text-center'>
+                <span>Score: {overallScore}</span>
+                <button className="absolute top-1 end-2.5 rounded border border-gray-500 hover:border-black"
+                onClick={() => stopCartridge()}
+                >
+                    <CloseIcon/>
+                </button>
             </div>
 
-            <div className="text-left d-flex justify-content-center" hidden={isExpanded}>
-                <div className='h-4'></div>
-                <div className='grid grid-cols-3 gap-4 content-start'>
-                    <div></div>
-                    <fieldset className="overflow-auto custom-scrollbar" style={{maxHeight: descHeight}}>
-                        <pre style={{whiteSpace: "pre-wrap"}}>
-                            {selectedCartridge.info?.description}
-                        </pre>
-                    </fieldset>
+            <div className='bg-black w-full h-full'
+                >
+                <div hidden={!isPlaying && playedOnce} className='flex justify-center gameplay-screen'>
+                    <canvas
+                        className='h-full w-full'
+                        id="canvas"
+                        onContextMenu={(e) => e.preventDefault()}
+                        tabIndex={1}
+                    />
                 </div>
+
+                <div hidden={isPlaying} className='absolute top-[40px] gameplay-screen'>
+                    {coverFallback()}
+                </div>
+            </div>
+
+            <div className='text-center d-flex justify-content-center mt-4'>
+                {
+                    !isPlaying?
+                        <button className='btn' onClick={rivemuStart}>
+                            Start
+                        </button>
+                    :
+                        // onKeyDown and onKeyUp "null" prevent buttons pressed when playing to trigger "rivemuStop"
+                        <button className='btn' onKeyDown={() => null} onKeyUp={() => null} onClick={rivemuStop}>
+                            Stop
+                        </button>
+                }
+
             </div>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
         </section>
