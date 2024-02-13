@@ -52,8 +52,13 @@ contract RivesScoreNFT is ERC721URIStorage {
     // validate notice
     dapp.validateNotice(_payload,_v);
 
+    // query the current consensus for the desired claim
+    (, uint256 firstInputIndex, ) = dapp.getConsensus().getClaim(dappAddress,_v.context);
+
+    uint256 inputIndex = firstInputIndex + _v.validity.inputIndexWithinEpoch;
+
     // check if notice has been processed
-    uint256 noticePosition = LibOutputValidation.getBitMaskPosition(_v.validity.outputIndexWithinInput,_v.validity.inputIndexWithinEpoch);
+    uint256 noticePosition = LibOutputValidation.getBitMaskPosition(_v.validity.outputIndexWithinInput,inputIndex);
     require(!noticeBitmask.getBit(noticePosition),"notice re-submiting not allowed");
 
     // abiTypes:['bytes32', 'string', 'uint', 'int', 'int', 'int', 'string', 'string', 'string', 'bytes32'],
@@ -86,8 +91,13 @@ contract RivesScoreNFT is ERC721URIStorage {
     // validate notice
     dapp.validateNotice(_payload,_v);
 
+    // query the current consensus for the desired claim
+    (, uint256 firstInputIndex, ) = dapp.getConsensus().getClaim(dappAddress,_v.context);
+
+    uint256 inputIndex = firstInputIndex + _v.validity.inputIndexWithinEpoch;
+
     // check if notice has been processed
-    uint256 noticePosition = LibOutputValidation.getBitMaskPosition(_v.validity.outputIndexWithinInput,_v.validity.inputIndexWithinEpoch);
+    uint256 noticePosition = LibOutputValidation.getBitMaskPosition(_v.validity.outputIndexWithinInput,inputIndex);
     return noticeBitmask.getBit(noticePosition);
   }
 }

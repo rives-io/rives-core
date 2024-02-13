@@ -11,6 +11,10 @@ import { ReplayScore, getOutputs } from "../../backend-libs/app/lib";
 import { envClient } from '../../utils/clientEnv';
 import { fontPressStart2P } from "../../utils/font"
 import nftAbiFile from "../../contracts/RivesScoreNFT.sol/RivesScoreNFT.json"
+import { delay } from "../../utils/util";
+import CheckIcon from "../../components/svg/CheckIcon";
+import ErrorIcon from "../../components/svg/ErrorIcon";
+import CloseIcon from "../../components/svg/CloseIcon";
 
 const nftAbi: any = nftAbiFile;
 
@@ -45,6 +49,49 @@ export function byteToBase64(bytes: Uint8Array): String {
     return newBase64;
 }
 
+enum STATUS {
+  READY,
+  VALID,
+  INVALID,
+}
+
+interface FEEDBACK_STATUS {
+  status:STATUS,
+  message?:string
+}
+
+const Feedback = ({feedback,setFeedback}:{feedback:FEEDBACK_STATUS, setFeedback(s:FEEDBACK_STATUS):void}) => {
+  if (feedback.status === STATUS.VALID) {
+      delay(2500).then(() =>{
+        setFeedback({status: STATUS.READY} as FEEDBACK_STATUS);
+      })
+      return (
+          <div className="fixed flex items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow-lg right-5 bottom-20 dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
+              <CheckIcon/>
+              <div className="ms-3 text-sm font-bold">{feedback.message}</div>
+          </div>
+      )
+  } else if (feedback.status === STATUS.INVALID) {
+      const click = () => {
+        setFeedback({status: STATUS.READY} as FEEDBACK_STATUS)
+      }
+      return (
+          <div className="fixed flex-col items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow right-5 bottom-[20%] dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
+              <div className="flex items-center pb-1 border-b">
+                  <ErrorIcon/>
+                  <div className="ms-3 text-sm font-normal">Invalid</div>
+                  <button onClick={click} type="button" className="ms-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex items-center justify-center h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#toast-danger" aria-label="Close">
+                      <span className="sr-only">Close</span>
+                      <CloseIcon/>
+                  </button>
+              </div>
+              <div>
+                  {feedback.message}
+              </div>
+          </div>
+      )
+  }
+}
 
 export default function Page({ params }: { params: { input_index: String } }) {
   // const pathname = usePathname();
@@ -82,6 +129,7 @@ const Info = ({inputIndex,signature}:{inputIndex: number,signature:String|null})
   const [operator,setOperator] = useState<String>();
   const [signerAddress,setSignerAddress] = useState<String>();
   const [alreadyMinted,setAlreadyMinted] = useState<boolean>(false);
+  const [feedback, setFeedback] = useState({status: STATUS.READY} as FEEDBACK_STATUS);
   // const score: ReplayScore | undefined = await useMemo( async () => {
   //   const out = await getOutputs({tags: ["screenshot"],input_index: inputIndex}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL})
   //   if (out.length == 0) return undefined;
@@ -105,19 +153,31 @@ const Info = ({inputIndex,signature}:{inputIndex: number,signature:String|null})
     }
   },[wallet,score]);
   
-  useEffect(() => {
+  useEffect(() => getScore(),[]);
+
+  const getScore = () => {
     getOutputs({tags: ["score"],input_index: inputIndex}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL})
       .then((out) =>{
         if (out.length == 0) return;
         const curScore = out[0] as ReplayScore;
         setScore(curScore);
     });
-  },[]);
+  };
+
+
+  const feedbackAndReload = (message: string) => {
+    setFeedback({status:STATUS.VALID,message:message})
+    getScore();
+  };
   
   if (score == undefined)
     return (
-      <div className="flex flex-col">
+      <div className="flex flex-col items-center">
         <span className={`${fontPressStart2P.className} text-1xl` }>Gameplay not processed by the Cartesi Machine Backend (yet)!</span>
+        <button className="button-57 mt-5 w-48" onClick={() => {getScore()}}>
+          <span>Reload Score</span>
+          <span>Reload Score</span>
+        </button>
       </div>
     );
   
@@ -126,15 +186,17 @@ const Info = ({inputIndex,signature}:{inputIndex: number,signature:String|null})
         <Screenshot inputIndex={inputIndex} />
         <NftButtons signature={signature} score={score} nftContract={nftContract} 
           gamelogOwner={gamelogOwner} operator={operator} signerAddress={signerAddress} 
-          alreadyMinted={alreadyMinted}  />
+          alreadyMinted={alreadyMinted} reload={feedbackAndReload} />
+          <Feedback feedback={feedback} setFeedback={setFeedback} />
+
       </div>
   );
 };
 
 
-const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAddress,alreadyMinted}:
+const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAddress,alreadyMinted,reload}:
   {signature:String|null,score:ReplayScore,nftContract:Contract|undefined,gamelogOwner:String|undefined,
-    operator:String|undefined,signerAddress:String|undefined,alreadyMinted:boolean|undefined}) => {
+    operator:String|undefined,signerAddress:String|undefined,alreadyMinted:boolean|undefined,reload(s:String):void}) => {
 
   const userAddress = score.user_address?.toLowerCase();
   
@@ -147,11 +209,20 @@ const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAdd
       alert("Contract not loaded.");
       return;
     }
+    if (alreadyMinted) {
+      alert("Already Minted.");
+      return;
+    }
+    if (operator == userAddress && (!gamelogOwner || gamelogOwner == '0x0000000000000000000000000000000000000000')) {
+      alert("Operator generated (register first).");
+      return;
+    }
     nftContract.mint(score._payload,score._proof).
       then((res: any) => {
         res.wait(1).then(
           (receipt: any) => {
-            alert("Nft Minted!");
+            console.log(receipt)
+            reload("Nft Minted!");
           }
         );
       }
@@ -167,6 +238,18 @@ const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAdd
       alert("Contract not loaded.");
       return;
     }
+    if (alreadyMinted) {
+      alert("Already Minted.");
+      return;
+    }
+    if (signerAddress == operator){
+      alert("Operator can't register.");
+      return;
+    }
+    if (gamelogOwner != '0x0000000000000000000000000000000000000000') {
+      alert("Already registered.");
+      return;
+    }
     const r = signature.slice(0, 66);
     const s = "0x" + signature.slice(66, 130);
     const v = parseInt(signature.slice(130, 132), 16);
@@ -175,7 +258,8 @@ const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAdd
       then((res: any) => {
         res.wait(1).then(
           (receipt: any) => {
-            alert("Gameplay Registered");
+            console.log(receipt)
+            reload("Gameplay Registered");
           }
         );
       }
