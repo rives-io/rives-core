@@ -141,16 +141,22 @@ const Info = ({inputIndex,signature}:{inputIndex: number,signature:String|null})
       setNftContract(undefined);
       return;
     }
-    const curSigner = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner()
-    const curContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,curSigner)
-    setNftContract(curContract);
-    curSigner.getAddress().then((a: String) => setSignerAddress(a.toLowerCase()));
-    curContract.operator().then((o: String) => setOperator(o.toLowerCase()));
-    if (score != undefined && score.gameplay_hash != undefined) {
-      curContract.gamelogOwner(score.gameplay_hash).then((o: String) => setGamelogOwner(o.toLowerCase()));
-      if (score._proof != undefined)
-        curContract.ckeckMinted(score._payload,score._proof).then((o: boolean) => {console.log("minted",o);setAlreadyMinted(o)});
-    }
+    const curSigner = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
+    const curContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,curSigner);
+    curContract.provider.getCode(curContract.address).then((code) => {
+      if (code == '0x') {
+          console.log("Couldn't get nft contract")
+          return;
+      }
+      setNftContract(curContract);
+      curSigner.getAddress().then((a: String) => setSignerAddress(a.toLowerCase()));
+      curContract.operator().then((o: String) => setOperator(o.toLowerCase()));
+      if (score != undefined && score.gameplay_hash != undefined) {
+        curContract.gamelogOwner(score.gameplay_hash).then((o: String) => setGamelogOwner(o.toLowerCase()));
+        if (score._proof != undefined)
+          curContract.ckeckMinted(score._payload,score._proof).then((o: boolean) => {console.log("minted",o);setAlreadyMinted(o)});
+      }
+    });
   },[wallet,score]);
   
   useEffect(() => getScore(),[]);
@@ -166,7 +172,7 @@ const Info = ({inputIndex,signature}:{inputIndex: number,signature:String|null})
 
 
   const feedbackAndReload = (message: string) => {
-    setFeedback({status:STATUS.VALID,message:message})
+    setFeedback({status:STATUS.VALID,message:message});
     getScore();
   };
   

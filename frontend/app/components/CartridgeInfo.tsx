@@ -58,7 +58,7 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
         return (
             <div className="fixed flex items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow-lg right-5 bottom-20 dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
                 <CheckIcon/>
-                <div className="ms-3 text-sm font-bold">Log Validated</div>
+                <div className="ms-3 text-sm font-bold">Log Sent</div>
             </div>
         )
     } else if (logStatus.status === STATUS.INVALID) {
@@ -230,17 +230,17 @@ function CartridgeInfo() {
             if (inputIndex == undefined)
                 throw new Error("Couldn't get input index");
 
-            console.log(receipt, Number(inputIndex._hex))
-
             setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALID});
 
             let signature = "";
             const nftContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,signer);
-            if ((await signer.getAddress()).toLowerCase() == (await nftContract.operator()).toLowerCase()) {
+
+            const code = await nftContract.provider.getCode(nftContract.address);
+            if (code == '0x') {
+                console.log("Couldn't get nft contract")
+            } else if ((await signer.getAddress()).toLowerCase() == (await nftContract.operator()).toLowerCase()) {
                 const gameplayHash = sha256(selectedCartridge.gameplayLog);
                 const signedHash = await signer.signMessage(ethers.utils.arrayify("0x"+gameplayHash));
-                console.log("gameplayHash",gameplayHash)
-                console.log("signedHash",signedHash)
                 signature = `?signature=${signedHash}`;
             }
 
@@ -581,7 +581,7 @@ function SubmitModal({showModal,setShowModal,acceptFunction,bypassModal}:{showMo
                             <legend className="px-1">
                                 user alias
                             </legend>
-                            <input className="text-black" type="text" value={alias} onChange={e => setAlias(e.target.value)} />
+                            <input className="text-black" type="text" maxLength={12} value={alias} onChange={e => setAlias(e.target.value.slice(0, 12))} />
                         </div>
                         <div className="mt-5">
                             <input id="bypass-checkbox" type="checkbox" checked={bypass} onChange={e => setBypass(e.target.checked)} >
