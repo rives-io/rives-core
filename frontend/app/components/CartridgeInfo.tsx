@@ -1,6 +1,6 @@
 "use client"
 
-import { ethers } from "ethers";
+import { ContractReceipt, ethers } from "ethers";
 import React, { Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
@@ -16,6 +16,7 @@ import StadiumIcon from '@mui/icons-material/Stadium';
 import CodeIcon from '@mui/icons-material/Code';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
+import QRCode from "react-qr-code";
 
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
@@ -30,7 +31,10 @@ import { delay } from "../utils/util";
 import CheckIcon from "./svg/CheckIcon";
 import ErrorIcon from "./svg/ErrorIcon";
 import CloseIcon from "./svg/CloseIcon";
+import { sha256 } from "js-sha256";
+import nftAbiFile from "../contracts/RivesScoreNFT.sol/RivesScoreNFT.json"
 
+const nftAbi: any = nftAbiFile;
 
 enum STATUS {
     READY,
@@ -53,7 +57,7 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
         return (
             <div className="fixed flex items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow-lg right-5 bottom-20 dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
                 <CheckIcon/>
-                <div className="ms-3 text-sm font-bold">Log Validated</div>
+                <div className="ms-3 text-sm font-bold">Log Sent</div>
             </div>
         )
     } else if (logStatus.status === STATUS.INVALID) {
@@ -145,6 +149,12 @@ function CartridgeInfo() {
     const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
     const [reloadScoreboardCount, setReloadScoreboardCount] = useState(0);
 
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [showNftLinkModal, setShowNftLinkModal] = useState(false);
+    const [mintUrl, setMintUrl] = useState("/mint/1");
+    const [userAlias, setUserAlias] = useState('');
+    const [bypassSubmitModal, setBypassSubmitModal] = useState(false);
+
     useEffect(() => {
         // auto reload scoreboard only if
         // gameplay log sent is valid and the selected cartridge is the same of the gameplay sent
@@ -152,6 +162,10 @@ function CartridgeInfo() {
             setReloadScoreboardCount(reloadScoreboardCount+1);
         }
     }, [submitLogStatus])
+
+    useEffect(() => {
+        if (selectedCartridge?.gameplayLog) submitLog();
+    }, [selectedCartridge?.gameplayLog])
 
     if (!selectedCartridge) return <></>;
 
@@ -172,8 +186,27 @@ function CartridgeInfo() {
             return;
         }
 
+        if (bypassSubmitModal)
+            submitLogWithAlias(userAlias);
+        else
+            setShowSubmitModal(true);
+    }
+
+    async function submitLogWithAlias(userAliasToSubmit:string = "") {
+        // replay({car});
+        if (!selectedCartridge || !selectedCartridge.gameplayLog){
+            return;
+        }
+        if (!selectedCartridge.outcard || !selectedCartridge.outhash ){
+            return;
+        }
+        if (!wallet) {
+            return;
+        }
+        setUserAlias(userAliasToSubmit);
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
         const inputData: Replay = {
+            user_alias:userAliasToSubmit,
             cartridge_id:"0x"+selectedCartridge.id,
             outcard_hash: '0x' + selectedCartridge.outhash,
             args: selectedCartridge.args || "",
@@ -188,13 +221,40 @@ function CartridgeInfo() {
         }
         console.log("Replay Outcard hash",selectedCartridge.outhash)
 
+
         setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALIDATING});
         try {
-            await replay(signer, envClient.DAPP_ADDR, inputData, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+            const receipt = await replay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+
+            if (receipt == undefined || receipt.events == undefined)
+                throw new Error("Couldn't send transaction");
+
+            const inputEvent = receipt.events[0];
+            const inputIndex = inputEvent.args && inputEvent.args[1];
+            if (inputIndex == undefined)
+                throw new Error("Couldn't get input index");
+
             setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALID});
+
+            let signature = "";
+            const nftContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,signer);
+
+            const code = await nftContract.provider.getCode(nftContract.address);
+            if (code == '0x') {
+                console.log("Couldn't get nft contract")
+            } else if ((await signer.getAddress()).toLowerCase() == (await nftContract.operator()).toLowerCase()) {
+                const gameplayHash = sha256(selectedCartridge.gameplayLog);
+                const signedHash = await signer.signMessage(ethers.utils.arrayify("0x"+gameplayHash));
+                signature = `?signature=${signedHash}`;
+            }
+
+            setMintUrl(`/mint/${Number(inputIndex._hex)}${signature}`)
+            setShowNftLinkModal(true);
+
         } catch (error) {
             setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.INVALID, error: (error as Error).message});
         }
+        // TODO: test mint
     }
 
     async function uploadLog() {
@@ -242,190 +302,6 @@ function CartridgeInfo() {
             }
         }
     }
-    // return (
-    //     <fieldset className='h-full custom-shadow'>
-    //         <legend className="ms-2 px-1">
-    //             <span className={`cartridge-title-text ${fontPressStart2P.className}`}>{selectedCartridge.name}</span>
-    //             <br/>
-    //             <span className='muted-text'>
-    //                 Uploaded by {selectedCartridge.user_address} on {new Date(selectedCartridge.created_at*1000).toLocaleString()}
-    //             </span>
-    //         </legend>
-    //         <div className="flex flex-row h-full">
-    //             <div className="basis-1/4 h-1/2">
-                    // <Canvas shadows camera={ {near: 0.1, far: 1000, position: [0,0,0]} }>
-
-                    //     <Suspense fallback={<Loader />}>
-                    //         <ambientLight intensity={1} />
-                    //         <pointLight position={[4, -5, -10]} intensity={20} />
-                    //         <pointLight position={[-4, -5, -10]} intensity={20} />
-                    //         <spotLight
-                    //             position={[0, -5, -10]}
-                    //             angle={Math.PI}
-                    //             penumbra={1}
-                    //             intensity={80}
-                    //         />
-                    //         <hemisphereLight
-                    //             color='#b1e1ff'
-                    //             groundColor='#000000'
-                    //             intensity={1}
-                    //         />
-
-                    //         <Cartridge
-                    //         rotation={[0, -Math.PI/2, 0]}
-                    //             key={selectedCartridge.cover}
-                    //             position={[0,0,-10]}
-                    //             cover={selectedCartridge.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
-                    //             scale={[1, 1, 1]}
-                    //         />
-                    //         <SciFiPedestal position={[0, -5, -10]} scale={[0.3,0.3,0.3]}/>
-
-                    //     </Suspense>
-
-                    // </Canvas>
-    //                 <input type="file" ref={fileRef} onChange={(e) => handleOnChange(e)} style={{ display: 'none' }}/>
-    //                 <div className="flex flex-wrap place-content-evenly">
-    //                     <button className="button-57" onClick={() => {playCartridge()}}>
-    //                         <span><PowerSettingsNewIcon/></span>
-    //                         <span>Turn on</span>
-    //                     </button>
-
-    //                     <button className={"button-57"} onClick={() => {submitLog()}}
-    //                     disabled={!selectedCartridge.gameplayLog == undefined || selectedCartridge?.outcard == undefined || selectedCartridge?.outhash == undefined || !wallet || submitLogStatus.status != STATUS.READY}>
-
-    //                         {
-    //                             submitLogStatus.status === STATUS.READY || submitLogStatus.cartridgeId !== selectedCartridge.id?
-    //                                 <>
-    //                                     <span><PublishIcon/></span>
-    //                                     <span>Submit Log</span>
-    //                                 </>
-    //                             :
-    //                                 <>
-    //                                     <span>
-                                            // <div className='w-5 h-5 border-2 rounded-full border-current animate-spin'>
-                                            // </div>
-    //                                     </span>
-
-    //                                     <span>
-    //                                         Validating
-    //                                     </span>
-    //                                 </>
-    //                         }
-    //                     </button>
-
-    //                     <button className="button-57" onClick={() => {uploadLog()}}>
-    //                         <span><UploadIcon/></span>
-    //                         <span>Upload Log</span>
-    //                     </button>
-
-    //                     <button className={"button-57"} onClick={() => {downloadLog()}} disabled={!selectedCartridge.gameplayLog}>
-    //                         <span><DownloadIcon/></span>
-    //                         <span>Download Gameplay</span>
-    //                     </button>
-
-    //                 </div>
-
-    //                 {
-    //                     !(selectedCartridge.info?.authors)?
-    //                         <></>
-    //                     :
-    //                         <div className='mt-3'>
-    //                             <span className={`ms-2 font-bold text-xl ${fontPressStart2P.className}`}>
-    //                                 Creators
-    //                             </span>
-
-    //                             <ul className='flex flex-col space-y-1'>
-    //                                 {selectedCartridge.info?.authors?.map((author) => (
-    //                                     <li key={author.name}><Link className='ms-8 font-semibold link-2step-hover' href={author.link}>{author.name}</Link></li>
-    //                                 ))}
-    //                             </ul>
-
-    //                         </div>
-    //                 }
-
-    //             </div>
-
-    //             <div className="basis-3/4 flex flex-col py-2 max-h-full">
-    //                 <Tab.Group>
-    //                     <Tab.List className="game-option-tabs-header">
-    //                         <Tab
-    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-    //                             >
-    //                                 <span className='game-tabs-option-text'>
-    //                                     <DescriptionIcon/>
-    //                                     <span>Description</span>
-    //                                 </span>
-    //                         </Tab>
-
-    //                         <Tab
-    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-    //                             >
-    //                                 <span className='game-tabs-option-text'>
-    //                                     <LeaderboardIcon/>
-    //                                     <span>Scoreboards</span>
-    //                                 </span>
-    //                         </Tab>
-
-    //                         <Tab
-    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-    //                             >
-    //                                 <span className='game-tabs-option-text'>
-    //                                     <StadiumIcon/>
-    //                                     <span>Tournaments</span>
-    //                                 </span>
-    //                         </Tab>
-
-    //                         <Tab
-    //                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
-    //                             >
-    //                                 <span className='game-tabs-option-text'>
-    //                                     <CodeIcon/>
-    //                                     <span>Mods</span>
-    //                                 </span>
-    //                         </Tab>
-    //                     </Tab.List>
-
-    //                     <Tab.Panels className="mt-2 pr-1 overflow-auto custom-scrollbar">
-    //                         <Tab.Panel
-    //                             className="game-tab-content"
-    //                         >
-    //                             <CartridgeDescription/>
-    //                         </Tab.Panel>
-
-    //                         <Tab.Panel
-    //                             className="game-tab-content"
-    //                         >
-                                // <div className="w-full flex">
-                                //     <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
-                                // </div>
-                                // <Suspense fallback={scoreboardFallback()}>
-                                //     <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
-                                // </Suspense>
-
-    //                         </Tab.Panel>
-
-    //                         <Tab.Panel
-    //                             className="game-tab-content"
-    //                         >
-    //                             <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
-    //                         </Tab.Panel>
-
-    //                         <Tab.Panel
-    //                             className="game-tab-content"
-    //                         >
-    //                             <span className={`${fontPressStart2P.className}`}>Coming Soon!</span>
-    //                         </Tab.Panel>
-    //                     </Tab.Panels>
-    //                 </Tab.Group>
-    //             </div>
-    //         </div>
-
-    //         {
-    //             logFeedback(submitLogStatus, setSubmitLogStatus)
-    //         }
-
-    //     </fieldset>
-    // )
 
 
     return (
@@ -487,8 +363,129 @@ function CartridgeInfo() {
                     <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
                 </Suspense>
             </div> */}
+
+            <NftLinkModal showModal={showNftLinkModal} setShowModal={setShowNftLinkModal} url={mintUrl} />
+            <SubmitModal showModal={showSubmitModal} setShowModal={setShowSubmitModal} acceptFunction={submitLogWithAlias} bypassModal={setBypassSubmitModal} />
         </div>
     );
 }
 
+
+function NftLinkModal({showModal,setShowModal,url}:{showModal:boolean,setShowModal(s:boolean):void,url:String}) {
+    return (
+      <>
+        {showModal ? (
+          <>
+            <div
+              className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-30 outline-none focus:outline-none"
+            >
+              <div className="relative w-auto my-6 mx-auto max-w-3xl">
+                {/*content*/}
+                <div className="border-0 rounded-lg shadow-lg relative flex flex-col w-full bg-gray-500 outline-none focus:outline-none">
+                    {/*header*/}
+                    <div className='relative p-2 text-center'>
+                        <span>Score NFT</span>
+                        <button className="absolute top-1 end-2.5 rounded p-2 border border-gray-500 hover:border-black"
+                        onClick={() => setShowModal(false)}
+                        >
+                            <CloseIcon/>
+                        </button>
+                    </div>
+                  {/*body*/}
+                  <div className="relative py-2 px-6 flex-auto items-center">
+                    <button className="place-self-center" title='Nft Score Screenshot' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
+                        <div style={{ height: "auto", margin: "0 auto", maxWidth: 200, width: "100%" }} >
+                            <QRCode
+                            size={200}
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                            value={`${window.location.origin}${url}`}
+                            viewBox={`0 0 200 200`}
+                            />
+                        </div>
+                    </button>
+                  </div>
+                  {/*footer*/}
+                  <div className="flex items-center justify-end pb-2 pr-6">
+                    <button
+                      className={`games-list-item`}
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="opacity-25 fixed inset-0 z-20 bg-black"></div>
+          </>
+        ) : null}
+      </>
+    );
+  }
+
+function SubmitModal({showModal,setShowModal,acceptFunction,bypassModal}:{showModal:boolean,setShowModal(s:boolean):void,acceptFunction(s:string):void,bypassModal(s:boolean):void}) {
+    const [alias, setAlias] = useState('');
+    const [bypass, setBypass] = useState(false);
+
+    return (
+      <>
+        {showModal ? (
+          <>
+            <div
+              className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-30 outline-none focus:outline-none"
+            >
+              <div className="relative w-auto my-6 mx-auto max-w-3xl">
+                {/*content*/}
+                <div className="border-0 shadow-lg relative flex flex-col w-full bg-gray-500 outline-none focus:outline-none">
+                  {/*header*/}
+                    <div className='relative p-2 text-center'>
+                        <span>Submit Gameplay</span>
+                        <button className="absolute top-1 end-2.5 rounded p-2 border border-gray-500 hover:border-black"
+                        onClick={() => setShowModal(false)}
+                        >
+                            <CloseIcon/>
+                        </button>
+                    </div>
+                  {/*body*/}
+                    <fieldset className={`relative my-6 px-6 flex-auto h-full`}>
+                        <div >
+                            <legend>
+                                user alias
+                            </legend>
+                            <input type="text" maxLength={12} value={alias} onChange={e => setAlias(e.target.value.slice(0, 12))} />
+                        </div>
+                        <div className="mt-2">
+                            <input id="bypass-checkbox" type="checkbox" checked={bypass} onChange={e => setBypass(e.target.checked)} >
+                            </input>
+                            <label htmlFor="bypass-checkbox" className="ms-2">
+                                remember my alias
+                            </label>
+                        </div>
+                    </fieldset>
+                    <div className="flex items-center justify-end pb-2 pr-6">
+                        <button
+                        className={`bg-red-500 text-white font-bold uppercase text-sm px-6 py-2 border border-red-500 hover:text-red-500 hover:bg-transparent`}
+                        type="button"
+                        onClick={() => setShowModal(false)}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                        className={`bg-emerald-500 text-white font-bold uppercase text-sm px-6 py-2 ml-1 border border-emerald-500 hover:text-emerald-500 hover:bg-transparent`}
+                        type="button"
+                        onClick={() => {acceptFunction(alias);bypassModal(bypass);setShowModal(false);}}
+                        >
+                            Submit
+                        </button>
+                    </div>
+                </div>
+              </div>
+            </div>
+            <div className="opacity-25 fixed inset-0 z-20 bg-black"></div>
+          </>
+        ) : null}
+      </>
+    );
+  }
 export default CartridgeInfo

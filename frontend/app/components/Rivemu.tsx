@@ -265,6 +265,7 @@ function Rivemu() {
                 setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash);
                 setReplayLog(new Uint8Array(rivlog));
             }
+            rivemuStop();
             console.log("rivemu_on_finish")
         };
     }

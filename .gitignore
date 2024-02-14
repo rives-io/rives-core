@@ -2,3 +2,6 @@
 .venv
 __pycache__
 cartridges
+cache
+frontend/app/contracts
+!frontend/app/contracts/RivesScoreNFT.sol

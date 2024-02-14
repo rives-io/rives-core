@@ -27,7 +27,8 @@ WORKDIR /opt/tools
 RUN <<EOF
 apt-get update && \
 apt-get install -y --no-install-recommends wget=1.21.2-2ubuntu1 ca-certificates=20230311ubuntu0.22.04.1 \
-    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.10 squashfs-tools=1:4.5-3build1&& \
+    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.10 squashfs-tools=1:4.5-3build1 \
+    libjpeg-dev=8c-2ubuntu10 zlib1g-dev=1:1.2.11.dfsg-2ubuntu9.2 libfreetype6-dev=2.11.1+dfsg-1ubuntu0.2 && \
 wget -O machine-emulator-tools.deb https://github.com/cartesi/machine-emulator-tools/releases/download/v${MACHINE_EMULATOR_TOOLS_VERSION}/machine-emulator-tools-v${MACHINE_EMULATOR_TOOLS_VERSION}.deb && \
 rm -rf /var/lib/apt/lists/*
 EOF
@@ -76,10 +77,15 @@ WORKDIR /opt/cartesi/dapp
 COPY main.py .
 COPY cartesapp cartesapp
 COPY app app
+COPY misc/Rives-Logo.png misc/Rives-Logo.png
 COPY misc/snake.sqfs misc/snake.sqfs
 COPY misc/2048.sqfs misc/2048.sqfs
 COPY misc/freedoom.sqfs misc/freedoom.sqfs
 COPY misc/antcopter.sqfs misc/antcopter.sqfs
+COPY misc/monky.sqfs misc/monky.sqfs
+COPY misc/test.rivlog misc/test.rivlog
+
+COPY misc/font misc/font
 
 FROM base as dapp
 

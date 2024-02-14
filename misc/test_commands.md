@@ -88,13 +88,13 @@ curl -s "http://localhost:8080/inspect/app/scores?scoreboard_id=a7a39b72f29718e6
 indexer queries
 
 ```shell
-curl -s http://localhost:8080/inspect/cartesapp/indexer_query?tags=score | jq -r '.reports[0].payload' | xxd -r -p
-curl -s "http://localhost:8080/inspect/cartesapp/indexer_query?tags=replay&msg_sender=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" | jq -r '.reports[0].payload' | xxd -r -p
+curl -s http://localhost:8080/inspect/indexer/indexer_query?tags=score | jq -r '.reports[0].payload' | xxd -r -p
+curl -s "http://localhost:8080/inspect/indexer/indexer_query?tags=replay&msg_sender=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" | jq -r '.reports[0].payload' | xxd -r -p
 ```
 
 Indexer score from scoreboard
 
 ```shell
-indexer_result=$(curl -s http://localhost:8080/inspect/cartesapp/indexer_query?tags=score | jq -r '.reports[0].payload' | xxd -r -p | jq)
+indexer_result=$(curl -s http://localhost:8080/inspect/indexer/indexer_query?tags=score | jq -r '.reports[0].payload' | xxd -r -p | jq)
 curl -s -H 'Content-Type: application/json' -X POST "http://localhost:8080/graphql" -d "{ \"query\":\"query { notice(inputIndex:$(echo $indexer_result | jq -r '.[0].input_index'),noticeIndex:$(echo $indexer_result | jq -r '.[0].output_index')) { payload}}\"}}" | jq -r '.data.notice.payload' | sed -r 's/^0x//' | tr -d '\n' | xxd -c 32
 ```
