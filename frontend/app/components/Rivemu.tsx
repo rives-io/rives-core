@@ -5,12 +5,6 @@ import React, { useContext, useState, useEffect } from 'react'
 import Script from "next/script";
 import Image from 'next/image';
 import {Parser} from 'expr-eval';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import Stop from '@mui/icons-material/Stop';
-import ReplayIcon from '@mui/icons-material/Replay';
-import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
-import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import CloseIcon from '@mui/icons-material/Close';
 
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
@@ -23,31 +17,24 @@ function Rivemu() {
     const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge, setDownloadingCartridge } = useContext(selectedCartridgeContext);
     const [overallScore, setOverallScore] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [replayTip, setReplayTip] = useState(false);
+    // const [replayTip, setReplayTip] = useState(false);
     const [isReplaying, setIsReplaying] = useState(false);
-    const [isExpanded, setIsExpanded] = useState(false);
+    // const [isExpanded, setIsExpanded] = useState(false);
     const [playedOnce, setPlayedOnce] = useState(false);
     const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
 
 
     useEffect(() => {
         if (!selectedCartridge || !selectedCartridge?.play) return;
-
-        if (selectedCartridge.replay) {
-            const initAndReplay = async () => {
-                await initialize();
-                rivemuReplay();
-            }
-
-            initAndReplay();
-        }
-        else {
-            initialize();
-        }
-
+        initialize();
     }
-    ,[selectedCartridge?.playToggle])
+    ,[selectedCartridge?.playToggle, selectedCartridge?.replay])
 
+    useEffect(() => {
+        if (!isPlaying) {
+            rivemuReplay();
+        }
+    }, [replayLog])
 
     // useEffect(() => {
     //     interface keyboardEvent {key:string}
@@ -65,7 +52,7 @@ function Rivemu() {
     async function initialize() {
         if (!selectedCartridge || selectedCartridge.cartridgeData == undefined) {
             setIsPlaying(false);
-            setIsExpanded(false);
+            // setIsExpanded(false);
             setOverallScore(0);
             setReplayLog(undefined);
         }
@@ -73,12 +60,12 @@ function Rivemu() {
         if (selectedCartridge?.replay){
             setReplayLog(selectedCartridge.replay);
             setIsReplaying(true);
-            setReplayTip(true);
+            // setReplayTip(true);
         }
         if (selectedCartridge?.gameplayLog) {
             setReplayLog(selectedCartridge.gameplayLog);
             setIsReplaying(false);
-            setReplayTip(true);
+            // setReplayTip(true);
         }
     }
 
@@ -127,7 +114,7 @@ function Rivemu() {
         console.log("rivemuStart");
         // setIsLoading(true);
         setIsReplaying(false);
-        setReplayTip(false);
+        // setReplayTip(false);
         // // @ts-ignore:next-line
         // if (Module.quited) {
         //     // restart wasm when back to page
@@ -171,9 +158,11 @@ function Rivemu() {
         // TODO: fix rivemuReplay
         if (!selectedCartridge?.cartridgeData || !replayLog) return;
         console.log("rivemuReplay");
-        setReplayTip(false);
-        if (selectedCartridge.cartridgeData == undefined || selectedCartridge.outcard != undefined || selectedCartridge.outhash != undefined)
-            setIsReplaying(true);
+
+        // setReplayTip(false);
+        // if (selectedCartridge.cartridgeData == undefined || selectedCartridge.outcard != undefined || selectedCartridge.outhash != undefined)
+        //     setIsReplaying(true);
+
         // // @ts-ignore:next-line
         // if (Module.quited) {
         //     // restart wasm when back to page
@@ -275,7 +264,7 @@ function Rivemu() {
         ) {
             if (!isReplaying) {
                 setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash);
-                setReplayLog(new Uint8Array(rivlog));
+                // setReplayLog(new Uint8Array(rivlog));
             }
             rivemuStop();
             console.log("rivemu_on_finish")
@@ -310,7 +299,7 @@ function Rivemu() {
                 </div>
             </div>
 
-            <div className='text-center d-flex justify-content-center mt-4'>
+            <div className='text-center d-flex space-x-1 justify-content-center mt-4'>
                 {
                     !isPlaying?
                         <button className='btn' onClick={rivemuStart}>
