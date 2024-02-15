@@ -87,19 +87,22 @@ function scoreboardFallback() {
     const arr = Array.from(Array(3).keys());
 
     return (
-        <table className="w-full text-sm text-left">
+        <table className="w-full text-xs text-left">
             <thead className="text-xsuppercase">
                 <tr>
-                    <th scope="col" className="px-6 py-3">
+                    <th scope="col" className="px-2 py-3">
                         User
                     </th>
-                    <th scope="col" className="px-6 py-3">
+                    <th scope="col" className="px-2 py-3">
                         Timestamp
                     </th>
-                    <th scope="col" className="px-6 py-3">
+                    <th scope="col" className="px-2 py-3">
                         Score
                     </th>
-                    <th scope="col" className="px-6 py-3">
+                    <th scope="col" className="px-2 py-3">
+                        Status
+                    </th>
+                    <th scope="col" className="px-2 py-3">
 
                     </th>
                 </tr>
@@ -108,25 +111,30 @@ function scoreboardFallback() {
                 {
                     arr.map((num, index) => {
                         return (
-                            <tr key={index} className='mb-3 h-16'>
-                                <td className="px-6 py-4 break-all">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        0xf39f...2266
+                            <tr key={index}>
+                                <td className="px-2 py-4 break-all">
+                                    <div className='ps-4 fallback-bg-color rounded-md'>
+                                        0xf39F...2266
                                     </div>
                                 </td>
 
-                                <td className="px-6 py-4">
+                                <td className="px-2 py-4">
                                     <div className='fallback-bg-color rounded-md'>
-                                        31/12/1969, 21:06:36
+                                        31/12/1969, 21:06:36 PM
                                     </div>
                                 </td>
 
-                                <td className="px-6 py-4">
+                                <td className="px-2 py-4">
                                     <div className='fallback-bg-color rounded-md'>
                                         100
                                     </div>
                                 </td>
-                                <td className="px-6">
+                                <td className="px-2 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                                <td className="w-[50px] h-[56px]">
                                     <div className='fallback-bg-color rounded-md'>
                                         100
                                     </div>
@@ -337,10 +345,100 @@ function CartridgeInfo() {
                 </Canvas>
             </div>
 
-            <div className="max-w-md">
-                <div>
-                    <CartridgeDescription/>
+            <div className="md:w-[512px] lg:w-[768px]">
+                <div className="text-white mb-2">
+                    <span className='text-4xl'>{selectedCartridge.name}</span>
+
+                    {
+                    !(selectedCartridge.info?.authors)?
+                        <div className='h-6'></div>
+                    :
+                    (
+                        <div className='flex space-x-2'>
+                            <span>By</span>
+                            <ul>
+                                {selectedCartridge.info?.authors?.map((author, index) => (
+                                    <li key={author.name}>
+                                        <Link href={author.link}>
+                                            {author.name}{index !== selectedCartridge.info!.authors!.length-1? ",": ""}
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
+
+                        </div>
+                    )
+                    }
                 </div>
+
+                <Tab.Group>
+                    <Tab.List className="game-option-tabs-header">
+                        <Tab
+                            className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+                            >
+                                <span className='game-tabs-option-text'>
+                                    <DescriptionIcon/>
+                                    <span>Description</span>
+                                </span>
+                        </Tab>
+
+                        <Tab
+                            className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+                            >
+                                <span className='game-tabs-option-text'>
+                                    <LeaderboardIcon/>
+                                    <span>Scoreboard</span>
+                                </span>
+                        </Tab>
+
+                        {/* <Tab
+                            className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+                            >
+                                <span className='game-tabs-option-text'>
+                                    <StadiumIcon/>
+                                    <span>Tournaments</span>
+                                </span>
+                        </Tab>
+
+                        <Tab
+                            className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+                            >
+                                <span className='game-tabs-option-text'>
+                                    <CodeIcon/>
+                                    <span>Mods</span>
+                                </span>
+                        </Tab> */}
+                    </Tab.List>
+
+                    <Tab.Panels className="mt-2 overflow-auto custom-scrollbar">
+                        <Tab.Panel className="game-tab-content ">
+                            <CartridgeDescription/>
+                        </Tab.Panel>
+
+                        {/* lg: width is equal to the max-w-3xl */}
+                        <Tab.Panel className="game-tab-content">
+                            <div className="w-full flex">
+                                <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
+                            </div>
+                            <Suspense fallback={scoreboardFallback()}>
+                                <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
+                            </Suspense>
+
+                        </Tab.Panel>
+
+                        {/* <Tab.Panel className="game-tab-content">
+                            Coming Soon!
+                        </Tab.Panel>
+
+                        <Tab.Panel className="game-tab-content">
+                            Coming Soon!
+                        </Tab.Panel> */}
+                    </Tab.Panels>
+                </Tab.Group>
+
+                {/* <div>
+                    <CartridgeDescription/>
+                </div> */}
 
                 {
                     selectedCartridge.downloading?

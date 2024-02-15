@@ -1,6 +1,8 @@
 import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
+import CheckIcon from '@mui/icons-material/Check';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ImageIcon from '@mui/icons-material/Image';
 import { envClient } from '../utils/clientEnv';
 import React from 'react';
@@ -41,19 +43,22 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
 
     return (
         <div className="relative">
-            <table className="w-full text-sm text-left">
+            <table className="w-full text-xs text-left">
                 <thead className="text-xsuppercase">
                     <tr>
-                        <th scope="col" className="px-6 py-3">
+                        <th scope="col" className="px-2 py-3">
                             User
                         </th>
-                        <th scope="col" className="px-6 py-3">
+                        <th scope="col" className="px-2 py-3">
                             Timestamp
                         </th>
-                        <th scope="col" className="px-6 py-3">
+                        <th scope="col" className="px-2 py-3">
                             Score
                         </th>
-                        <th scope="col" className="px-6 py-3">
+                        <th scope="col" className="px-2 py-3">
+                            Status
+                        </th>
+                        <th scope="col" className="px-2 py-3">
 
                         </th>
                     </tr>
@@ -63,14 +68,22 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
                         generalScores.map((scoreInfo, index) => {
                             return (
                                 <tr key={`${scoreInfo.user_address}-${scoreInfo.timestamp}`} className="">
-                                    <td scope="row" className="px-6 py-4 break-all">
-                                        {setMedal(index)} {scoreInfo.user_address.substring(0,6)}...{scoreInfo.user_address.substring(scoreInfo.user_address.length-4,scoreInfo.user_address.length)}
+                                    <td title={scoreInfo.user_address.toLowerCase()} scope="row" className="px-2 py-4 break-all">
+                                        {setMedal(index)} {scoreInfo.user_alias? scoreInfo.user_alias:scoreInfo.user_address.substring(0,6)+"..."+scoreInfo.user_address.substring(scoreInfo.user_address.length-4,scoreInfo.user_address.length)}
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-2 py-4">
                                         {new Date(Number(scoreInfo.timestamp)*1000).toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-2 py-4">
                                         {scoreInfo.score.toLocaleString()}
+                                    </td>
+                                    <td className="px-2 py-4">
+                                        {
+                                            !scoreInfo._proof?
+                                                <span title='Validated inside Cartesi Machine'><CheckIcon/></span>
+                                            :
+                                                <span title='Settled on-chain'><DoneAllIcon/></span>
+                                        }
                                     </td>
                                     <td className="py-4">
                                         <button title='Play Log' className='scoreboard-btn' onClick={() => playReplay(scoreInfo)}><span><OndemandVideoIcon/></span></button>

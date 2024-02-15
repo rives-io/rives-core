@@ -266,11 +266,11 @@ body {
   }
 
   .game-option-tabs-header {
-    @apply flex space-x-1 rounded-xl bg-[rgb(var(--background-start-rgb))] p-1;
+    @apply flex space-x-1 bg-gray-400 bg-opacity-40 p-1;
   }
 
   .game-tabs-option {
-    @apply w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-[var(--highlight-text-end-hex)] focus:ring-4;
+    @apply w-full py-2.5 text-sm;
   }
 
   .game-tabs-option-text {
@@ -282,15 +282,15 @@ body {
   }
 
   .game-tabs-option-unselected {
-    @apply game-tabs-option text-[rgb(var(--foreground-rgb))] hover:bg-[var(--background-end-rgba0)] hover:text-[var(--highlight-text-end-hex)];
+    @apply game-tabs-option hover:bg-gray-400;
   }
 
   .game-tabs-option-selected {
-    @apply game-tabs-option bg-[rgb(var(--background-end-rgb))] text-[var(--highlight-text-end-hex)] shadow;
+    @apply game-tabs-option bg-gray-400;
   }
 
   .game-tab-content {
-    @apply rounded-xl bg-[rgb(var(--background-end-rgb))] p-3;
+    @apply p-3 bg-gray-400;
   }
 
   .muted-text {
