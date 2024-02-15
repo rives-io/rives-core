@@ -30,9 +30,21 @@ function Rivemu() {
     const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
 
 
-    useEffect(()=>{
+    useEffect(() => {
         if (!selectedCartridge || !selectedCartridge?.play) return;
-        initialize();
+
+        if (selectedCartridge.replay) {
+            const initAndReplay = async () => {
+                await initialize();
+                rivemuReplay();
+            }
+
+            initAndReplay();
+        }
+        else {
+            initialize();
+        }
+
     }
     ,[selectedCartridge?.playToggle])
 
