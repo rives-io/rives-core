@@ -1,10 +1,9 @@
 "use client"
-import { usePathname, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import {  useState, useEffect, useMemo } from 'react'
 import Image from 'next/image';
 import { Contract, ethers } from 'ethers';
 import { useConnectWallet } from "@web3-onboard/react";
-import type { WalletState } from '@web3-onboard/core';
 
 
 import { ReplayScore, getOutputs } from "../../backend-libs/app/lib";
@@ -14,7 +13,7 @@ import nftAbiFile from "../../contracts/RivesScoreNFT.sol/RivesScoreNFT.json"
 import { delay } from "../../utils/util";
 import CheckIcon from "../../components/svg/CheckIcon";
 import ErrorIcon from "../../components/svg/ErrorIcon";
-import CloseIcon from "../../components/svg/CloseIcon";
+import CloseIcon from "@mui/icons-material/Close";
 
 const nftAbi: any = nftAbiFile;
 

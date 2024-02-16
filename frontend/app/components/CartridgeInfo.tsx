@@ -28,53 +28,39 @@ import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
 import { envClient } from "../utils/clientEnv";
 import { delay } from "../utils/util";
-import CheckIcon from "./svg/CheckIcon";
-import ErrorIcon from "./svg/ErrorIcon";
-import CloseIcon from "./svg/CloseIcon";
+import ErrorIcon from '@mui/icons-material/Error';
+import CloseIcon from "@mui/icons-material/Close";
 import { sha256 } from "js-sha256";
 import nftAbiFile from "../contracts/RivesScoreNFT.sol/RivesScoreNFT.json"
 
 const nftAbi: any = nftAbiFile;
 
 enum STATUS {
-    READY,
-    VALIDATING,
-    VALID,
-    INVALID,
+    WAITING,
+    SUBMIT,
+    SUBMITING,
+    SIGN,
+    FINISHED
 }
 
 interface LOG_STATUS {
-    cartridgeId:string,
     status:STATUS,
     error?:string
 }
 
 function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
-    if (logStatus.status === STATUS.VALID) {
-        delay(2500).then(() =>{
-            setLogStatus({status: STATUS.READY} as LOG_STATUS);
-        })
+    if (logStatus.error) {
+        // delay(5000).then(() =>{
+        //     setLogStatus({status: logStatus.status});
+        // })
+
         return (
-            <div className="fixed flex items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow-lg right-5 bottom-20 dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
-                <CheckIcon/>
-                <div className="ms-3 text-sm font-bold">Log Sent</div>
-            </div>
-        )
-    } else if (logStatus.status === STATUS.INVALID) {
-        const click = () => {
-            setLogStatus({status: STATUS.READY} as LOG_STATUS)
-        }
-        return (
-            <div className="fixed flex-col items-center max-w-xs p-4 space-x-4 text-gray-500 bg-white rounded-lg shadow right-5 bottom-[20%] dark:text-gray-400 dark:divide-gray-700 space-x dark:bg-gray-800" role="alert">
-                <div className="flex items-center pb-1 border-b">
+            <div className="fixed text-[10px] flex-col items-center max-w-xs p-4 bg-gray-400 shadow right-5 bottom-5" role="alert">
+                <div className="flex items-end p-1 border-b text-red-500">
                     <ErrorIcon/>
-                    <div className="ms-3 text-sm font-normal">Invalid Log.</div>
-                    <button onClick={click} type="button" className="ms-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex items-center justify-center h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#toast-danger" aria-label="Close">
-                        <span className="sr-only">Close</span>
-                        <CloseIcon/>
-                    </button>
+                    <div className="ms-2 text-sm font-normal">Error</div>
                 </div>
-                <div>
+                <div className="p-1 break-words">
                     {logStatus.error}
                 </div>
             </div>
@@ -152,24 +138,22 @@ function scoreboardFallback() {
 function CartridgeInfo() {
     const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
     const fileRef = useRef<HTMLInputElement | null>(null);
-    const [{ wallet }] = useConnectWallet();
+    const [{ wallet }, connect] = useConnectWallet();
     const { download } = useDownloader();
-    const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.READY} as LOG_STATUS);
+    const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.WAITING} as LOG_STATUS);
     const [reloadScoreboardCount, setReloadScoreboardCount] = useState(0);
 
-    const [showSubmitModal, setShowSubmitModal] = useState(false);
-    const [showNftLinkModal, setShowNftLinkModal] = useState(false);
     const [mintUrl, setMintUrl] = useState("/mint/1");
     const [userAlias, setUserAlias] = useState('');
     const [bypassSubmitModal, setBypassSubmitModal] = useState(false);
 
-    useEffect(() => {
-        // auto reload scoreboard only if
-        // gameplay log sent is valid and the selected cartridge is the same of the gameplay sent
-        if (submitLogStatus.status === STATUS.VALID && submitLogStatus.cartridgeId === selectedCartridge?.id) {
-            setReloadScoreboardCount(reloadScoreboardCount+1);
-        }
-    }, [submitLogStatus])
+    // useEffect(() => {
+    //     // auto reload scoreboard only if
+    //     // gameplay log sent is valid and the selected cartridge is the same of the gameplay sent
+    //     if (submitLogStatus.status === STATUS.VALID && submitLogStatus.cartridgeId === selectedCartridge?.id) {
+    //         setReloadScoreboardCount(reloadScoreboardCount+1);
+    //     }
+    // }, [submitLogStatus])
 
     useEffect(() => {
         if (selectedCartridge?.gameplayLog) submitLog();
@@ -190,14 +174,15 @@ function CartridgeInfo() {
             return;
         }
         if (!wallet) {
-            alert("Connect first to upload a gameplay log.");
-            return;
+            await alert("Connect first to upload a gameplay log.");
+            await connect();
         }
 
         if (bypassSubmitModal)
             submitLogWithAlias(userAlias);
         else
-            setShowSubmitModal(true);
+            setSubmitLogStatus({status: STATUS.SUBMIT});
+            //setShowSubmitModal(true);
     }
 
     async function submitLogWithAlias(userAliasToSubmit:string = "") {
@@ -230,8 +215,9 @@ function CartridgeInfo() {
         console.log("Replay Outcard hash",selectedCartridge.outhash)
 
 
-        setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALIDATING});
+        // setSubmitLogStatus({status: STATUS.SUBMIT});
         try {
+            setSubmitLogStatus({status: STATUS.SUBMITING});
             const receipt = await replay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
 
             if (receipt == undefined || receipt.events == undefined)
@@ -242,25 +228,25 @@ function CartridgeInfo() {
             if (inputIndex == undefined)
                 throw new Error("Couldn't get input index");
 
-            setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.VALID});
-
             let signature = "";
             const nftContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,signer);
 
             const code = await nftContract.provider.getCode(nftContract.address);
             if (code == '0x') {
-                console.log("Couldn't get nft contract")
+                setSubmitLogStatus({status: STATUS.WAITING, error: "Couldn't get nft contract"});
             } else if ((await signer.getAddress()).toLowerCase() == (await nftContract.operator()).toLowerCase()) {
                 const gameplayHash = sha256(selectedCartridge.gameplayLog);
+                setSubmitLogStatus({status: STATUS.SIGN});
                 const signedHash = await signer.signMessage(ethers.utils.arrayify("0x"+gameplayHash));
                 signature = `?signature=${signedHash}`;
             }
 
             setMintUrl(`/mint/${Number(inputIndex._hex)}${signature}`)
-            setShowNftLinkModal(true);
+            // setShowNftLinkModal(true);
+            setSubmitLogStatus({status: STATUS.FINISHED});
 
         } catch (error) {
-            setSubmitLogStatus({cartridgeId: selectedCartridge.id, status: STATUS.INVALID, error: (error as Error).message});
+            setSubmitLogStatus({...submitLogStatus, error: (error as Error).message});
         }
         // TODO: test mint
     }
@@ -311,6 +297,71 @@ function CartridgeInfo() {
         }
     }
 
+
+    function submissionHandler() {
+        if (submitLogStatus.status === STATUS.WAITING) return <></>;
+
+        let modalBody;
+        switch (submitLogStatus.status) {
+            case STATUS.SUBMIT:
+                modalBody = <SubmitModal cancelFunction={setSubmitLogStatus} acceptFunction={submitLogWithAlias} bypassModal={setBypassSubmitModal} />;
+                break;
+            case STATUS.SUBMITING:
+                if (submitLogStatus.error) {
+                    setSubmitLogStatus({status: STATUS.SUBMIT}); // goes back to the submission form
+                } else {
+                    modalBody = <div className="p-6 flex justify-center"><div className='w-12 h-12 border-2 rounded-full border-current border-r-transparent animate-spin'></div></div>;
+                }
+
+                break;
+            case STATUS.SIGN:
+                modalBody = <div className="p-6 flex justify-center"><div className='w-12 h-12 border-2 rounded-full border-current border-r-transparent animate-spin'></div></div>;
+                break;
+
+            case STATUS.FINISHED:
+                modalBody = <NftLinkModal url={mintUrl} />;
+                break;
+        }
+
+        return (
+
+            <div
+                className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-30 outline-none focus:outline-none"
+            >
+                <div className="relative w-max my-6 mx-auto">
+                    {/*content*/}
+                    <div className="border-0 shadow-lg relative flex flex-col w-full bg-gray-500 outline-none focus:outline-none p-4">
+                        {/*header*/}
+                        <div className='relative p-2 text-center mb-6'>
+                            {/* <span>Submiting Gameplay</span> */}
+                            <button className="absolute top-0 end-0 p-1 border border-gray-500 hover:border-black"
+                            onClick={() => setSubmitLogStatus({status: STATUS.WAITING})}
+                            >
+                                <CloseIcon/>
+                            </button>
+                        </div>
+                        <div className="flex space-x-8 justify-center items-end">
+                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status < STATUS.SIGN? "bg-black text-white":""}`}>
+                                <span className="text-lg">1</span>
+                                <span>Submit</span>
+                            </div>
+                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status == STATUS.SIGN? "bg-black text-white":""}`}>
+                                <span className="text-lg">2</span>
+                                <span>Sign</span>
+                            </div>
+                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status > STATUS.SIGN? "bg-black text-white":""}`}>
+                                <span className="text-lg">3</span>
+                                <span>Check NFT</span>
+                            </div>
+
+                        </div>
+                        {/*body*/}
+                        { modalBody }
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="flex flex-wrap justify-center h-full w-full">
@@ -443,7 +494,7 @@ function CartridgeInfo() {
                 {
                     selectedCartridge.downloading?
                         <button className="btn w-full mt-2 flex justify-center">
-                            <div className='w-5 h-5 border-2 rounded-full border-current animate-spin'></div>
+                            <div className='w-5 h-5 border-2 rounded-full border-current border-r-transparent animate-spin'></div>
                         </button>
                     :
                         <button className="btn w-full mt-2" onClick={() => {playCartridge()}}>
@@ -453,98 +504,52 @@ function CartridgeInfo() {
                 }
             </div>
 
-            {/* <div className="bg-white justify-self-end -mt-[152px]">
-                <div className="w-full flex">
-                    <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
-                </div>
-                <Suspense fallback={scoreboardFallback()}>
-                    <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
-                </Suspense>
-            </div> */}
+            {
+                submissionHandler()
+            }
 
-            <NftLinkModal showModal={showNftLinkModal} setShowModal={setShowNftLinkModal} url={mintUrl} />
-            <SubmitModal showModal={showSubmitModal} setShowModal={setShowSubmitModal} acceptFunction={submitLogWithAlias} bypassModal={setBypassSubmitModal} />
+            {
+                submitLogStatus.status !== STATUS.WAITING?
+                    <div className="opacity-25 fixed inset-0 z-20 bg-black"></div>
+                :
+                    <></>
+            }
+
+            {
+                logFeedback(submitLogStatus, setSubmitLogStatus)
+            }
+
         </div>
     );
 }
 
 
-function NftLinkModal({showModal,setShowModal,url}:{showModal:boolean,setShowModal(s:boolean):void,url:String}) {
+function NftLinkModal({url}:{url:String}) {
     return (
-      <>
-        {showModal ? (
-          <>
-            <div
-              className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-30 outline-none focus:outline-none"
-            >
-              <div className="relative w-auto my-6 mx-auto max-w-3xl">
-                {/*content*/}
-                <div className="border-0 rounded-lg shadow-lg relative flex flex-col w-full bg-gray-500 outline-none focus:outline-none">
-                    {/*header*/}
-                    <div className='relative p-2 text-center'>
-                        <span>Score NFT</span>
-                        <button className="absolute top-1 end-2.5 rounded p-2 border border-gray-500 hover:border-black"
-                        onClick={() => setShowModal(false)}
-                        >
-                            <CloseIcon/>
-                        </button>
+        <div>
+            {/*body*/}
+            <div className="relative p-4 flex justify-center items-center">
+                <button className="place-self-center" title='Nft Score Screenshot' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
+                    <div style={{ height: "auto", margin: "0 auto", maxWidth: 200, width: "100%" }} >
+                        <QRCode
+                        size={200}
+                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                        value={`${window.location.origin}${url}`}
+                        viewBox={`0 0 200 200`}
+                        />
                     </div>
-                  {/*body*/}
-                  <div className="relative py-2 px-6 flex-auto items-center">
-                    <button className="place-self-center" title='Nft Score Screenshot' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
-                        <div style={{ height: "auto", margin: "0 auto", maxWidth: 200, width: "100%" }} >
-                            <QRCode
-                            size={200}
-                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                            value={`${window.location.origin}${url}`}
-                            viewBox={`0 0 200 200`}
-                            />
-                        </div>
-                    </button>
-                  </div>
-                  {/*footer*/}
-                  <div className="flex items-center justify-end pb-2 pr-6">
-                    <button
-                      className={`games-list-item`}
-                      type="button"
-                      onClick={() => setShowModal(false)}
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
+                </button>
             </div>
-            <div className="opacity-25 fixed inset-0 z-20 bg-black"></div>
-          </>
-        ) : null}
-      </>
+        </div>
     );
   }
 
-function SubmitModal({showModal,setShowModal,acceptFunction,bypassModal}:{showModal:boolean,setShowModal(s:boolean):void,acceptFunction(s:string):void,bypassModal(s:boolean):void}) {
+function SubmitModal({cancelFunction,acceptFunction,bypassModal}:{cancelFunction(s:{ status: STATUS }):void,acceptFunction(s:string):void,bypassModal(s:boolean):void}) {
     const [alias, setAlias] = useState('');
     const [bypass, setBypass] = useState(false);
 
     return (
-      <>
-        {showModal ? (
-          <>
-            <div
-              className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-30 outline-none focus:outline-none"
-            >
-              <div className="relative w-auto my-6 mx-auto max-w-3xl">
-                {/*content*/}
-                <div className="border-0 shadow-lg relative flex flex-col w-full bg-gray-500 outline-none focus:outline-none">
-                  {/*header*/}
-                    <div className='relative p-2 text-center'>
-                        <span>Submit Gameplay</span>
-                        <button className="absolute top-1 end-2.5 rounded p-2 border border-gray-500 hover:border-black"
-                        onClick={() => setShowModal(false)}
-                        >
-                            <CloseIcon/>
-                        </button>
-                    </div>
+            <div>
                   {/*body*/}
                     <fieldset className={`relative my-6 px-6 flex-auto h-full`}>
                         <div >
@@ -565,25 +570,19 @@ function SubmitModal({showModal,setShowModal,acceptFunction,bypassModal}:{showMo
                         <button
                         className={`bg-red-500 text-white font-bold uppercase text-sm px-6 py-2 border border-red-500 hover:text-red-500 hover:bg-transparent`}
                         type="button"
-                        onClick={() => setShowModal(false)}
+                        onClick={() => cancelFunction({status:STATUS.WAITING})}
                         >
                             Cancel
                         </button>
                         <button
                         className={`bg-emerald-500 text-white font-bold uppercase text-sm px-6 py-2 ml-1 border border-emerald-500 hover:text-emerald-500 hover:bg-transparent`}
                         type="button"
-                        onClick={() => {acceptFunction(alias);bypassModal(bypass);setShowModal(false);}}
+                        onClick={() => {acceptFunction(alias);bypassModal(bypass);}}
                         >
                             Submit
                         </button>
                     </div>
-                </div>
-              </div>
             </div>
-            <div className="opacity-25 fixed inset-0 z-20 bg-black"></div>
-          </>
-        ) : null}
-      </>
-    );
+        );
   }
 export default CartridgeInfo
