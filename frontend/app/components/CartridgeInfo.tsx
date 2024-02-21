@@ -347,7 +347,6 @@ function CartridgeInfo() {
 
             <div
                 className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-30 outline-none focus:outline-none"
-                onClick={() => setSubmitLogStatus({status: STATUS.WAITING})}
             >
                 <div className="relative w-max my-6 mx-auto">
                     {/*content*/}
