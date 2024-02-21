@@ -55,7 +55,7 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
         // })
 
         return (
-            <div className="fixed text-[10px] flex-col items-center max-w-xs p-4 bg-gray-400 shadow right-5 bottom-5" role="alert">
+            <div className="fixed text-[10px] flex-col items-center max-w-xs p-4 bg-gray-400 shadow right-5 bottom-5 z-40" role="alert">
                 <div className="flex items-end p-1 border-b text-red-500">
                     <ErrorIcon/>
                     <div className="ms-2 text-sm font-normal">Error</div>
@@ -146,6 +146,8 @@ function CartridgeInfo() {
     const [mintUrl, setMintUrl] = useState("/mint/1");
     const [userAlias, setUserAlias] = useState('');
     const [bypassSubmitModal, setBypassSubmitModal] = useState(false);
+    const [operator,setOperator] = useState<String>();
+    const [signerAddress,setSignerAddress] = useState<String>();
 
     // useEffect(() => {
     //     // auto reload scoreboard only if
@@ -156,8 +158,26 @@ function CartridgeInfo() {
     // }, [submitLogStatus])
 
     useEffect(() => {
+
+        console.log("gameplayLog",selectedCartridge?.gameplayLog?.length);
         if (selectedCartridge?.gameplayLog) submitLog();
     }, [selectedCartridge?.gameplayLog])
+
+    useEffect(() => {
+        if (!wallet) {
+          return;
+        }
+        const curSigner = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
+        const curContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,curSigner);
+        curContract.provider.getCode(curContract.address).then((code) => {
+          if (code == '0x') {
+              console.log("Couldn't get nft contract")
+              return;
+          }
+          curSigner.getAddress().then((a: String) => setSignerAddress(a.toLowerCase()));
+          curContract.operator().then((o: String) => setOperator(o.toLowerCase()));
+        });
+    },[wallet]);
 
     if (!selectedCartridge) return <></>;
 
@@ -248,7 +268,6 @@ function CartridgeInfo() {
         } catch (error) {
             setSubmitLogStatus({...submitLogStatus, error: (error as Error).message});
         }
-        // TODO: test mint
     }
 
     async function uploadLog() {
@@ -299,6 +318,7 @@ function CartridgeInfo() {
 
 
     function submissionHandler() {
+        const isOperator = operator == signerAddress;
         if (submitLogStatus.status === STATUS.WAITING) return <></>;
 
         let modalBody;
@@ -327,6 +347,7 @@ function CartridgeInfo() {
 
             <div
                 className="justify-center items-center flex overflow-x-hidden overflow-y-auto fixed inset-0 z-30 outline-none focus:outline-none"
+                onClick={() => setSubmitLogStatus({status: STATUS.WAITING})}
             >
                 <div className="relative w-max my-6 mx-auto">
                     {/*content*/}
@@ -345,12 +366,12 @@ function CartridgeInfo() {
                                 <span className="text-lg">1</span>
                                 <span>Submit</span>
                             </div>
-                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status == STATUS.SIGN? "bg-black text-white":""}`}>
+                            {isOperator ? <div className={`flex flex-col items-center p-2 ${submitLogStatus.status == STATUS.SIGN? "bg-black text-white":""}`}>
                                 <span className="text-lg">2</span>
                                 <span>Sign</span>
-                            </div>
+                            </div> : <></>}
                             <div className={`flex flex-col items-center p-2 ${submitLogStatus.status > STATUS.SIGN? "bg-black text-white":""}`}>
-                                <span className="text-lg">3</span>
+                                <span className="text-lg">{isOperator ? 3 : 2 }</span>
                                 <span>Check NFT</span>
                             </div>
 
@@ -387,7 +408,7 @@ function CartridgeInfo() {
                         rotation={[0, -Math.PI/2, 0]}
                             key={selectedCartridge.cover}
                             position={[0,0,-10]}
-                            cover={selectedCartridge.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
+                            cover={selectedCartridge.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/logo.png"}
                             scale={[1, 1, 1]}
                         />
                         <SciFiPedestal position={[0, -5, -10]} scale={[0.3,0.3,0.3]}/>

@@ -273,21 +273,21 @@ const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAdd
   let mintEnabled = false;
   let mintMessage = <></>;
   if (score?._proof == undefined)
-    mintMessage = <span>No proofs yet<br/>(come back later)</span>;
+    mintMessage = <span>(check again later, no proofs yet)</span>;
   else if (!nftContract)
-    mintMessage = <span>connect wallet</span>;
+    mintMessage = <span>(connect wallet)</span>;
   else if (alreadyMinted)
-    mintMessage = <span>Already Minted</span>;
+    mintMessage = <span>(already Minted)</span>;
   else if (operator == userAddress && (!gamelogOwner || gamelogOwner == '0x0000000000000000000000000000000000000000'))
-    mintMessage = <span>Operator generated (register first)</span>;
+    mintMessage = <span>(operator generated, register first)</span>;
   else {
     mintEnabled = true;
-    mintMessage = <span>Mint</span>;
+    mintMessage = <span></span>;
   }
 
   const mintButton =
     <button className="btn" onClick={() => {mint()}} disabled={!mintEnabled}>
-      <span>Mint Score Screenshot NFT</span>
+      <span>Mint Score Screenshot NFT</span><br/>
       {mintMessage}
     </button>
   ;
@@ -296,20 +296,20 @@ const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAdd
   let registerEnabled = false;
   let registerMessage = <></>;
   if (!nftContract)
-    registerMessage = <span>connect wallet</span>;
+    registerMessage = <span>(connect wallet)</span>;
   else if (alreadyMinted)
-    mintMessage = <span>Already Minted</span>;
+    mintMessage = <span>(already Minted)</span>;
   else if (operator == userAddress) {
     showRegister = true;
     if (signerAddress == operator)
-      registerMessage = <span>Operator can't register</span>;
+      registerMessage = <span>(operator can't register)</span>;
     else if (gamelogOwner != '0x0000000000000000000000000000000000000000')
-      registerMessage = <span>Already registered</span>;
+      registerMessage = <span>(already registered)</span>;
     else if (!signature)
-      registerMessage = <span>No signature</span>;
+      registerMessage = <span>(no signature)</span>;
     else {
       registerEnabled = true
-      registerMessage = <span>Register</span>;
+      registerMessage = <span></span>;
     }
   }
 
@@ -317,7 +317,7 @@ const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAdd
     <></>
     :
     <button className="btn" onClick={() => {register()}} disabled={!registerEnabled}>
-      <span>Register Gameplay</span>
+      <span>Register Gameplay</span><br/>
       {registerMessage}
     </button>
   ;
@@ -348,11 +348,11 @@ const Screenshot = ({inputIndex}:{inputIndex: number}) => {
 
   return (
       <Image alt={"screenshot " + inputIndex}
-      height={400} width={1200}
+      height={512} width={1200}
       id={"screenshot-" + inputIndex}
-      src={base64Image ? `data:image/png;base64,${base64Image}`:"/cartesi.jpg"}
+      src={base64Image ? `data:image/png;base64,${base64Image}`:"/logo.png"}
       style={{
-          maxHeight: 400,
+          maxHeight: 512,
           height: '100%',
           width: 'auto'
       }}

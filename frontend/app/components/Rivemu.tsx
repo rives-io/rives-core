@@ -1,7 +1,7 @@
 "use client"
 
 
-import React, { useContext, useState, useEffect } from 'react'
+import React, { useContext, useState, useEffect, cache } from 'react'
 import Script from "next/script";
 import Image from 'next/image';
 import {Parser} from 'expr-eval';
@@ -11,7 +11,8 @@ import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvide
 import { cartridge } from '../backend-libs/app/lib';
 import { envClient } from '../utils/clientEnv';
 
-
+const canvasMinHeight = 400;
+const canvasMinWidth = 640;
 
 function Rivemu() {
     const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge, setDownloadingCartridge } = useContext(selectedCartridgeContext);
@@ -19,10 +20,11 @@ function Rivemu() {
     const [isPlaying, setIsPlaying] = useState(false);
     // const [replayTip, setReplayTip] = useState(false);
     const [isReplaying, setIsReplaying] = useState(false);
+    const [cancelled, setCancelled] = useState(false);
     // const [isExpanded, setIsExpanded] = useState(false);
     const [playedOnce, setPlayedOnce] = useState(false);
     const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
-
+    const [freshOpen, setFreshOpen] = useState(true);
 
     useEffect(() => {
         if (!selectedCartridge || !selectedCartridge?.play) return;
@@ -35,6 +37,15 @@ function Rivemu() {
             rivemuReplay();
         }
     }, [replayLog])
+
+    useEffect(() => {
+        if (cancelled) {
+            setIsPlaying(false);
+            rivemuHalt();
+            setOverallScore(0);
+            stopCartridge();
+        }
+    }, [cancelled])
 
     // useEffect(() => {
     //     interface keyboardEvent {key:string}
@@ -57,6 +68,8 @@ function Rivemu() {
             setReplayLog(undefined);
         }
         await loadCartridge();
+        setCancelled(false);
+        setFreshOpen(true);
         if (selectedCartridge?.replay){
             setReplayLog(selectedCartridge.replay);
             setIsReplaying(true);
@@ -87,11 +100,12 @@ function Rivemu() {
     function coverFallback() {
         return (
             <button className='relative h-full w-full' onClick={rivemuStart}>
-                <Image alt={"Cover " + selectedCartridge?.name}
+                {freshOpen ? <Image alt={"Cover " + selectedCartridge?.name}
                 id="canvas-cover"
-                fill={true}
-                src={selectedCartridge?.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/cartesi.jpg"}
-                />
+                layout='fill'
+                objectFit='contain'
+                src={selectedCartridge?.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/logo.png"}
+                /> : <></>}
 
                 <span className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white'>Click to Play!</span>
 
@@ -123,6 +137,7 @@ function Rivemu() {
         // }
         await rivemuHalt();
         setIsPlaying(true);
+        setOverallScore(0);
 
         if (selectedCartridge.scoreFunction)
             scoreFunction = parser.parse(selectedCartridge.scoreFunction);
@@ -130,11 +145,12 @@ function Rivemu() {
         let buf = Module._malloc(selectedCartridge.cartridgeData.length);
         // @ts-ignore:next-line
         Module.HEAPU8.set(selectedCartridge.cartridgeData, buf);
+        const inCard = selectedCartridge?.inCard || new Uint8Array([]);
         // @ts-ignore:next-line
-        let incardBuf = Module._malloc(selectedCartridge.inCard?.length || 0);
+        let incardBuf = Module._malloc(inCard.length);
         // @ts-ignore:next-line
-        if (selectedCartridge?.inCard) Module.HEAPU8.set(selectedCartridge.inCard, incardBuf);
-        let params = selectedCartridge?.args || "";
+        Module.HEAPU8.set(inCard, incardBuf);
+        const params = selectedCartridge?.args || "";
         // @ts-ignore:next-line
         Module.ccall(
             "rivemu_start_record",
@@ -145,7 +161,7 @@ function Rivemu() {
                 selectedCartridge.cartridgeData.length,
                 incardBuf,
                 selectedCartridge.inCard?.length || 0,
-                params
+                params || ''
             ]
         );
         // @ts-ignore:next-line
@@ -171,6 +187,7 @@ function Rivemu() {
         // }
         await rivemuHalt();
         setIsPlaying(true);
+        setOverallScore(0);
 
         if (selectedCartridge.scoreFunction)
             scoreFunction = parser.parse(selectedCartridge.scoreFunction);
@@ -182,11 +199,12 @@ function Rivemu() {
         Module.HEAPU8.set(selectedCartridge.cartridgeData, cartridgeBuf);
         // @ts-ignore:next-line
         Module.HEAPU8.set(replayLog, rivlogBuf);
+        const inCard = selectedCartridge?.inCard || new Uint8Array([]);
         // @ts-ignore:next-line
-        let incardBuf = Module._malloc(selectedCartridge.inCard?.length || 0);
+        let incardBuf = Module._malloc(inCard.length);
         // @ts-ignore:next-line
-        if (selectedCartridge?.inCard) Module.HEAPU8.set(selectedCartridge.inCard, incardBuf);
-        let params = selectedCartridge?.args || "";
+        Module.HEAPU8.set(inCard, incardBuf);
+        const params = selectedCartridge?.args || "";
         // @ts-ignore:next-line
         Module.ccall(
             "rivemu_start_replay",
@@ -196,7 +214,7 @@ function Rivemu() {
                 cartridgeBuf,
                 selectedCartridge.cartridgeData.length,
                 incardBuf,
-                selectedCartridge.inCard?.length || 0,
+                inCard.length,
                 params,
                 rivlogBuf,
                 replayLog.length
@@ -220,9 +238,13 @@ function Rivemu() {
     async function rivemuStop() {
         console.log("rivemuStop");
         setIsPlaying(false);
-        // @ts-ignore:next-line
         rivemuHalt();
         // stopCartridge();
+    }
+
+    async function close() {
+        if (selectedCartridge?.downloading) return;
+        setCancelled(true);
     }
 
 
@@ -251,9 +273,17 @@ function Rivemu() {
         // @ts-ignore:next-line
         window.rivemu_on_begin = function (width: number, height: number, target_fps: number, total_frames: number) {
             if (!playedOnce) setPlayedOnce(true);
+            if (freshOpen) setFreshOpen(false);
+            // const canvas: any = document.getElementById("canvas");
+            // const maxCanvasHeight = canvas.parentElement.clientHeight;
+            // const maxCanvasWidth = canvas.parentElement.clientWidth;
+            // if (canvas) {
+            //     canvas.height = maxCanvasHeight;
+            //     canvas.width = maxCanvasWidth;
+            // }
             console.log("rivemu_on_begin");
             // force canvas resize
-            window.dispatchEvent(new Event("resize"));
+            // window.dispatchEvent(new Event("resize"));
         };
 
         // @ts-ignore:next-line
@@ -262,7 +292,7 @@ function Rivemu() {
             outcard: ArrayBuffer,
             outhash: string
         ) {
-            if (!isReplaying) {
+            if (!isReplaying && !cancelled) {
                 setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash);
                 // setReplayLog(new Uint8Array(rivlog));
             }
@@ -273,24 +303,31 @@ function Rivemu() {
 
 
     return (
+        <div>
         <section className='gameplay-section' hidden={selectedCartridge?.cartridgeData==undefined}>
             <div className='relative bg-gray-500 p-2 text-center'>
                 <span>Score: {overallScore}</span>
                 <button className="absolute top-1 end-2.5 rounded border border-gray-500 hover:border-black"
-                onClick={() => stopCartridge()}
+                onClick={() => close()}
                 >
                     <CloseIcon/>
                 </button>
             </div>
 
-            <div className='bg-black w-full h-full'
+            <div className='bg-black max-h-full max-w-full'
                 >
-                <div hidden={!isPlaying && playedOnce} className='flex justify-center gameplay-screen'>
+                <div hidden={!isPlaying && playedOnce} className='flex justify-center gameplay-screen max-h-full max-w-full'>
                     <canvas
-                        className='h-full w-full'
+                        className='max-h-full max-w-full'
                         id="canvas"
+                        height={canvasMinHeight}
+                        width={canvasMinWidth}
                         onContextMenu={(e) => e.preventDefault()}
-                        tabIndex={1}
+                        tabIndex={-1}
+                        style={{
+                            minHeight: canvasMinHeight,
+                            minWidth: canvasMinWidth
+                        }}
                     />
                 </div>
 
@@ -315,6 +352,8 @@ function Rivemu() {
             </div>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
         </section>
+        <div className="opacity-60 fixed inset-0 z-0 bg-black" onClick={() => close()}></div>
+        </div>
     )
 }
 

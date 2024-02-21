@@ -317,6 +317,11 @@ body {
     @apply p-3 bg-[var(--highlight-text-end-hex)] border border-[var(--highlight-text-end-hex)] hover:bg-[rgb(var(--background-start-rgb))] hover:text-[var(--highlight-text-end-hex)];
   }
 
+  .btn:disabled,
+  .btn[disabled]{
+    opacity: 70%;
+    cursor: not-allowed;
+  }
 
   .gameplay-screen {
     @apply w-[640px] h-[400px] md:w-[720px] md:h-[480px] lg:w-[960px] lg:h-[720px];

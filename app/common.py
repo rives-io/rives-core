@@ -8,12 +8,17 @@ import io
 
 from .protobuf_models import unixfs_pb2, merkle_dag_pb2
 
-DEFAULT_HEIGHT = 400
+DEFAULT_HEIGHT = 512
 BG_EXTRA_WIDTH = 400
 # MAIN_FONT_SIZE = 48
 # AUX_FONT_SIZE = 16
 MAIN_FONT_SIZE = 42
 AUX_FONT_SIZE = 28
+
+initial_space = 30
+font2_initial_space = 60
+final_space = 10
+total_font_space = 80
 
 class ScoreType(Enum):
     default = 0
@@ -73,44 +78,26 @@ def screenshot_add_score(screenshot_data: bytes, game: str, score: int, user: st
 
     height = int((DEFAULT_HEIGHT // img.size[1]) * img.size[1])
     width = int(height / img.size[1] * img.size[0])
+ 
+    space_between = (height - initial_space - final_space - 3 * total_font_space) // 2
 
     resized_img = img.resize((width,height))
 
     bg_img = Image.new('RGB', ( width + BG_EXTRA_WIDTH, height), color='#202020') 
-
-    # draw = ImageDraw.Draw(resized_img)
-
-    # font1 = ImageFont.truetype('misc/font/8-bit Arcade Out.ttf',size=MAIN_FONT_SIZE)
-    # font2 = ImageFont.truetype('misc/font/8-bit Arcade In.ttf',size=MAIN_FONT_SIZE)
-
-    # draw.text((9, 6), f"user: {user}",fill='#8b5cf6',font_size=AUX_FONT_SIZE)
-    # draw.text((10, 5), f"user: {user}",fill='#ed479a',font_size=AUX_FONT_SIZE)
-
-    # draw.text((10, 20), f"SCORE {score}",fill='#8b5cf6',font=font1)
-    # draw.text((10, 20), f"SCORE {score}",fill='#ed479a',font=font2)
-
-    # logo = Image.open('misc/rives64px.png')
-    # logo2 = logo.resize((40,40))
-
-    # resized_img2 = resized_img.convert('RGBA')
-    # resized_img2.paste(logo2,(350,10),logo2.convert('RGBA'))
-
-    # img_byte_arr = io.BytesIO()
-    # resized_img2.save(img_byte_arr, format='PNG')
 
     draw = ImageDraw.Draw(bg_img)
 
     font28 = ImageFont.truetype('misc/font/Retro Gaming.ttf',size=28)
     font42 = ImageFont.truetype('misc/font/Retro Gaming.ttf',size=42)
 
-    draw.text((width + 10, 50), f"game",fill='#b3b3b3',font=font28)
-    draw.text((width + 10, 80), f"{game}",fill='#b3b3b3',font=font42)
+    draw.text((width + 10, initial_space), f"game",fill='#b3b3b3',font=font28)
+    draw.text((width + 10, font2_initial_space), f"{game}",fill='#b3b3b3',font=font42)
 
-    draw.text((width + 10, 170), f"score",fill='#b3b3b3',font=font28)
-    draw.text((width + 10, 200), f"{score}",fill='#b3b3b3',font=font42)
+    draw.text((width + 10, initial_space + total_font_space + space_between), f"score",fill='#b3b3b3',font=font28) # 170
+    draw.text((width + 10, font2_initial_space + total_font_space + space_between), f"{score}",fill='#b3b3b3',font=font42) # 200
 
-    draw.text((width + 10, 300), f"user",fill='#b3b3b3',font=font28)
-    draw.text((width + 10, 330), f"{user}",fill='#b3b3b3',font=font42)
+    draw.text((width + 10, initial_space + 2*(total_font_space + space_between)), f"user",fill='#b3b3b3',font=font28) # 300
+    draw.text((width + 10, font2_initial_space + 2*(total_font_space + space_between)), f"{user}",fill='#b3b3b3',font=font42) # 330
     logo = Image.open('misc/Rives-Logo.png')
 
     bgc = bg_img.convert('RGBA')

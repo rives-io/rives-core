@@ -116,9 +116,8 @@ def replay_log(cartridge_id,log,riv_args,in_card):
         run_args.append("riv-run")
         if riv_args is not None and len(riv_args) > 0:
             run_args.extend(riv_args.split())
-        result = subprocess.run(run_args, capture_output=True, text=True)
+        result = subprocess.run(run_args)
         if result.returncode != 0:
-            print(result)
             raise Exception(f"Error processing replay: {str(result.stderr)}")
 
         outcard_raw = open(outcard_path, 'rb').read()
@@ -165,8 +164,9 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     if riv_args is not None and len(riv_args) > 0:
         run_args.extend(riv_args.split())
 
-    result = subprocess.run(run_args, cwd=cwd)
+    result = subprocess.run(run_args, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
+        print(result)
         raise Exception(f"Error processing replay: {str(result.stderr)}")
 
     outcard_raw = outcard_temp.file.read()
@@ -206,10 +206,9 @@ def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
         run_args.append("riv-run")
         if riv_args is not None and len(riv_args) > 0:
             run_args.extend(riv_args.split())
-        result = subprocess.run(run_args, capture_output=True, text=True)
+        result = subprocess.run(run_args)
         
         if result.returncode != 0:
-            print(result)
             raise Exception(f"Error running cartridge: {str(result.stderr)}")
 
         outcard_file = open(outcard_path, 'rb')
