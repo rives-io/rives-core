@@ -3,12 +3,12 @@ import os
 from pathlib import Path
 import tempfile
 
-from .setup import AppSettings
+from .settings import AppSettings, STORAGE_PATH
 
 def riv_get_cartridges_path():
     if AppSettings.rivemu_path is None: # use riv os
         return f"/rivos/{AppSettings.cartridges_path}"
-    return AppSettings.cartridges_path
+    return f"{STORAGE_PATH or '.'}/{AppSettings.cartridges_path}"
 
 
 def riv_get_cartridge_info(cartridge_id):
@@ -164,9 +164,8 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     if riv_args is not None and len(riv_args) > 0:
         run_args.extend(riv_args.split())
 
-    result = subprocess.run(run_args, cwd=cwd, capture_output=True, text=True)
+    result = subprocess.run(run_args, cwd=cwd)
     if result.returncode != 0:
-        print(result)
         raise Exception(f"Error processing replay: {str(result.stderr)}")
 
     outcard_raw = outcard_temp.file.read()

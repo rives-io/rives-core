@@ -5,8 +5,10 @@ from Crypto.Hash import SHA256
 import base58
 import tempfile
 import io
+import pickle
 
 from .protobuf_models import unixfs_pb2, merkle_dag_pb2
+from .settings import STORAGE_PATH
 
 DEFAULT_HEIGHT = 512
 BG_EXTRA_WIDTH = 400
@@ -28,19 +30,43 @@ class ScoreType(Enum):
 
 class GameplayHash:
     cartridge_replays = {}
+    cartridge_replays_filename = f"{STORAGE_PATH}/cartridge_replays.pkl"
     def __new__(cls):
         return cls
     
     @classmethod
+    def get_cartridge_replays(cls):
+        cartridge_replays = {}
+        if STORAGE_PATH is not None:
+            if os.path.exists(cls.cartridge_replays_filename):
+                f = open(cls.cartridge_replays_filename, 'rb')
+                cartridge_replays = pickle.load(f)
+                f.close()
+        else:
+            cartridge_replays = cls.cartridge_replays
+        return cartridge_replays
+
+    @classmethod
+    def store_cartridge_replays(cls,cartridge_replays):
+        if STORAGE_PATH is not None:
+            with open(cls.cartridge_replays_filename, 'wb') as f:
+                pickle.dump(cartridge_replays, f)
+        else:
+            cls.cartridge_replays = cartridge_replays
+
+    @classmethod
     def add(cls, cartridge_id, replay_hash):
-        if cls.cartridge_replays.get(cartridge_id) is None: cls.cartridge_replays[cartridge_id] = {}
-        cls.cartridge_replays[cartridge_id][replay_hash] = True
+        cartridge_replays = cls.get_cartridge_replays()
+        if cartridge_replays.get(cartridge_id) is None: cartridge_replays[cartridge_id] = {}
+        cartridge_replays[cartridge_id][replay_hash] = True
+        cls.store_cartridge_replays(cartridge_replays)
 
     @classmethod
     def check(cls, cartridge_id, replay_hash):
-        return cls.cartridge_replays.get(cartridge_id) is None \
-            or cls.cartridge_replays[cartridge_id].get(replay_hash) is None \
-            or cls.cartridge_replays[cartridge_id][replay_hash] == False
+        cartridge_replays = cls.get_cartridge_replays()
+        return cartridge_replays.get(cartridge_id) is None \
+            or cartridge_replays[cartridge_id].get(replay_hash) is None \
+            or cartridge_replays[cartridge_id][replay_hash] == False
 
 def get_cid(data: bytes) -> str:
 
