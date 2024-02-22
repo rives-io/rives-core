@@ -75,7 +75,6 @@ RUN ln -s /rivos/usr/bin/bwrap /usr/bin/ && \
 WORKDIR /opt/cartesi/dapp
 
 COPY main.py .
-COPY cartesapp cartesapp
 COPY app app
 COPY misc/Rives-Logo.png misc/Rives-Logo.png
 COPY misc/snake.sqfs misc/snake.sqfs
