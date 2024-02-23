@@ -18,7 +18,7 @@ import CloseIcon from "@mui/icons-material/Close";
 const nftAbi: any = nftAbiFile;
 
 const BASE64_KEY = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-export function byteToBase64(bytes: Uint8Array): String {
+function byteToBase64(bytes: Uint8Array): String {
     let newBase64 = '';
     let currentChar = 0;
     for (let i=0; i<bytes.length; i++) {   // Go over three 8-bit bytes to encode four base64 6-bit chars
