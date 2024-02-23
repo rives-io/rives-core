@@ -302,7 +302,7 @@ const NftButtons = ({signature,score,nftContract,gamelogOwner,operator,signerAdd
   else if (operator == userAddress) {
     showRegister = true;
     if (signerAddress == operator)
-      registerMessage = <span>(operator can't register)</span>;
+      registerMessage = <span>(operator can&apos;t register)</span>;
     else if (gamelogOwner != '0x0000000000000000000000000000000000000000')
       registerMessage = <span>(already registered)</span>;
     else if (!signature)
