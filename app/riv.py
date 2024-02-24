@@ -63,13 +63,12 @@ def riv_get_cartridge_screenshot(cartridge_id,frame):
             
     # use rivemu
     screenshot_temp = tempfile.NamedTemporaryFile()
-    screenshot_file = screenshot_temp.file
 
     cwd=str(Path(AppSettings.rivemu_path).parent.parent.absolute())
     absolute_cartridge_path = os.path.abspath(f"{AppSettings.cartridges_path}/{cartridge_id}")
     args.append(AppSettings.rivemu_path)
     args.append(f"-cartridge={absolute_cartridge_path}")
-    args.append(f"-save-screenshot={screenshot_file.name}")
+    args.append(f"-save-screenshot={screenshot_temp.name}")
     args.append(f"-stop-frame={frame}")
     # args.append(f"-no-yield=y")
     result = subprocess.run(args, cwd=cwd)
@@ -77,7 +76,7 @@ def riv_get_cartridge_screenshot(cartridge_id,frame):
     if result.returncode != 0:
         raise Exception(f"Error getting screenshot: {str(result.stderr)}")
 
-    cartridge_screenshot = open(screenshot_file.name,'rb').read()
+    cartridge_screenshot = open(screenshot_temp.name,'rb').read()
     screenshot_temp.close()
 
     return cartridge_screenshot
@@ -88,6 +87,7 @@ def replay_log(cartridge_id,log,riv_args,in_card):
         outcard_path = "/run/outcard"
         incard_path = "/run/incard"
         outhash_path = "/run/outhash"
+        screenshot_path = "/run/screenshot"
         
         replay_file = open(replay_path,'wb')
         replay_file.write(log)
@@ -95,6 +95,7 @@ def replay_log(cartridge_id,log,riv_args,in_card):
 
         if os.path.exists(outcard_path): os.remove(outcard_path)
         if os.path.exists(outhash_path): os.remove(outhash_path)
+        if os.path.exists(screenshot_path): os.remove(screenshot_path)
 
         if in_card is not None and len(in_card) > 0:
             incard_file = open(incard_path,'wb')
@@ -108,6 +109,7 @@ def replay_log(cartridge_id,log,riv_args,in_card):
         run_args.extend(["--setenv", "RIV_REPLAYLOG", replay_path])
         run_args.extend(["--setenv", "RIV_OUTCARD", outcard_path])
         run_args.extend(["--setenv", "RIV_OUTHASH", outhash_path])
+        run_args.extend(["--setenv", "RIV_SAVE_SCREENSHOT", screenshot_path])
         if in_card is not None and len(in_card) > 0:
             run_args.extend(["--setenv", "RIV_INCARD", incard_path])
         run_args.extend(["--setenv", "RIV_NO_YIELD", "y"])
@@ -118,13 +120,16 @@ def replay_log(cartridge_id,log,riv_args,in_card):
         if result.returncode != 0:
             raise Exception(f"Error processing replay: {str(result.stderr)}")
 
-        outcard_file = open(outcard_path, 'rb')
-        outcard_raw = outcard_file.read()
+        outcard_raw = open(outcard_path, 'rb').read()
+        os.remove(outcard_path)
 
-        outhash_file = open(outhash_path, 'r')
-        outhash = bytes.fromhex(outhash_file.read())
+        outhash = bytes.fromhex(open(outhash_path, 'r').read())
+        os.remove(outhash_path)
 
-        return outcard_raw, outhash
+        screenshot = open(screenshot_path,'rb').read()
+        os.remove(screenshot_path)
+
+        return outcard_raw, outhash, screenshot
 
     # use rivemu
     replay_temp = tempfile.NamedTemporaryFile()
@@ -132,9 +137,8 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     incard_temp = tempfile.NamedTemporaryFile()
     incard_file = incard_temp.file
     outcard_temp = tempfile.NamedTemporaryFile()
-    outcard_file = outcard_temp.file
     outhash_temp = tempfile.NamedTemporaryFile(mode='w+')
-    outhash_file = outhash_temp.file
+    screenshot_temp = tempfile.NamedTemporaryFile()
 
     replay_file.write(log)
     replay_file.flush()
@@ -154,24 +158,28 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     run_args.append(f"-save-outcard={outcard_temp.name}")
     run_args.append(f"-save-outhash={outhash_temp.name}")
     run_args.append(f"-speed=1000000")
+    run_args.append(f"-save-screenshot={screenshot_temp.name}")
     if in_card is not None and len(in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     if riv_args is not None and len(riv_args) > 0:
         run_args.extend(riv_args.split())
 
-    result = subprocess.run(run_args, cwd=cwd)
+    result = subprocess.run(run_args, cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
+        print(result)
         raise Exception(f"Error processing replay: {str(result.stderr)}")
 
-    outcard_raw = outcard_file.read()
-    outhash = bytes.fromhex(outhash_file.read())
+    outcard_raw = outcard_temp.file.read()
+    outhash = bytes.fromhex(outhash_temp.file.read())
+    screenshot = screenshot_temp.file.read()
 
     replay_temp.close()
     outcard_temp.close()
     incard_temp.close()
     outhash_temp.close()
+    screenshot_temp.close()
 
-    return outcard_raw, outhash
+    return outcard_raw, outhash, screenshot
 
 def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
     if AppSettings.rivemu_path is None: # use riv os

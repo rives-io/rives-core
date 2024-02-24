@@ -4,7 +4,6 @@ import React, { useContext, useEffect } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
 import { cartridgeInfo } from '../backend-libs/app/lib';
-import { fontPressStart2P } from '../utils/font';
 import { envClient } from '../utils/clientEnv';
 
 function CartridgeSelectButton({cartridge, index}:{cartridge:Cartridge, index:number}) {
@@ -27,9 +26,9 @@ function CartridgeSelectButton({cartridge, index}:{cartridge:Cartridge, index:nu
     return (
         <button className={
             selectedCartridge?.id==cartridge.id?
-                `games-list-item games-list-selected-item ${fontPressStart2P.className}`
+                `games-list-item games-list-selected-item`
             :
-                `games-list-item ${fontPressStart2P.className}`
+                `games-list-item`
             } value={cartridge.id} onClick={handleCartridgeSelection}>
 
             {cartridge.name}

@@ -29,21 +29,11 @@ export default async function Cartridges() {
     return (
       <main>
 		<section id="cartridges-section" className="second-section">
-			<div className="basis-1/3 justify-self-center flex flex-col">
-				{/* <div>
-					<Title />
-				</div> */}
+			<Suspense fallback={listLoaderFallback()}>
+				<CartridgesList />
+			</Suspense>
 
-				<div className="p-4 break-words overflow-auto custom-scrollbar">
-					<Suspense fallback={listLoaderFallback()}>
-						<CartridgesList />
-					</Suspense>
-				</div>
-			</div>
-
-			<div className="basis-3/5 rounded-md h-full ms-auto">
-				<CartridgeInfo />
-			</div>
+			<CartridgeInfo />
 
 		</section>
 

@@ -6,15 +6,18 @@ from hashlib import sha256
 import json
 import re
 
+from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address
 
-from cartesi.abi import String, Bytes, Bytes32, Int, UInt
-
-from cartesapp.storage import helpers # TODO: create repo to avoid this relative import hassle
-from cartesapp.manager import mutation, get_metadata, add_output, event, emit_event, contract_call # TODO: create repo to avoid this relative import hassle
+from cartesapp.storage import helpers
+from cartesapp.context import get_metadata
+from cartesapp.input import mutation
+from cartesapp.output import add_output, event, emit_event, contract_call
 from cartesapp.utils import bytes2str
 
-from .setup import AppSettings, ScoreType, GameplayHash
+from .settings import AppSettings
 from .riv import replay_log
+from .common import ScoreType, GameplayHash, screenshot_add_score, get_cid
+from .cartridge import Cartridge
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +35,7 @@ class Replay(BaseModel):
     args:           String
     in_card:        Bytes
     log:            Bytes
+    user_alias:     String
 
 
 # Outputs
@@ -39,12 +43,15 @@ class Replay(BaseModel):
 @event()
 class ReplayScore(BaseModel):
     cartridge_id:   Bytes32
-    user_address:   String
+    user_address:   Address
     timestamp:      UInt
     score:          Int # default score
     score_type:     Int = ScoreType.default.value # default, socoreboard, tournaments
     extra_score:    Int = 0
     extra:          String = '' # extra field to maintain compatibility with socoreboard, tournaments...
+    user_alias:     String = ''
+    screenshot_cid: String = ''
+    gameplay_hash:  Bytes32
 
 
 ###
@@ -54,9 +61,18 @@ class ReplayScore(BaseModel):
 def replay(replay: Replay) -> bool:
     
     metadata = get_metadata()
+    gameplay_hash = sha256(replay.log)
     
-    if not GameplayHash.check(replay.cartridge_id.hex(),sha256(replay.log).hexdigest()):
+    if not GameplayHash.check(replay.cartridge_id.hex(),gameplay_hash.hexdigest()):
         msg = f"Gameplay already submitted"
+        LOGGER.error(msg)
+        add_output(msg,tags=['error'])
+        return False
+
+    cartridge = helpers.select(c for c in Cartridge if c.id == replay.cartridge_id.hex()).first()
+
+    if cartridge is None:
+        msg = f"Game not found"
         LOGGER.error(msg)
         add_output(msg,tags=['error'])
         return False
@@ -64,7 +80,7 @@ def replay(replay: Replay) -> bool:
     # process replay
     LOGGER.info("Replaying cartridge...")
     try:
-        outcard_raw, outhash = replay_log(replay.cartridge_id.hex(),replay.log,replay.args,replay.in_card)
+        outcard_raw, outhash, screenshot = replay_log(replay.cartridge_id.hex(),replay.log,replay.args,replay.in_card)
     except Exception as e:
         msg = f"Couldn't replay log: {e}"
         LOGGER.error(msg)
@@ -104,16 +120,26 @@ def replay(replay: Replay) -> bool:
         except Exception as e:
             LOGGER.info(f"Couldn't load score from json: {e}")
 
+    user_alias = replay.user_alias if len(replay.user_alias) else f"{metadata.msg_sender[:6]}...{metadata.msg_sender[-4:]}"
+
+    final_screenshot = screenshot_add_score(screenshot,cartridge.name,score,user_alias)
+
+    cid = get_cid(final_screenshot)
+
     replay_score = ReplayScore(
         cartridge_id = replay.cartridge_id,
         user_address = metadata.msg_sender,
+        user_alias = user_alias,
         timestamp = metadata.timestamp,
-        score = score
+        score = score,
+        screenshot_cid = cid,
+        gameplay_hash = gameplay_hash.digest()
     )
 
     add_output(replay.log,tags=['replay',replay.cartridge_id.hex()])
+    add_output(final_screenshot,tags=['screenshot',replay.cartridge_id.hex()])
     emit_event(replay_score,tags=['score','general',replay.cartridge_id.hex()])
 
-    GameplayHash.add(replay.cartridge_id.hex(),sha256(replay.log).hexdigest())
+    GameplayHash.add(replay.cartridge_id.hex(),gameplay_hash.hexdigest())
 
     return True

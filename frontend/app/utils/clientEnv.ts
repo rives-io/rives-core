@@ -13,5 +13,9 @@ export const envClient = envsafe({
   NETWORK_CHAIN_ID: str({
     input: process.env.NEXT_PUBLIC_NETWORK_CHAIN_ID,
     desc: "Network ChainId (in hex) where the Cartesi DApp was deployed."
+  }),
+  NFT_ADDR: str({
+    input: process.env.NEXT_PUBLIC_NFT_ADDR,
+    desc: "Rives Score NFT ETH address."
   })
 })
