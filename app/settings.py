@@ -10,6 +10,7 @@ ENABLE_DAPP_RELAY = False # Defaul: False
 
 ENABLE_WALLET = False # Defaul: False (required to set ENABLE_DAPP_RELAY)
 
+STORAGE_PATH = None
 
 class AppSettings:
     rivemu_path = None

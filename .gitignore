@@ -3,5 +3,6 @@
 __pycache__
 cartridges
 cache
+data
 frontend/app/contracts
 !frontend/app/contracts/RivesScoreNFT.sol
