@@ -71,14 +71,14 @@ def initialize_data():
     except Exception as e:
         LOGGER.warning(e)
 
-    try:
-        cartridge_example_file = open('misc/2048.sqfs','rb')
-        cartridge_example_data = cartridge_example_file.read()
-        cartridge_example_file.close()
-        create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-        if AppSettings.rivemu_path is None: os.remove('misc/2048.sqfs')
-    except Exception as e:
-        LOGGER.warning(e)
+    # try:
+    #     cartridge_example_file = open('misc/2048.sqfs','rb')
+    #     cartridge_example_data = cartridge_example_file.read()
+    #     cartridge_example_file.close()
+    #     create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
+    #     if AppSettings.rivemu_path is None: os.remove('misc/2048.sqfs')
+    # except Exception as e:
+    #     LOGGER.warning(e)
 
 
 # Inputs
@@ -295,13 +295,13 @@ def create_cartridge(cartridge_data,**metadata):
     test_replay_file.close()
 
     # TODO: allow one of theses tests
-    # outcard_raw, outhash, screenshot = replay_log(data_hash,test_replay,'',b'')
+    outcard_raw, outhash, screenshot = replay_log(data_hash,test_replay,'',b'')
     # riv_get_cartridge_outcard(data_hash,0,None,None)
 
     cartridge_cover = riv_get_cover(data_hash)
     if cartridge_cover is None or len(cartridge_cover) == 0:
-        cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
-        # cartridge_cover = screenshot
+        #cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
+        cartridge_cover = screenshot
 
     user_address = metadata.get('msg_sender')
     if user_address is not None: user_address = user_address.lower()
