@@ -324,7 +324,7 @@ body {
   }
 
   .gameplay-screen {
-    @apply w-[640px] h-[400px] md:w-[720px] md:h-[480px] lg:w-[960px] lg:h-[720px];
+    @apply w-[640px] h-[480px] md:w-[720px] md:h-[540px] lg:w-[960px] lg:h-[720px];
   }
 
   .gameplay-section {

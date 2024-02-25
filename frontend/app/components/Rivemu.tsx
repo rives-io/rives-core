@@ -11,9 +11,6 @@ import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvide
 import { cartridge } from '../backend-libs/app/lib';
 import { envClient } from '../utils/clientEnv';
 
-const canvasMinHeight = 400;
-const canvasMinWidth = 640;
-
 function Rivemu() {
     const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge, setDownloadingCartridge } = useContext(selectedCartridgeContext);
     const [overallScore, setOverallScore] = useState(0);
@@ -104,10 +101,14 @@ function Rivemu() {
                 id="canvas-cover"
                 layout='fill'
                 objectFit='contain'
+                style={{
+                    imageRendering: "pixelated"
+                }}
                 src={selectedCartridge?.cover? `data:image/png;base64,${selectedCartridge.cover}`:"/logo.png"}
                 /> : <></>}
 
-                <span className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white'>Click to Play!</span>
+                <span className='absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white'
+                    style={{backgroundColor: "#8b5cf6", padding: "10px"}}>Click to Play!</span>
 
             </button>
         );
@@ -242,6 +243,13 @@ function Rivemu() {
         // stopCartridge();
     }
 
+    function rivemuFullscreen() {
+        const canvas: any = document.getElementById("canvas");
+        if (canvas) {
+            canvas.requestFullscreen();
+        }
+    }
+
     async function close() {
         if (selectedCartridge?.downloading) return;
         setCancelled(true);
@@ -320,13 +328,13 @@ function Rivemu() {
                     <canvas
                         className='max-h-full max-w-full'
                         id="canvas"
-                        height={canvasMinHeight}
-                        width={canvasMinWidth}
+                        height={768}
+                        width={768}
                         onContextMenu={(e) => e.preventDefault()}
                         tabIndex={-1}
                         style={{
-                            minHeight: canvasMinHeight,
-                            minWidth: canvasMinWidth
+                            imageRendering: "pixelated",
+                            objectFit: "contain"
                         }}
                     />
                 </div>
@@ -348,7 +356,9 @@ function Rivemu() {
                             Stop
                         </button>
                 }
-
+                <button hidden={!isPlaying} className='btn' onKeyDown={() => null} onKeyUp={() => null} onClick={rivemuFullscreen}>
+                    Fullscreen
+                </button>
             </div>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
         </section>
