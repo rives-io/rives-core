@@ -6,6 +6,9 @@ import Script from "next/script";
 import Image from 'next/image';
 import {Parser} from 'expr-eval';
 import CloseIcon from '@mui/icons-material/Close';
+import RestartIcon from '@mui/icons-material/RestartAlt';
+import StopIcon from '@mui/icons-material/Stop';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
 
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import { cartridge } from '../backend-libs/app/lib';
@@ -314,9 +317,32 @@ function Rivemu() {
         <div>
         <section className='gameplay-section' hidden={selectedCartridge?.cartridgeData==undefined}>
             <div className='relative bg-gray-500 p-2 text-center'>
+                {
+                    !isPlaying?
+                        <button className="bg-gray-700 text-white absolute top-1 start-2.5 border border-gray-700 hover:border-black"
+                            onKeyDown={() => null} onKeyUp={() => null}
+                            onClick={rivemuStart}>
+                            <RestartIcon/>
+                        </button>
+                    :
+                        // onKeyDown and onKeyUp "null" prevent buttons pressed when playing to trigger "rivemuStop"
+                        <button className="bg-gray-700 text-white absolute top-1 start-2.5 border border-gray-700 hover:border-black"
+                            onKeyDown={() => null} onKeyUp={() => null}
+                            onClick={rivemuStop}>
+                            <StopIcon/>
+                        </button>
+                }
+                <button className="bg-gray-700 text-white absolute top-1 start-10 border border-gray-700 hover:border-black"
+                    hidden={!isPlaying}
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={rivemuFullscreen}>
+                    <FullscreenIcon/>
+                </button>
+
                 <span>Score: {overallScore}</span>
-                <button className="absolute top-1 end-2.5 rounded border border-gray-500 hover:border-black"
-                onClick={() => close()}
+                <button className="bg-gray-700 text-white absolute top-1 end-2.5 border border-gray-700 hover:border-black"
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={close}
                 >
                     <CloseIcon/>
                 </button>
@@ -342,23 +368,6 @@ function Rivemu() {
                 <div hidden={isPlaying} className='absolute top-[40px] gameplay-screen'>
                     {coverFallback()}
                 </div>
-            </div>
-
-            <div className='text-center d-flex space-x-1 justify-content-center mt-4'>
-                {
-                    !isPlaying?
-                        <button className='btn' onClick={rivemuStart}>
-                            Start
-                        </button>
-                    :
-                        // onKeyDown and onKeyUp "null" prevent buttons pressed when playing to trigger "rivemuStop"
-                        <button className='btn' onKeyDown={() => null} onKeyUp={() => null} onClick={rivemuStop}>
-                            Stop
-                        </button>
-                }
-                <button hidden={!isPlaying} className='btn' onKeyDown={() => null} onKeyUp={() => null} onClick={rivemuFullscreen}>
-                    Fullscreen
-                </button>
             </div>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
         </section>
