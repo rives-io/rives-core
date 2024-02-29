@@ -3,7 +3,9 @@
 
 import { createContext, useState } from 'react';
 import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
+import { envClient } from '../utils/clientEnv';
 
+import { scoreboards, ScoreboardsOutput } from '../backend-libs/app/lib';
 
 export const selectedCartridgeContext = createContext<{
     selectedCartridge: PlayableCartridge|null, changeCartridge:Function, playCartridge:Function,
@@ -44,7 +46,24 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         const aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
             args:undefined, scoreFunction:undefined, replay:undefined, gameplayLog:undefined,
             outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
-        setSelectedCartridge(aux as PlayableCartridge);
+
+        if (cartridge.id == envClient.SCOREBOARD_CARTRIDGE_ID) {
+            scoreboards({cartridge_id:cartridge.id},{cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"}).then(
+                (reportOutput) => {
+                    const scoreboardsOutput = new ScoreboardsOutput(reportOutput);
+                    if (scoreboardsOutput.total > 0) {
+                        const lastInd = scoreboardsOutput.total - 1;
+                        aux.args = scoreboardsOutput.data[lastInd].args;
+                        aux.inCard = scoreboardsOutput.data[lastInd].inCard;
+                        aux.scoreFunction = scoreboardsOutput.data[lastInd].scoreFunction;
+                    }
+                    setSelectedCartridge(aux as PlayableCartridge);
+                }
+            );
+        } else {
+            setSelectedCartridge(aux as PlayableCartridge);
+
+        }
     }
 
     const playCartridge = () => {

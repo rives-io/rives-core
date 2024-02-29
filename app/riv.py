@@ -162,7 +162,7 @@ def replay_log(cartridge_id,log,riv_args,in_card):
     if in_card is not None and len(in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     if riv_args is not None and len(riv_args) > 0:
-        run_args.extend(riv_args.split())
+        run_args.append(f"-args='{riv_args}'")
 
     result = subprocess.run(run_args, cwd=cwd)
     if result.returncode != 0:
@@ -237,7 +237,7 @@ def riv_get_cartridge_outcard(cartridge_id,frame,riv_args,in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     run_args.append(f"-stop-frame={frame}")
     if riv_args is not None and len(riv_args) > 0:
-        run_args.extend(riv_args.split())
+        run_args.append(f"-args='{riv_args}'")
 
     result = subprocess.run(run_args, cwd=cwd)
     if result.returncode != 0:

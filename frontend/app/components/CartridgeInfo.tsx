@@ -21,8 +21,8 @@ import QRCode from "react-qr-code";
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
 import Loader from "../components/Loader";
-import { ReplayScore, getOutputs, replay } from '../backend-libs/app/lib';
-import { Replay } from '../backend-libs/app/ifaces';
+import { ReplayScore, getOutputs, replay, scoreboardReplay } from '../backend-libs/app/lib';
+import { Replay, ScoreboardReplayPayload } from '../backend-libs/app/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
@@ -238,7 +238,18 @@ function CartridgeInfo() {
         // setSubmitLogStatus({status: STATUS.SUBMIT});
         try {
             setSubmitLogStatus({status: STATUS.SUBMITING});
-            const receipt = await replay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+            let receipt: ContractReceipt;
+            if (selectedCartridge.id != envClient.SCOREBOARD_CARTRIDGE_ID) {
+                receipt = await replay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+            } else {
+                const inputData: ScoreboardReplayPayload = {
+                    user_alias:userAliasToSubmit,
+                    scoreboard_id: '0x' + envClient.SCOREBOARD_ID,
+                    outcard_hash: '0x' + selectedCartridge.outhash,
+                    log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
+                }
+                receipt = await scoreboardReplay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+            }
 
             if (receipt == undefined || receipt.events == undefined)
                 throw new Error("Couldn't send transaction");
@@ -489,7 +500,7 @@ function CartridgeInfo() {
                         {/* lg: width is equal to the max-w-3xl */}
                         <Tab.Panel className="game-tab-content">
                             <div className="w-full flex">
-                                <button className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
+                                <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
                             </div>
                             <Suspense fallback={scoreboardFallback()}>
                                 <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>

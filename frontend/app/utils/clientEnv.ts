@@ -17,5 +17,13 @@ export const envClient = envsafe({
   NFT_ADDR: str({
     input: process.env.NEXT_PUBLIC_NFT_ADDR,
     desc: "Rives Score NFT ETH address."
+  }),
+  SCOREBOARD_CARTRIDGE_ID: str({
+    input: process.env.NEXT_PUBLIC_SCOREBOARD_CARTRIDGE_ID,
+    desc: "Cartridge id to consider scoreboard."
+  }),
+  SCOREBOARD_ID: str({
+    input: process.env.NEXT_PUBLIC_SCOREBOARD_ID,
+    desc: "Scoreboard id."
   })
 })

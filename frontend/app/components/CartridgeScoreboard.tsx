@@ -10,7 +10,11 @@ import React from 'react';
 
 
 const getGeneralScoreboard = async (cartridge_id:string):Promise<Array<ReplayScore>> => {
-    const scores:Array<ReplayScore> = await getOutputs({tags: ["score", cartridge_id]}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+    const tags = ["score", cartridge_id];
+    if (cartridge_id == envClient.SCOREBOARD_CARTRIDGE_ID) {
+        tags.push(envClient.SCOREBOARD_ID);
+    }
+    const scores:Array<ReplayScore> = await getOutputs({tags}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
     return scores;
 }
 
