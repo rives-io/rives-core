@@ -30,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 
 class Scoreboard(Entity):
     id              = helpers.PrimaryKey(str, 64)
-    name            = helpers.Required(str, index=True, unique=True)
+    name            = helpers.Required(str, index=True)
     cartridge_id    = helpers.Required(str, 64, index=True)
     created_by      = helpers.Required(str, 42)
     created_at      = helpers.Required(int)
@@ -168,8 +168,8 @@ def create_scoreboard(payload: CreateScoreboardPayload) -> bool:
         add_output(msg,tags=['error'])
         return False
 
-    if helpers.count(s.id for s in Scoreboard if s.name == payload.name) > 0:
-        msg = f"Scoreboard {payload.name} already exists"
+    if helpers.count(s.id for s in Scoreboard if s.name == payload.name and s.cartridge_id == payload.cartridge_id.hex()) > 0:
+        msg = f"Scoreboard {payload.name} already exists for this game"
         LOGGER.error(msg)
         add_output(msg,tags=['error'])
         return False
@@ -185,8 +185,8 @@ def create_scoreboard(payload: CreateScoreboardPayload) -> bool:
         return False
 
     # process outcard
-    outcard_hash = sha256(outcard_raw).digest()
     outcard_format = outcard_raw[:4]
+    print(outcard_format)
     if outcard_format != b"JSON":
         msg = f"Outcard format is not json"
         LOGGER.error(msg)
@@ -217,7 +217,7 @@ def create_scoreboard(payload: CreateScoreboardPayload) -> bool:
         return False
 
     # str2bytes(metadata.msg_sender) + metadata.timestamp.to_bytes(32, byteorder='big')
-    scoreboard_id = sha256(str2bytes(payload.name)).digest()
+    scoreboard_id = sha256(payload.cartridge_id + str2bytes(payload.name)).digest()
 
     LOGGER.info(f"Creating scoreboard {payload.name} (id={scoreboard_id.hex()}) with function {payload.score_function}")
 
@@ -332,7 +332,7 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         add_output(msg,tags=['error'])
         return False
 
-    user_alias = replay.user_alias if len(replay.user_alias) else f"{metadata.msg_sender[:6]}...{metadata.msg_sender[:-4]}"
+    user_alias = replay.user_alias if len(replay.user_alias) else f"{metadata.msg_sender[:6]}...{metadata.msg_sender[-4:]}"
 
     s = Score(
         user_address = metadata.msg_sender,
@@ -353,11 +353,12 @@ def scoreboard_replay(replay: ScoreboardReplayPayload) -> bool:
         score = default_score,
         extra_score = score,
         scoreboard_id = replay.scoreboard_id.hex(),
+        screenshot_cid = cid,
         gameplay_hash = gameplay_hash.digest()
     )
 
     add_output(replay.log,tags=['replay',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
-    add_output(final_screenshot,tags=['screenshot',replay.cartridge_id.hex()])
+    add_output(final_screenshot,tags=['screenshot',scoreboard.cartridge_id])
     emit_event(replay_score,tags=['score',scoreboard.cartridge_id,replay.scoreboard_id.hex()])
 
     GameplayHash.add(scoreboard.cartridge_id,gameplay_hash.hexdigest())
