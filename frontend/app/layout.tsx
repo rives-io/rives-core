@@ -3,6 +3,7 @@ import './globals.css'
 import Navbar from '@/app/components/Navbar';
 import {Web3OnboardProviderClient} from './utils/web3OnboardProvider';
 import { fontPressStart2P } from './utils/font';
+import Footer from './components/Footer';
 
 export const metadata: Metadata = {
   title: 'RiVES',
@@ -21,6 +22,7 @@ export default function RootLayout({
         <body className={fontPressStart2P.className}>
           <Navbar></Navbar>
           {children}
+          <Footer></Footer>
         </body>
       </Web3OnboardProviderClient>
     </html>

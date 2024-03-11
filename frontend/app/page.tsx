@@ -27,7 +27,7 @@ export default function Home() {
           <YoutubeVideo videoId="7y22pdgGIE0" />
         </div>
 
-        <a className='mt-10 btn' href={"/cartridges"}>
+        <a className='mt-4 btn' href={"/cartridges"}>
           Start Playing
         </a>
 
