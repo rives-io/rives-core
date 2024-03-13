@@ -17,7 +17,6 @@ const getGeneralScoreboard = async (cartridge_id:string):Promise<Array<ReplaySco
         tags.push(envClient.SCOREBOARD_ID);
     }
     const scores:Array<ReplayScore> = await getOutputs({tags}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
-    console.log(scores)
     return scores;
 }
 
