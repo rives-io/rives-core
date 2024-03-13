@@ -27,7 +27,6 @@ import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
 import { envClient } from "../utils/clientEnv";
-import { delay } from "../utils/util";
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from "@mui/icons-material/Close";
 import { sha256 } from "js-sha256";
@@ -68,72 +67,6 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
     }
 }
 
-
-function scoreboardFallback() {
-    const arr = Array.from(Array(3).keys());
-
-    return (
-        <table className="w-full text-xs text-left">
-            <thead className="text-xsuppercase">
-                <tr>
-                    <th scope="col" className="px-2 py-3">
-                        User
-                    </th>
-                    <th scope="col" className="px-2 py-3">
-                        Timestamp
-                    </th>
-                    <th scope="col" className="px-2 py-3">
-                        Score
-                    </th>
-                    <th scope="col" className="px-2 py-3">
-                        Status
-                    </th>
-                    <th scope="col" className="px-2 py-3">
-
-                    </th>
-                </tr>
-            </thead>
-            <tbody className='animate-pulse'>
-                {
-                    arr.map((num, index) => {
-                        return (
-                            <tr key={index}>
-                                <td className="px-2 py-4 break-all">
-                                    <div className='ps-4 fallback-bg-color rounded-md'>
-                                        0xf39F...2266
-                                    </div>
-                                </td>
-
-                                <td className="px-2 py-4">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        31/12/1969, 21:06:36 PM
-                                    </div>
-                                </td>
-
-                                <td className="px-2 py-4">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        100
-                                    </div>
-                                </td>
-                                <td className="px-2 py-4">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        100
-                                    </div>
-                                </td>
-                                <td className="w-[50px] h-[56px]">
-                                    <div className='fallback-bg-color rounded-md'>
-                                        100
-                                    </div>
-                                </td>
-                            </tr>
-                        );
-                    })
-                }
-
-            </tbody>
-        </table>
-    )
-}
 
 function CartridgeInfo() {
     const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
@@ -502,9 +435,7 @@ function CartridgeInfo() {
                             <div className="w-full flex">
                                 <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
                             </div>
-                            <Suspense fallback={scoreboardFallback()}>
-                                <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
-                            </Suspense>
+                            <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
 
                         </Tab.Panel>
 

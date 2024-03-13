@@ -43,7 +43,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
     const changeCartridge = (cartridge:Cartridge) => {
         if (selectedCartridge?.downloading) return; // change only if download already finished
 
-        const aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
+        let aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
             args:undefined, scoreFunction:undefined, replay:undefined, gameplayLog:undefined,
             outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
 

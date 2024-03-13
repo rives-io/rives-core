@@ -1,3 +1,5 @@
+"use client"
+
 import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
@@ -5,7 +7,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ImageIcon from '@mui/icons-material/Image';
 import { envClient } from '../utils/clientEnv';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 
 
@@ -32,8 +34,75 @@ const setMedal = (index:number) => {
     return <span className='ms-7'></span>;
 }
 
-async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
+function scoreboardFallback() {
+    const arr = Array.from(Array(3).keys());
+
+    return (
+        <table className="w-full text-xs text-left">
+            <thead className="text-xsuppercase">
+                <tr>
+                    <th scope="col" className="px-2 py-3">
+                        User
+                    </th>
+                    <th scope="col" className="px-2 py-3">
+                        Timestamp
+                    </th>
+                    <th scope="col" className="px-2 py-3">
+                        Score
+                    </th>
+                    <th scope="col" className="px-2 py-3">
+                        Status
+                    </th>
+                    <th scope="col" className="px-2 py-3">
+
+                    </th>
+                </tr>
+            </thead>
+            <tbody className='animate-pulse'>
+                {
+                    arr.map((num, index) => {
+                        return (
+                            <tr key={index}>
+                                <td className="px-2 py-4 break-all">
+                                    <div className='ps-4 fallback-bg-color rounded-md'>
+                                        0xf39F...2266
+                                    </div>
+                                </td>
+
+                                <td className="px-2 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        31/12/1969, 21:06:36 PM
+                                    </div>
+                                </td>
+
+                                <td className="px-2 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                                <td className="px-2 py-4">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                                <td className="w-[50px] h-[56px]">
+                                    <div className='fallback-bg-color rounded-md'>
+                                        100
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })
+                }
+
+            </tbody>
+        </table>
+    )
+}
+
+function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
     cartridge_id:string, reload:number, replay_function(replayScore: ReplayScore): void}) {
+    const [generalScores, setGeneralScore] = useState<ReplayScore[]|null>(null);
 
     const playReplay = (replayScore:ReplayScore) => {
         replay_function(replayScore);
@@ -43,7 +112,15 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
         return (await getGeneralScoreboard(cartridge_id)).sort((a, b) => b.score - a.score);
     }
 
-    const generalScores:ReplayScore[] = await reloadScores();
+    useEffect(() => {
+        if (generalScores) setGeneralScore(null) // set to null to trigger the loading effect
+
+        reloadScores().then((scores) => setGeneralScore(scores));
+    }, [cartridge_id, reload])
+
+    if (!generalScores) {
+        return scoreboardFallback();
+    }
 
     return (
         <div className="relative">
@@ -71,7 +148,7 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
                     {
                         generalScores.map((scoreInfo, index) => {
                             return (
-                                <tr key={`${scoreInfo.user_address}-${scoreInfo.timestamp}`} className="">
+                                <tr key={index}>
                                     <td title={scoreInfo.user_address.toLowerCase()} scope="row" className="px-2 py-4 break-all">
                                         {setMedal(index)} {scoreInfo.user_alias? scoreInfo.user_alias:scoreInfo.user_address.substring(0,6)+"..."+scoreInfo.user_address.substring(scoreInfo.user_address.length-4,scoreInfo.user_address.length)}
                                     </td>
@@ -103,15 +180,4 @@ async function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
     )
 }
 
-//export default CartridgeScoreboard;
-
-
-const arePropsEqual = (prevProps:{cartridge_id:string, reload:number}, nextProps:{cartridge_id:string, reload:number}) => {
-    // change cartridge || log validated reload or reload btn
-    if ((prevProps.cartridge_id !== nextProps.cartridge_id) || (prevProps.reload !== nextProps.reload)) {
-        return false                                   // will re-render
-    }
-    return true                                      // donot re-render
-}
-
-export default React.memo(CartridgeScoreboard, arePropsEqual)
+export default CartridgeScoreboard;
