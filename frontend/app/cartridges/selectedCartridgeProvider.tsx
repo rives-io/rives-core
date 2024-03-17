@@ -26,7 +26,6 @@ export interface PlayableCartridge extends Cartridge {
     initCanvas: boolean;
     play: boolean;
     downloading: boolean;
-    playToggle: boolean;
     cartridgeData: Uint8Array | undefined;
     inCard: Uint8Array | undefined;
     args: string | undefined;
@@ -68,7 +67,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
 
     const playCartridge = () => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay:undefined, playToggle:!selectedCartridge.playToggle, initCanvas:true});
+            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay:undefined, initCanvas:true});
         }
     }
 
@@ -87,7 +86,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
 
     const setReplay = (replay: Uint8Array) => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:true, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay, playToggle:!selectedCartridge.playToggle, initCanvas:true});
+            setSelectedCartridge({...selectedCartridge, play:false, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay, initCanvas:true});
         }
     }
 
@@ -109,7 +108,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
                 if (gameplayLog == undefined)
                     setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash});
                 else
-                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, play: true, playToggle:!selectedCartridge.playToggle, initCanvas:true});
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, play: true, initCanvas:true});
             else
                 setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash});
         }

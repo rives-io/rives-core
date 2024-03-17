@@ -14,38 +14,54 @@ import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvide
 import { cartridge } from '../backend-libs/app/lib';
 import { envClient } from '../utils/clientEnv';
 
+enum RIVEMU_STATE {
+    WAITING,
+    PLAY_READY,
+    PLAYING,
+    REPLAY_READY,
+    REPLAYING
+}
+
 function Rivemu() {
     const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge, setDownloadingCartridge } = useContext(selectedCartridgeContext);
     const [overallScore, setOverallScore] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    // const [replayTip, setReplayTip] = useState(false);
-    const [isReplaying, setIsReplaying] = useState(false);
+
     const [cancelled, setCancelled] = useState(false);
-    // const [isExpanded, setIsExpanded] = useState(false);
+
     const [playedOnce, setPlayedOnce] = useState(false);
-    const [replayLog, setReplayLog] = useState<Uint8Array|undefined>(undefined);
     const [freshOpen, setFreshOpen] = useState(true);
+    const [rivemuState, setRivemuState] = useState(RIVEMU_STATE.WAITING);
 
     useEffect(() => {
         if (!selectedCartridge || !selectedCartridge?.play) return;
-        initialize();
+
+        // start game if there is a Cartridge selected and the user clicked "PLAY" on CartridgeInfo
+        initialize().then(() => setRivemuState(RIVEMU_STATE.PLAY_READY));
     }
-    ,[selectedCartridge?.playToggle, selectedCartridge?.replay])
+    ,[selectedCartridge?.play])
 
     useEffect(() => {
-        if (!isPlaying) {
-            rivemuReplay();
-        }
-    }, [replayLog])
+        if (!selectedCartridge || !selectedCartridge.replay) return;
+
+        initialize().then(() => setRivemuState(RIVEMU_STATE.REPLAY_READY));
+    }, [selectedCartridge?.replay])
 
     useEffect(() => {
         if (cancelled) {
-            setIsPlaying(false);
+            setRivemuState(RIVEMU_STATE.WAITING);
             rivemuHalt();
             setOverallScore(0);
             stopCartridge();
         }
     }, [cancelled])
+
+    useEffect(() => {
+        if (rivemuState == RIVEMU_STATE.PLAY_READY) {
+            rivemuStart();
+        } else if (rivemuState == RIVEMU_STATE.REPLAY_READY) {
+            rivemuReplay();
+        }
+    }, [rivemuState])
 
     // useEffect(() => {
     //     interface keyboardEvent {key:string}
@@ -61,35 +77,19 @@ function Rivemu() {
     // })
 
     async function initialize() {
-        if (!selectedCartridge || selectedCartridge.cartridgeData == undefined) {
-            setIsPlaying(false);
-            // setIsExpanded(false);
-            setOverallScore(0);
-            setReplayLog(undefined);
-        }
         await loadCartridge();
-        setCancelled(false);
+        if (cancelled) setCancelled(false);
         setFreshOpen(true);
-        if (selectedCartridge?.replay){
-            setReplayLog(selectedCartridge.replay);
-            setIsReplaying(true);
-            // setReplayTip(true);
-        }
-        if (selectedCartridge?.gameplayLog) {
-            setReplayLog(selectedCartridge.gameplayLog);
-            setIsReplaying(false);
-            // setReplayTip(true);
-        }
     }
 
     async function loadCartridge() {
-        if (!selectedCartridge || !selectedCartridge?.play || selectedCartridge.cartridgeData != undefined) return;
+        if (!selectedCartridge || !(selectedCartridge.play || selectedCartridge.replay) || selectedCartridge.cartridgeData != undefined) return;
         setDownloadingCartridge(true);
         const data = await cartridge({id:selectedCartridge.id},{decode:true,decodeModel:"bytes", cartesiNodeUrl: envClient.CARTESI_NODE_URL, cache:"force-cache"});
         setCartridgeData(data); // setCartridgeData also sets downloading to false
     }
 
-    if (!selectedCartridge || !selectedCartridge.initCanvas) {
+    if (!selectedCartridge) {
         return  <></>;
     }
 
@@ -130,9 +130,7 @@ function Rivemu() {
     async function rivemuStart() {
         if (!selectedCartridge?.cartridgeData) return;
         console.log("rivemuStart");
-        // setIsLoading(true);
-        setIsReplaying(false);
-        // setReplayTip(false);
+
         // // @ts-ignore:next-line
         // if (Module.quited) {
         //     // restart wasm when back to page
@@ -140,11 +138,12 @@ function Rivemu() {
         //     Module._main();
         // }
         await rivemuHalt();
-        setIsPlaying(true);
+        setRivemuState(RIVEMU_STATE.PLAYING);
         setOverallScore(0);
 
         if (selectedCartridge.scoreFunction)
             scoreFunction = parser.parse(selectedCartridge.scoreFunction);
+
         // @ts-ignore:next-line
         let buf = Module._malloc(selectedCartridge.cartridgeData.length);
         // @ts-ignore:next-line
@@ -176,12 +175,8 @@ function Rivemu() {
 
     async function rivemuReplay() {
         // TODO: fix rivemuReplay
-        if (!selectedCartridge?.cartridgeData || !replayLog) return;
+        if (!selectedCartridge?.cartridgeData || !selectedCartridge?.replay) return;
         console.log("rivemuReplay");
-
-        // setReplayTip(false);
-        // if (selectedCartridge.cartridgeData == undefined || selectedCartridge.outcard != undefined || selectedCartridge.outhash != undefined)
-        //     setIsReplaying(true);
 
         // // @ts-ignore:next-line
         // if (Module.quited) {
@@ -190,7 +185,7 @@ function Rivemu() {
         //     Module._main();
         // }
         await rivemuHalt();
-        setIsPlaying(true);
+        setRivemuState(RIVEMU_STATE.REPLAYING);
         setOverallScore(0);
 
         if (selectedCartridge.scoreFunction)
@@ -198,11 +193,11 @@ function Rivemu() {
         // @ts-ignore:next-line
         const cartridgeBuf = Module._malloc(selectedCartridge.cartridgeData.length);
         // @ts-ignore:next-line
-        const rivlogBuf = Module._malloc(replayLog.length);
+        const rivlogBuf = Module._malloc(selectedCartridge.replay.length);
         // @ts-ignore:next-line
         Module.HEAPU8.set(selectedCartridge.cartridgeData, cartridgeBuf);
         // @ts-ignore:next-line
-        Module.HEAPU8.set(replayLog, rivlogBuf);
+        Module.HEAPU8.set(selectedCartridge.replay, rivlogBuf);
         const inCard = selectedCartridge?.inCard || new Uint8Array([]);
         // @ts-ignore:next-line
         let incardBuf = Module._malloc(inCard.length);
@@ -221,7 +216,7 @@ function Rivemu() {
                 inCard.length,
                 params,
                 rivlogBuf,
-                replayLog.length
+                selectedCartridge.replay.length
             ]
         );
         // @ts-ignore:next-line
@@ -241,7 +236,6 @@ function Rivemu() {
 
     async function rivemuStop() {
         console.log("rivemuStop");
-        setIsPlaying(false);
         rivemuHalt();
         // stopCartridge();
     }
@@ -251,6 +245,12 @@ function Rivemu() {
         if (canvas) {
             canvas.requestFullscreen();
         }
+    }
+
+    function rivemuRestart() {
+        // set state to WAITING to prevent gameplayLog from being saved and submit gameplay prompt
+        setRivemuState(RIVEMU_STATE.WAITING);
+        rivemuStart();
     }
 
     async function close() {
@@ -285,16 +285,7 @@ function Rivemu() {
         window.rivemu_on_begin = function (width: number, height: number, target_fps: number, total_frames: number) {
             if (!playedOnce) setPlayedOnce(true);
             if (freshOpen) setFreshOpen(false);
-            // const canvas: any = document.getElementById("canvas");
-            // const maxCanvasHeight = canvas.parentElement.clientHeight;
-            // const maxCanvasWidth = canvas.parentElement.clientWidth;
-            // if (canvas) {
-            //     canvas.height = maxCanvasHeight;
-            //     canvas.width = maxCanvasWidth;
-            // }
             console.log("rivemu_on_begin");
-            // force canvas resize
-            // window.dispatchEvent(new Event("resize"));
         };
 
         // @ts-ignore:next-line
@@ -303,43 +294,46 @@ function Rivemu() {
             outcard: ArrayBuffer,
             outhash: string
         ) {
-            if (!isReplaying && !cancelled) {
+            if (rivemuState === RIVEMU_STATE.PLAYING && !cancelled) {
                 setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash);
-                // setReplayLog(new Uint8Array(rivlog));
             }
             rivemuStop();
+            setRivemuState(RIVEMU_STATE.WAITING);
             console.log("rivemu_on_finish")
         };
     }
 
 
     return (
-        <div>
-        <section className='gameplay-section' hidden={selectedCartridge?.cartridgeData==undefined}>
+        <div hidden={selectedCartridge?.cartridgeData==undefined || !selectedCartridge.initCanvas}>
+        <section className='gameplay-section' >
             <div className='relative bg-gray-500 p-2 text-center'>
+                <button className="bg-gray-700 text-white absolute top-1 start-2.5 border border-gray-700 hover:border-black"
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={() => {rivemuState === RIVEMU_STATE.PLAYING? rivemuRestart():rivemuReplay()}}>
+                    <RestartIcon/>
+                </button>
                 {
-                    !isPlaying?
-                        <button className="bg-gray-700 text-white absolute top-1 start-2.5 border border-gray-700 hover:border-black"
-                            onKeyDown={() => null} onKeyUp={() => null}
-                            onClick={rivemuStart}>
-                            <RestartIcon/>
-                        </button>
+                    rivemuState !== RIVEMU_STATE.PLAYING?
+                        <></>
                     :
                         // onKeyDown and onKeyUp "null" prevent buttons pressed when playing to trigger "rivemuStop"
-                        <button className="bg-gray-700 text-white absolute top-1 start-2.5 border border-gray-700 hover:border-black"
+                        <button className="bg-gray-700 text-white absolute top-1 start-10 border border-gray-700 hover:border-black"
                             onKeyDown={() => null} onKeyUp={() => null}
                             onClick={rivemuStop}>
                             <StopIcon/>
                         </button>
                 }
-                <button className="bg-gray-700 text-white absolute top-1 start-10 border border-gray-700 hover:border-black"
-                    hidden={!isPlaying}
+
+                <span>Score: {overallScore}</span>
+
+                <button className="bg-gray-700 text-white absolute top-1 end-10 border border-gray-700 hover:border-black"
+                    hidden={rivemuState === RIVEMU_STATE.WAITING}
                     onKeyDown={() => null} onKeyUp={() => null}
                     onClick={rivemuFullscreen}>
                     <FullscreenIcon/>
                 </button>
 
-                <span>Score: {overallScore}</span>
                 <button className="bg-gray-700 text-white absolute top-1 end-2.5 border border-gray-700 hover:border-black"
                     onKeyDown={() => null} onKeyUp={() => null}
                     onClick={close}
@@ -350,7 +344,7 @@ function Rivemu() {
 
             <div className='bg-black max-h-full max-w-full'
                 >
-                <div hidden={!isPlaying && playedOnce} className='flex justify-center gameplay-screen max-h-full max-w-full'>
+                <div className='flex justify-center gameplay-screen max-h-full max-w-full'>
                     <canvas
                         className='max-h-full max-w-full'
                         id="canvas"
@@ -365,13 +359,13 @@ function Rivemu() {
                     />
                 </div>
 
-                <div hidden={isPlaying} className='absolute top-[40px] gameplay-screen'>
+                <div hidden={rivemuState !== RIVEMU_STATE.WAITING} className='absolute top-[40px] gameplay-screen'>
                     {coverFallback()}
                 </div>
             </div>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
         </section>
-        <div className="opacity-60 fixed inset-0 z-0 bg-black" onClick={() => close()}></div>
+        <div className="opacity-60 absolute inset-0 z-0 bg-black" onClick={() => close()}></div>
         </div>
     )
 }
