@@ -21,13 +21,13 @@ export default function Home() {
           </p>
         </div>
 
-        <div className='w-11/12 my-16 h-1 rainbow-background'></div>
+        <div className='w-11/12 my-12 h-1 rainbow-background'></div>
 
         <div className="flex items-center justify-center">
           <YoutubeVideo videoId="7y22pdgGIE0" />
         </div>
 
-        <a className='mt-4 btn' href={"/cartridges"}>
+        <a className='my-4 btn' href={"/cartridges"}>
           Start Playing
         </a>
 
