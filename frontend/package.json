@@ -14,6 +14,7 @@
     "@emotion/styled": "^11.11.0",
     "@headlessui/react": "^1.7.18",
     "@mui/icons-material": "^5.15.3",
+    "@privy-io/react-auth": "^1.59.5",
     "@react-spring/three": "^9.7.3",
     "@react-three/drei": "^9.92.5",
     "@react-three/fiber": "^8.15.12",
@@ -32,7 +33,8 @@
     "react-qr-code": "^2.0.12",
     "react-use-downloader": "^1.2.4",
     "react-youtube": "^10.1.0",
-    "three": "^0.159.0"
+    "three": "^0.159.0",
+    "viem": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^20",

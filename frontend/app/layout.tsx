@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Navbar from '@/app/components/Navbar';
-import {Web3OnboardProviderClient} from './utils/web3OnboardProvider';
 import { fontPressStart2P } from './utils/font';
 import Footer from './components/Footer';
+import PrivyProviders from "./utils/privyProvider";
 
 export const metadata: Metadata = {
   title: 'RiVES',
@@ -18,13 +18,13 @@ export default function RootLayout({
 
   return (
     <html lang="en-US">
-      <Web3OnboardProviderClient>
         <body className={fontPressStart2P.className}>
-          <Navbar></Navbar>
-          {children}
-          <Footer></Footer>
+          <PrivyProviders>
+            <Navbar></Navbar>
+            {children}
+            <Footer></Footer>
+          </PrivyProviders>
         </body>
-      </Web3OnboardProviderClient>
     </html>
   )
 }

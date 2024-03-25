@@ -2,37 +2,41 @@
 
 import Link from 'next/link'
 import { usePathname } from "next/navigation";
-import React, { useEffect, useState } from 'react'
-import { useConnectWallet, useSetChain } from '@web3-onboard/react';
+import React from 'react'
 import RivesLogo from './svg/RivesLogo';
+import {usePrivy} from '@privy-io/react-auth';
 
 function Navbar() {
     const pathname = usePathname();
-    const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
-    const [{ chains, connectedChain }, setChain] = useSetChain();
-    const [connectButtonTxt, setConnectButtonTxt] = useState("Connect");
+    // const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
+    // const [{ chains, connectedChain }, setChain] = useSetChain();
+    // const [connectButtonTxt, setConnectButtonTxt] = useState("Connect");
+    const {ready, authenticated, login, logout} = usePrivy();
+    // Disable login when Privy is not ready or the user is already authenticated
+    const disableLogin = !ready || (ready && authenticated);
+    const btnText = disableLogin?"Disconnect":"Connect";
 
-    useEffect(() => {
-        if (!connectedChain) return;
+    // useEffect(() => {
+    //     if (!connectedChain) return;
 
-        chains.forEach((chain) => {
-            if (connectedChain.id == chain.id) return;
-        })
+    //     chains.forEach((chain) => {
+    //         if (connectedChain.id == chain.id) return;
+    //     })
 
-        setChain({chainId: chains[0].id});
+    //     setChain({chainId: chains[0].id});
 
-      }, [connectedChain])
+    //   }, [connectedChain])
 
 
-    useEffect(() => {
-        if (connecting) {
-            setConnectButtonTxt('Connecting');
-        } else if (wallet) {
-            setConnectButtonTxt('Disconnect');
-        } else {
-            setConnectButtonTxt('Connect');
-        }
-    }, [connecting, wallet])
+    // useEffect(() => {
+    //     if (connecting) {
+    //         setConnectButtonTxt('Connecting');
+    //     } else if (wallet) {
+    //         setConnectButtonTxt('Disconnect');
+    //     } else {
+    //         setConnectButtonTxt('Connect');
+    //     }
+    // }, [connecting, wallet])
 
     return (
         <header className='header'>
@@ -49,10 +53,8 @@ function Navbar() {
             </Link>
 
             <div className='flex-1 flex justify-end'>
-                <button className='navbar-item' disabled={connecting}
-                    onClick={() => (wallet ? disconnect(wallet) : connect())}
-                >
-                    {connectButtonTxt}
+                <button className='navbar-item' onClick={disableLogin?logout:login}>
+                    {btnText}
                 </button>
             </div>
         </header>
