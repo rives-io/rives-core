@@ -44,8 +44,16 @@ function Navbar() {
                 <p>Cartridges</p>
             </a>
 
-            <Link href={"/insert-cartridge"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/insert-cartridge" ? "link-active" : "" }`}>
-                Insert Cartridge
+            <Link href={"/contests"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/contests" ? "link-active" : "" }`}>
+                Contests
+            </Link>
+
+            <Link href={"/tapes"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/tapes" ? "link-active" : "" }`}>
+                Tapes
+            </Link>
+
+            <Link href={"/upload-cartridge"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/upload-cartridge" ? "link-active" : "" }`}>
+                Upload Cartridge
             </Link>
 
             <div className='flex-1 flex justify-end'>
