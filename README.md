@@ -1,10 +1,10 @@
-# World Arcade
+# RIVES CORE
 
 ```
 Cartesi Rollups Node version: 1.2.x (sunodo version 0.10.x)
 ```
 
-The World Arcade allows users to play riscv-binaries of games on a RISC-v Cartesi Machine on the browser, submit the game moves onchain so the session will be replayed a Cartesi Rollups DApp to generate a provable score. Naturally you can upload you own games.
+The RiscV Entertainment System (RIVES) CORE allows users to play riscv-binaries of games on a RISC-v Cartesi Machine on the browser, submit the game moves onchain so the session will be replayed a Cartesi Rollups App to generate a provable score. Naturally you can upload you own games.
 
 DISCLAIMERS
 
@@ -17,25 +17,20 @@ For now, this is not a final product and should not be used as one.
 - [Metamask](https://metamask.io/) to sign transactions in the frontend
 - [json-schema-to-typescript](https://www.npmjs.com/package/json-schema-to-typescript) to generate typescript interfaces`npm install -g json-schema-to-typescript --save`
 - [cartesi-client](https://github.com/prototyp3-dev/cartesi-client/), an interface to cartesi rollups framework
+- [cartesapp](https://github.com/prototyp3-dev/cartesapp/), an high level framwork for python cartesi rollup app
 
 To build the DApp, two images are also required: `riv/toolchain` and `sunodo/sdk:0.2.0-riv`.
 
 - To generate `riv/toolchain`, clone [RIV repository](https://github.com/edubart/riv) and in its directory do:
+
 ```shell
 make toolchain
 ```
 
-- To generate `sunodo/sdk:0.2.0-riv`, in the `world-arcade` project directory do:
-```shell
-docker build --tag sunodo/sdk:0.2.0-riv . --target sunodo-riv --progress plain .
-```
-
-## Building
-
-Build backend with:
+- To generate `sunodo/sdk:0.2.0-riv`, in the `rives-core` project directory do:
 
 ```shell
-sunodo build
+make sunodo-sdk-riv
 ```
 
 You should also install the frontend dependencies. First install [cartesi client](https://github.com/prototyp3-dev/cartesi-client), then run:
@@ -46,25 +41,33 @@ yarn
 npm link cartesi-client
 ```
 
+## Building
+
+Define a .env file with some variables:
+
+```shell
+OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+```
+
+Build backend with:
+
+```shell
+make build
+```
+
+Hint: you can create `.env.[ENV]` files to define other enviroments, and then run:
+
+```shell
+make build-[ENV]
+```
+
 ## Running
 
-Run the DApp environment with:
+Run the DApp environment with (this command runs `sunodo run`):
 
 ```shell
-sunodo run
+make run
 ```
-
-Then deploy the Rives Screenshot NFT contract (you should have already installed frontend dependencies)
-
-```shell
-cd frontend
-MNEMONIC='test test test test test test test test test test test junk'
-RPC_URL=http://127.0.0.1:8545
-DAPP_ADDRESS=0x70ac08179605AF2D9e75782b8DEcDD3c22aA4D0C
-BITMASK_ADDRESS=0xF5B2d8c81cDE4D6238bBf20D3D77DB37df13f735
-forge create --constructor-args $DAPP_ADDRESS --rpc-url "$RPC_URL" --mnemonic "$MNEMONIC" --json contracts/RivesScoreNFT.sol:RivesScoreNFT --libraries node_modules/@cartesi/util/contracts/Bitmask.sol:Bitmask:$BITMASK_ADDRESS
-```
-
 Finally, run the frontend
 
 ```shell
@@ -72,8 +75,14 @@ cd frontend
 yarn dev
 ```
 
-You will be able to mint the NFTs once the epoch has finished, but you can increase the time of the local dev chain with
+### Running Backend in the host
+
+To run the backend in host mode and speedup the development process you should run the node in dev mode
 
 ```shell
-curl -H "Content-Type: application/json"  -X POST --data '{"id":1337,"jsonrpc":"2.0","method":"evm_increaseTime","params":[864000]}' http://localhost:8545
+make run-dev
 ```
+
+Obs: you should define the following variables in `.env` file: RIVEMU_PATH, OPERATOR_ADDRESS, and ROLLUP_HTTP_SERVER_URL
+
+Obs: you can find the sources for rivemu [here](https://github.com/edubart/riv)

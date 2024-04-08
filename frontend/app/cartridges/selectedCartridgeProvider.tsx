@@ -2,10 +2,11 @@
 
 
 import { createContext, useState } from 'react';
-import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
+import { CartridgeInfo as Cartridge } from "../backend-libs/core/ifaces"
 import { envClient } from '../utils/clientEnv';
 
-import { scoreboards, ScoreboardsOutput } from '../backend-libs/app/lib';
+import { rules, RulesOutput } from '../backend-libs/core/lib';
+import { InspectReport } from '../backend-libs/cartesapp/utils';
 
 export const selectedCartridgeContext = createContext<{
     selectedCartridge: PlayableCartridge|null, changeCartridge:Function, playCartridge:Function,
@@ -34,6 +35,9 @@ export interface PlayableCartridge extends Cartridge {
     gameplayLog: Uint8Array | undefined;
     outcard: Uint8Array | undefined;
     outhash: string | undefined;
+    score: number | undefined;
+    rule: string | undefined;
+    lastFrames: string[] | undefined;
 }
 
 export function SelectedCartridgeProvider({ children }:{ children: React.ReactNode }) {
@@ -42,27 +46,24 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
     const changeCartridge = (cartridge:Cartridge) => {
         if (selectedCartridge?.downloading) return; // change only if download already finished
 
-        let aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
-            args:undefined, scoreFunction:undefined, replay:undefined, gameplayLog:undefined,
-            outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
-
-        if (cartridge.id == envClient.SCOREBOARD_CARTRIDGE_ID) {
-            scoreboards({cartridge_id:cartridge.id},{cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"}).then(
-                (reportOutput) => {
-                    const scoreboardsOutput = new ScoreboardsOutput(reportOutput);
-                    if (scoreboardsOutput.total > 0) {
-                        const lastInd = scoreboardsOutput.total - 1;
-                        aux.args = scoreboardsOutput.data[lastInd].args;
-                        aux.inCard = scoreboardsOutput.data[lastInd].inCard;
-                        aux.scoreFunction = scoreboardsOutput.data[lastInd].scoreFunction;
-                    }
-                    setSelectedCartridge(aux as PlayableCartridge);
+        rules({cartridge_id:cartridge.id,name:"default"},{cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"}).then(
+            (reportOutput: InspectReport) => {
+                let aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
+                    args:undefined, scoreFunction:undefined, rule:undefined, score: undefined, replay:undefined, gameplayLog:undefined,
+                    outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
+        
+                const output = new RulesOutput(reportOutput);
+                if (output.total > 0) {
+                    const lastInd = output.data.length - 1;
+                    aux.args = output.data[lastInd].args;
+                    aux.inCard = output.data[lastInd].in_card;
+                    aux.scoreFunction = output.data[lastInd].score_function;
+                    aux.rule = output.data[lastInd].id;
+                    console.log("aux",aux, output.data[lastInd], output.data[lastInd].id, output.data[lastInd].score_function)
                 }
-            );
-        } else {
-            setSelectedCartridge(aux as PlayableCartridge);
-
-        }
+                setSelectedCartridge(aux as PlayableCartridge);
+            }
+        );
     }
 
     const playCartridge = () => {
@@ -102,15 +103,15 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         }
     }
 
-    const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string) => {
+    const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string, score: number | undefined, lastFrames: string[] | undefined) => {
         if (selectedCartridge) {
             if (outcard == undefined)
                 if (gameplayLog == undefined)
-                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash});
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames});
                 else
-                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, play: true, initCanvas:true});
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames, play: true, initCanvas:true});
             else
-                setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash});
+                setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames});
         }
     }
 

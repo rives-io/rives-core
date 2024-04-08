@@ -1,18 +1,24 @@
 "use client"
 
 
+import { ethers } from "ethers";
 import React, { useContext, useState, useEffect, cache } from 'react'
 import Script from "next/script";
 import Image from 'next/image';
-import {Parser} from 'expr-eval';
+import {Expression, Parser} from 'expr-eval';
 import CloseIcon from '@mui/icons-material/Close';
 import RestartIcon from '@mui/icons-material/RestartAlt';
 import StopIcon from '@mui/icons-material/Stop';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
+// import * as GIFEncoder from 'gif-encoder-2';
 
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
-import { cartridge } from '../backend-libs/app/lib';
+import { cartridge } from '../backend-libs/core/lib';
 import { envClient } from '../utils/clientEnv';
+import { useConnectWallet } from '@web3-onboard/react';
+
+const LAST_FRAMES_SIZE = 9;
+const LAST_FRAME_FREQ = 4; // get freq frames per second
 
 enum RIVEMU_STATE {
     WAITING,
@@ -24,13 +30,22 @@ enum RIVEMU_STATE {
 
 function Rivemu() {
     const {selectedCartridge, setCartridgeData, setGameplay, stopCartridge, setDownloadingCartridge } = useContext(selectedCartridgeContext);
-    const [overallScore, setOverallScore] = useState(0);
+    const [overallScore, setOverallScore] = useState<number>();
 
     const [cancelled, setCancelled] = useState(false);
 
     const [playedOnce, setPlayedOnce] = useState(false);
     const [freshOpen, setFreshOpen] = useState(true);
     const [rivemuState, setRivemuState] = useState(RIVEMU_STATE.WAITING);
+
+    const [signerAddress,setSignerAddress] = useState<String>();
+
+    const [scoreFunction,setScoreFunction] = useState<Expression>();
+
+    const [lastFrameIndex, setLastFrameIndex] = useState<number>();
+    const [lastFrames,setLastFramesIndex] = useState<string[]>([])
+
+    const [{ wallet }, connect] = useConnectWallet();
 
     useEffect(() => {
         if (!selectedCartridge || !selectedCartridge?.play) return;
@@ -62,6 +77,14 @@ function Rivemu() {
             rivemuReplay();
         }
     }, [rivemuState])
+
+    useEffect(() => {
+        if (!wallet) {
+          return;
+        }
+        const curSigner = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
+        curSigner.getAddress().then((a: String) => setSignerAddress(a.toLowerCase()));
+    },[wallet]);
 
     // useEffect(() => {
     //     interface keyboardEvent {key:string}
@@ -95,7 +118,6 @@ function Rivemu() {
 
     var decoder = new TextDecoder("utf-8");
     let parser = new Parser();
-    let scoreFunction = parser.parse('score');
 
     function coverFallback() {
         return (
@@ -140,9 +162,11 @@ function Rivemu() {
         await rivemuHalt();
         setRivemuState(RIVEMU_STATE.PLAYING);
         setOverallScore(0);
+        lastFrames.splice(0,lastFrames.length);
+        setLastFramesIndex(lastFrames);
 
         if (selectedCartridge.scoreFunction)
-            scoreFunction = parser.parse(selectedCartridge.scoreFunction);
+            setScoreFunction(parser.parse(selectedCartridge.scoreFunction));
 
         // @ts-ignore:next-line
         let buf = Module._malloc(selectedCartridge.cartridgeData.length);
@@ -153,7 +177,9 @@ function Rivemu() {
         let incardBuf = Module._malloc(inCard.length);
         // @ts-ignore:next-line
         Module.HEAPU8.set(inCard, incardBuf);
-        const params = selectedCartridge?.args || "";
+        let params = selectedCartridge?.args || "";
+        // TODO: Add singner address to entropy
+        // params = `${params} -entropy ${signerAddress}`;
         // @ts-ignore:next-line
         Module.ccall(
             "rivemu_start_record",
@@ -187,9 +213,12 @@ function Rivemu() {
         await rivemuHalt();
         setRivemuState(RIVEMU_STATE.REPLAYING);
         setOverallScore(0);
+        lastFrames.splice(0,lastFrames.length);
+        setLastFramesIndex(lastFrames);
 
         if (selectedCartridge.scoreFunction)
-            scoreFunction = parser.parse(selectedCartridge.scoreFunction);
+            setScoreFunction(parser.parse(selectedCartridge.scoreFunction));
+
         // @ts-ignore:next-line
         const cartridgeBuf = Module._malloc(selectedCartridge.cartridgeData.length);
         // @ts-ignore:next-line
@@ -258,6 +287,10 @@ function Rivemu() {
         setCancelled(true);
     }
 
+    // function createGif() {
+    //     if (selectedCartridge?.downloading) return;
+    //     setCancelled(true);
+    // }
 
     if (typeof window !== "undefined") {
         // @ts-ignore:next-line
@@ -269,16 +302,28 @@ function Rivemu() {
             cpu_usage: number,
             cycles: number
         ) {
-            let score = 0;
             if (decoder.decode(outcard.slice(0,4)) == 'JSON') {
                 const outcard_str = decoder.decode(outcard);
                 const outcard_json = JSON.parse(outcard_str.substring(4));
-                score = outcard_json.score;
-                if (selectedCartridge?.scoreFunction) {
-                    score = scoreFunction.evaluate(outcard_json);
+                if (selectedCartridge?.scoreFunction && scoreFunction) {
+                    const score = scoreFunction.evaluate(outcard_json);
+                    setOverallScore(score);
                 }
             }
-            setOverallScore(score);
+            
+            const canvas = document.getElementById("canvas");
+            if (canvas) {
+                if (lastFrameIndex == undefined || frame >= lastFrameIndex + fps/LAST_FRAME_FREQ) {
+                    const frameImage = (canvas as HTMLCanvasElement).toDataURL('image/jpeg');
+                    if (!lastFrames.includes(frameImage)) {
+                        if (lastFrames.push(frameImage) > LAST_FRAMES_SIZE) {
+                            lastFrames.splice(0,1);
+                        }
+                        setLastFrameIndex(frame);
+                        setLastFramesIndex(lastFrames);
+                    }
+                }
+            }
         };
 
         // @ts-ignore:next-line
@@ -286,6 +331,7 @@ function Rivemu() {
             if (!playedOnce) setPlayedOnce(true);
             if (freshOpen) setFreshOpen(false);
             console.log("rivemu_on_begin");
+
         };
 
         // @ts-ignore:next-line
@@ -294,8 +340,16 @@ function Rivemu() {
             outcard: ArrayBuffer,
             outhash: string
         ) {
-            if (rivemuState === RIVEMU_STATE.PLAYING && !cancelled) {
-                setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash);
+            if (wallet) {
+                if (rivemuState === RIVEMU_STATE.PLAYING && !cancelled) {
+                    let score: number | undefined = undefined;
+                    if (decoder.decode(outcard.slice(0,4)) == 'JSON' && selectedCartridge?.scoreFunction && scoreFunction) {
+                        const outcard_str = decoder.decode(outcard);
+                        const outcard_json = JSON.parse(outcard_str.substring(4));
+                        score = scoreFunction.evaluate(outcard_json);
+                    }
+                    setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash,score,lastFrames);
+                }
             }
             rivemuStop();
             setRivemuState(RIVEMU_STATE.WAITING);
@@ -325,7 +379,7 @@ function Rivemu() {
                         </button>
                 }
 
-                <span>Score: {overallScore}</span>
+                {overallScore ? <span>Score: {overallScore}</span> : <span>no score</span>}
 
                 <button className="bg-gray-700 text-white absolute top-1 end-10 border border-gray-700 hover:border-black"
                     hidden={rivemuState === RIVEMU_STATE.WAITING}
@@ -362,6 +416,9 @@ function Rivemu() {
                 <div hidden={rivemuState !== RIVEMU_STATE.WAITING} className='absolute top-[40px] gameplay-screen'>
                     {coverFallback()}
                 </div>
+            </div>
+            <div className='relative bg-gray-500 p-2 text-center'>
+                {wallet ? <></> : <span>Free play (no wallet connected)</span> }
             </div>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
         </section>

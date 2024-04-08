@@ -6,3 +6,5 @@ cache
 data
 frontend/app/contracts
 !frontend/app/contracts/RivesScoreNFT.sol
+.env
+.vscode

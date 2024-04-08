@@ -1,7 +1,6 @@
 "use client"
 
-import { ReplayScore } from '@/app/backend-libs/app/ifaces';
-import { cartridge, getOutputs } from '@/app/backend-libs/app/lib';
+import { VerificationOutput,cartridge, getOutputs } from '@/app/backend-libs/core/lib';
 import { envClient } from '@/app/utils/clientEnv';
 import React, { useEffect, useState } from 'react'
 import ReportIcon from '@mui/icons-material/Report';
@@ -12,15 +11,14 @@ import { Parser } from 'expr-eval';
 import Script from 'next/script';
 
 
-const getScoreInfo = async (inputIndex:number):Promise<ReplayScore> => {
-    const scores:Array<ReplayScore> = await getOutputs(
+const getScoreInfo = async (tapeId:string):Promise<VerificationOutput> => {
+    const scores:Array<VerificationOutput> = await getOutputs(
         {
-            tags: ["score"],
-            input_index:inputIndex
+            tags: ["score",tapeId],
         }, {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
     );
 
-    if (scores.length === 0) throw new Error(`Score not found for inputIndex ${inputIndex}!`);
+    if (scores.length === 0) throw new Error(`Verification output not found for tape ${tapeId}!`);
     
     return scores[0];
 }
@@ -39,37 +37,30 @@ const getCartridgeData = async (cartridgeId:string) => {
         }
     );
     
-    if (data.length === 0) throw new Error(`Cartridge ${formatedCartridgeId} not found!`);
+    if (data.length === 0) throw new Error(`Tape ${formatedCartridgeId} not found!`);
     
     return data;
 }
 
 
-const getTape = async (inputIndex:number, outputIndex:number):Promise<Uint8Array> => {
+const getTape = async (tapeId:string):Promise<Uint8Array> => {
     const replayLogs:Array<Uint8Array> = await getOutputs(
         {
-            tags: ["replay"],
-            input_index: inputIndex,
-            output_type: 'report'
+            tags: ["tape",tapeId],
+            type: 'input'
         },
         {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
     );
+    console.log(replayLogs)
     
-    if (replayLogs.length-1 < outputIndex) {
-        console.log("Tape does not exists");
-        return new Uint8Array([]);
-    }
-
-    return replayLogs[outputIndex];
+    return replayLogs[0];
 }
 
 
-export default function Tape({ params }: { params: { input_index: String, output_index: String } }) {
-    const inputIndex = parseInt(`${params.input_index}`);
-    const outputIndex = parseInt(`${params.output_index}`);
+export default function Tape({ params }: { params: { tape_id: string } }) {
     
     // state managing
-    const [scoreInfo, setScoreInfo] = useState<ReplayScore|null>(null)
+    const [scoreInfo, setScoreInfo] = useState<VerificationOutput|null>(null)
     const [cartridgeData, setCartridgeData] = useState<Uint8Array|null>(null)
     const [tape, setTape] = useState<Uint8Array|null>(null)
     const [error, setError] = useState<String|null>(null);
@@ -79,7 +70,7 @@ export default function Tape({ params }: { params: { input_index: String, output
     const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
 
     useEffect(() => {
-        getScoreInfo(inputIndex)
+        getScoreInfo(params.tape_id)
         .then((score) => {
             setScoreInfo(score);
             getCartridgeData(score.cartridge_id)
@@ -90,7 +81,7 @@ export default function Tape({ params }: { params: { input_index: String, output
     }, [])
 
     useEffect(() => {
-        getTape(inputIndex, outputIndex).then(setTape);
+        getTape(params.tape_id).then(setTape);
     }, [cartridgeData])
 
 
@@ -108,7 +99,7 @@ export default function Tape({ params }: { params: { input_index: String, output
 
     if (!scoreInfo) {
         return (
-            <main className="flex items-center justify-center h-lvh">
+            <main className="flex items-center justify-center h-lvh text-white">
                 Getting Info...
             </main>
         )
@@ -116,7 +107,7 @@ export default function Tape({ params }: { params: { input_index: String, output
 
     if (!cartridgeData) {
         return (
-            <main className="flex items-center justify-center h-lvh">
+            <main className="flex items-center justify-center h-lvh text-white">
                 Getting Cartridge...
             </main>
         )
@@ -124,8 +115,8 @@ export default function Tape({ params }: { params: { input_index: String, output
 
     if (!tape) {
         return (
-            <main className="flex items-center justify-center h-lvh">
-                Getting Gameplay Tape...
+            <main className="flex items-center justify-center h-lvh text-white">
+                Getting Tape...
             </main>
         )
     }

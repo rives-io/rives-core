@@ -11,20 +11,26 @@ export interface _Master_ {
 }
 export interface IndexerPayload {
   tags?: string[];
-  output_type?: string;
+  type?: string;
   msg_sender?: string;
   timestamp_gte?: number;
   timestamp_lte?: number;
   module?: string;
   input_index?: number;
+  order_by?: string;
+  order_dir?: string;
+  page?: number;
+  page_size?: number;
 }
 export interface IndexerOutput {
   data: OutputIndex[];
+  total: number;
+  page: number;
 }
 export interface OutputIndex {
-  output_type: string;
+  type: string;
   module: string;
   class_name: string;
   input_index: number;
-  output_index: number;
+  output_index?: number;
 }

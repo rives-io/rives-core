@@ -1,6 +1,6 @@
 "use client"
 
-import { getOutputs, ReplayScore } from '../backend-libs/app/lib';
+import { getOutputs, VerificationOutput } from '../backend-libs/core/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import CheckIcon from '@mui/icons-material/Check';
@@ -11,12 +11,9 @@ import React, { useEffect, useState } from 'react';
 
 
 
-const getGeneralScoreboard = async (cartridge_id:string):Promise<Array<ReplayScore>> => {
-    const tags = ["score", cartridge_id];
-    if (cartridge_id == envClient.SCOREBOARD_CARTRIDGE_ID) {
-        tags.push(envClient.SCOREBOARD_ID);
-    }
-    const scores:Array<ReplayScore> = await getOutputs({tags}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+const getGeneralVerificationOutputs = async (cartridge_id:string,rule:string,page: number = 1,pageSize: number = 10):Promise<Array<VerificationOutput>> => {
+    const tags = ["score", cartridge_id, rule];
+    const scores:Array<VerificationOutput> = await getOutputs({tags,page,page_size:pageSize}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
     return scores;
 }
 
@@ -100,16 +97,21 @@ function scoreboardFallback() {
     )
 }
 
-function CartridgeScoreboard({cartridge_id, reload, replay_function}:{
-    cartridge_id:string, reload:number, replay_function(replayScore: ReplayScore): void}) {
-    const [generalScores, setGeneralScore] = useState<ReplayScore[]|null>(null);
+function CartridgeScoreboard({cartridge_id, rule, reload, replay_function}:{
+    cartridge_id:string, rule: string | undefined, reload:number, replay_function(replayScore: VerificationOutput): void}) {
+    const [generalScores, setGeneralScore] = useState<VerificationOutput[]|null>(null);
 
-    const playReplay = (replayScore:ReplayScore) => {
+    const playReplay = (replayScore:VerificationOutput) => {
         replay_function(replayScore);
     }
 
     const reloadScores = async () => {
-        return (await getGeneralScoreboard(cartridge_id)).sort((a, b) => b.score - a.score);
+        if (!rule) return [];
+        return (await getGeneralVerificationOutputs(cartridge_id,rule)).
+            sort((a, b) => 
+                b.score != a.score ? 
+                    b.score - a.score :
+                    (a._timestamp || 0) - (b._timestamp || 0) );
     }
 
     useEffect(() => {

@@ -8,7 +8,7 @@
 import { 
     advanceInput, inspect, 
     AdvanceOutput, InspectOptions, AdvanceInputOptions, GraphqlOptions,
-    Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher, 
+    PartialReport as CartesiReport, PartialNotice as CartesiNotice, PartialVoucher as CartesiVoucher, Input as CartesiInput,
     advanceDAppRelay, advanceERC20Deposit, advanceERC721Deposit, advanceEtherDeposit,
     queryNotice, queryReport, queryVoucher
 } from "cartesi-client";
@@ -54,7 +54,7 @@ export async function decodeAdvance(
 
     const outList: any[] = [];
     for (const indOut of indexerOutput.data) {
-        outList.push( decoder(outMap[indOut.output_type as outType][`${indOut.output_index}`],indOut.class_name) );
+        outList.push( decoder(outMap[indOut.type as outType][`${indOut.output_index}`],indOut.class_name) );
     }
     return outList
 }
@@ -62,7 +62,7 @@ export async function decodeAdvance(
 // indexer
 export async function genericGetOutputs(
     inputData: indexerIfaces.IndexerPayload,
-    decoder: (data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport, modelName:string) => any,
+    decoder: (data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport | CartesiInput, modelName:string) => any,
     options?:InspectOptions
 ):Promise<any[]> {
     if (options == undefined) options = {};
@@ -70,8 +70,8 @@ export async function genericGetOutputs(
     const graphqlQueries: Promise<any>[] = [];
     for (const outInd of indexerOutput.data) {
         const graphqlOptions: GraphqlOptions = {cartesiNodeUrl: options.cartesiNodeUrl, inputIndex: outInd.input_index, outputIndex: outInd.output_index};
-        graphqlQueries.push(outputGetters[outInd.output_type](graphqlOptions).then(
-            (output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport) => {
+        graphqlQueries.push(outputGetters[outInd.type](graphqlOptions).then(
+            (output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport | CartesiInput) => {
                 return decoder(output,outInd.class_name);
             }
         ));

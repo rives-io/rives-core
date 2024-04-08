@@ -1,0 +1,29 @@
+--- a/init	2024-04-02 12:51:27.885041179 -0300
++++ b/init	2024-04-02 12:50:20.310516458 -0300
+@@ -28,6 +28,14 @@
+         \ /   MACHINE
+          '"'"'
+ '
++for dev in /dev/mtdblock[1-7]; do
++    if [ -b $dev -a "$(blkid -s TYPE -o value $dev)" = "ext2" ]; then
++        mtdblock=`basename $dev`
++        mntpoint=`cat /sys/block/${mtdblock}/device/name`
++        mkdir -p /mnt/$mntpoint
++        mount -t ext2 /dev/${mtdblock} /mnt/${mntpoint}
++    fi
++done
+ if [ -n "$*" ]; then
+   cd ~root &&
+     HOME=~root USER=root LOGNAME=root \
+@@ -38,6 +46,11 @@
+ else
+   echo "Nothing to do."
+ fi
++for dev in /dev/mtdblock[1-7]; do
++    if [ -b $dev -a "$(blkid -s TYPE -o value $dev)" = "ext2" ]; then
++        umount $dev
++    fi
++done
+ busybox mount -o ro,remount /
+ busybox umount -af
+ busybox poweroff -f

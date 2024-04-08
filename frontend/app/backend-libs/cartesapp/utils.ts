@@ -10,9 +10,9 @@ import addFormats from "ajv-formats"
 import { 
     advanceInput, inspect, 
     AdvanceOutput, InspectOptions, AdvanceInputOptions,
-    Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher, 
+    Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher, Input as CartesiInput,
     Maybe, Proof, validateNoticeFromParams, wasVoucherExecutedFromParams, executeVoucherFromParams, 
-    queryNotice, queryReport, queryVoucher, GraphqlOptions
+    queryNotice, queryReport, queryVoucher, queryInput, GraphqlOptions
 } from "cartesi-client";
 
 /**
@@ -46,7 +46,7 @@ interface ModelInterface<T> {
     ioType: IOType;
     abiTypes: Array<string>;
     params: Array<string>;
-    decoder?(data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): T;
+    decoder?(data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport | CartesiInput): T;
     exporter?(data: T): string;
     validator: ValidateFunction<T>;
 }
@@ -57,6 +57,9 @@ export interface Models {
 
 export interface InspectReportInput {
     index?: number;
+    timestamp?: number
+    blockNumber?: number
+    msgSender?: string
 }
 
 export interface InspectReport {
@@ -66,13 +69,14 @@ export interface InspectReport {
 }
 
 export interface OutputGetters {
-    [key: string]: (o?: GraphqlOptions) => Promise<CartesiReport>|Promise<CartesiNotice>|Promise<CartesiVoucher>;
+    [key: string]: (o?: GraphqlOptions) => Promise<CartesiReport>|Promise<CartesiNotice>|Promise<CartesiVoucher>|Promise<CartesiInput>;
 }
 
 export const outputGetters: OutputGetters = {
     report: queryReport,
     notice: queryNotice,
-    voucher: queryVoucher
+    voucher: queryVoucher,
+    input: queryInput
 }
 
 export interface MutationOptions extends AdvanceInputOptions {
@@ -107,6 +111,8 @@ export class IOData<T extends object> {
     validate = (): boolean => {
         const dataToValidate: any = { ...this.get() };
         for (const k of Object.keys(dataToValidate)) {
+            if (dataToValidate[k] === parseInt(dataToValidate[k], 10) && this._model.ioType == IOType.mutationPayload) // is int
+                dataToValidate[k] = ethers.BigNumber.from(dataToValidate[k]);
             if (ethers.BigNumber.isBigNumber(dataToValidate[k]))
                 dataToValidate[k] = dataToValidate[k].toHexString();
         }
@@ -155,22 +161,42 @@ export class IOData<T extends object> {
     }
 }
 
-export class BasicOutput<T extends object> extends IOData<T> {
+export class BasicIO<T extends object> extends IOData<T> {
     _payload: string
     _inputIndex?: number
+    _timestamp?: number
+    _blockNumber?: number
+    _msgSender?: string
+
+
+    constructor(model: ModelInterface<T>, payload: string, timestamp?: number, blockNumber?: number, msgSender?: string, inputIndex?: number) {
+        super(model,genericDecodeTo<T>(payload,model),false);
+        this._timestamp = timestamp;
+        this._blockNumber = blockNumber;
+        this._msgSender = msgSender;
+        this._inputIndex = inputIndex;
+        this._payload = payload;
+    }
+}
+
+export class BasicOutput<T extends object> extends BasicIO<T> {
     _outputIndex?: number
 
-    constructor(model: ModelInterface<T>, payload: string, inputIndex?: number, outputIndex?: number) {
-        super(model,genericDecodeTo<T>(payload,model),false);
-        this._inputIndex = inputIndex;
+    constructor(model: ModelInterface<T>, payload: string, timestamp?: number, blockNumber?: number, msgSender?: string, inputIndex?: number, outputIndex?: number) {
+        super(model,payload, timestamp, blockNumber, msgSender,inputIndex);
         this._outputIndex = outputIndex;
-        this._payload = payload;
+    }
+}
+
+export class Input<T extends object> extends BasicIO<T>{
+    constructor(model: ModelInterface<T>, input: CartesiInput) {
+        super(model, input.payload, input.timestamp,input.blockNumber, input.msgSender, input.index);
     }
 }
 
 export class Output<T extends object> extends BasicOutput<T>{
     constructor(model: ModelInterface<T>, report: CartesiReport | InspectReport) {
-        super(model, report.payload, report.input?.index, report.index);
+        super(model, report.payload, report.input?.timestamp, report.input?.blockNumber, report.input?.msgSender, report.input?.index, report.index);
     }
 }
 
@@ -179,8 +205,8 @@ export class OutputWithProof<T extends object> extends BasicOutput<T>{
     _inputIndex: number
     _outputIndex: number
     
-    constructor(model: ModelInterface<T>, payload: string, inputIndex: number, outputIndex: number, proof: Maybe<Proof> | undefined) {
-        super(model, payload, inputIndex, outputIndex);
+    constructor(model: ModelInterface<T>, payload: string, timestamp: number, blockNumber: number, msgSender: string, inputIndex: number, outputIndex: number, proof: Maybe<Proof> | undefined) {
+        super(model, payload, timestamp, blockNumber, msgSender, inputIndex, outputIndex);
         this._inputIndex = inputIndex;
         this._outputIndex = outputIndex;
         this._proof = proof;
@@ -189,7 +215,7 @@ export class OutputWithProof<T extends object> extends BasicOutput<T>{
 
 export class Event<T extends object> extends OutputWithProof<T>{
     constructor(model: ModelInterface<T>, notice: CartesiNotice) {
-        super(model, notice.payload, notice.input.index, notice.index, notice.proof);
+        super(model, notice.payload, notice.input?.timestamp, notice.input?.blockNumber, notice.input?.msgSender, notice.input.index, notice.index, notice.proof);
     }
     validateOnchain = async (signer: Signer, dappAddress: string): Promise<boolean> => {
         if (this._proof == undefined)
@@ -201,7 +227,7 @@ export class Event<T extends object> extends OutputWithProof<T>{
 export class ContractCall<T extends object> extends OutputWithProof<T>{
     _destination: string
     constructor(model: ModelInterface<T>, voucher: CartesiVoucher) {
-        super(model, voucher.payload, voucher.input.index, voucher.index, voucher.proof);
+        super(model, voucher.payload, voucher.input?.timestamp, voucher.input?.blockNumber, voucher.input?.msgSender, voucher.input.index, voucher.index, voucher.proof);
         this._destination = voucher.destination;
     }
     wasExecuted = async (signer: Signer, dappAddress: string): Promise<boolean> => {
@@ -213,6 +239,7 @@ export class ContractCall<T extends object> extends OutputWithProof<T>{
         return await executeVoucherFromParams(signer,dappAddress,this._destination,this._payload,this._proof);
     }
 }
+
 
 
 /*
@@ -265,10 +292,10 @@ export async function genericInspect<T extends object>(
     const excludeParams: string[] = [];
     const matchRoute = route.matchAll(/\{(\w+)\}/g);
     for (const m of matchRoute) {
-        route.replace(m[0],inputData[m[0]]);
+        route = route.replace(m[0],inputData[m[1]]);
         excludeParams.push(m[1]);
     }
-    const payload = `${route}${inputData.export()}`
+    const payload = `${route}${inputData.export(excludeParams)}`
     return await inspectCall(payload,options);
 }
 
@@ -282,6 +309,7 @@ export function genericDecodeTo<T extends object>(data: string,model: ModelInter
         case queryPayload: {
             break;
         }*/
+        case IOType.queryPayload:
         case IOType.report: {
             const dataStr = ethers.utils.toUtf8String(data);
             try {
@@ -294,6 +322,8 @@ export function genericDecodeTo<T extends object>(data: string,model: ModelInter
                 throw new Error(`Data does not implement interface: ${ajv.errorsText(model.validator.errors)}`);     
             break;
         }
+        case IOType.mutationPayload:
+            data = "0x"+data.slice(10);
         case IOType.notice: {
             const dataValues = abiCoder.decode(model.abiTypes,data);
             dataObj = {};

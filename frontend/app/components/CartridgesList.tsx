@@ -1,6 +1,6 @@
 import CartridgeSelectButton from './CartridgeSelectButton';
 import { cache } from 'react';
-import { cartridges as cartridgerequest} from "../backend-libs/app/lib";
+import { cartridges as cartridgerequest} from "../backend-libs/core/lib";
 import { envClient } from '../utils/clientEnv';
 
 
