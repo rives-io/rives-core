@@ -20,7 +20,7 @@ function RivemuPlayer(
     
     // BEGIN: rivemu
     async function rivemuStart() {
-        if (!cartridgeData) return;
+        if (cartridgeData.length == 0) return;
         console.log("rivemuStart");
 
         // // @ts-ignore:next-line
