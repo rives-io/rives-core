@@ -1,6 +1,7 @@
 "use client"
 
-import { VerificationOutput,cartridge, getOutputs } from '@/app/backend-libs/core/lib';
+import { ethers } from "ethers";
+import { VerificationOutput,VerifyPayload,cartridge, getOutputs } from '@/app/backend-libs/core/lib';
 import { envClient } from '@/app/utils/clientEnv';
 import React, { useEffect, useState } from 'react'
 import ReportIcon from '@mui/icons-material/Report';
@@ -44,16 +45,19 @@ const getCartridgeData = async (cartridgeId:string) => {
 
 
 const getTape = async (tapeId:string):Promise<Uint8Array> => {
-    const replayLogs:Array<Uint8Array> = await getOutputs(
+    const replayLogs:Array<VerifyPayload> = await getOutputs(
         {
             tags: ["tape",tapeId],
             type: 'input'
         },
         {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
     );
-    console.log(replayLogs)
+    console.log(replayLogs[0])
+    const tape = replayLogs[0].tape;
     
-    return replayLogs[0];
+    if (typeof tape == "string" && ethers.utils.isHexString(tape))
+        return ethers.utils.arrayify(tape);
+    return new Uint8Array([]);
 }
 
 

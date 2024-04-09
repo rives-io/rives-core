@@ -80,7 +80,6 @@ RUN rm requirements.txt mount-flash-drive.patch \
 # install dapp
 WORKDIR /opt/cartesi/dapp
 
-COPY main.py .
 COPY core core
 COPY misc/Rives-Logo.png misc/Rives-Logo.png
 COPY misc/snake.sqfs misc/snake.sqfs

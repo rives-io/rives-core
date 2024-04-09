@@ -18,7 +18,7 @@ all: sunodo-riv build build-reader-node
 
 # build targets
 build: --load-env --check-opaddr-env ; $(value setup_venv)
-	cartesapp build build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS}
+	cartesapp build --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS}
 
 build-reader-node: ; $(value setup_venv)
 	cartesapp build-reader-image
