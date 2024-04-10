@@ -2,15 +2,17 @@
 
 import { Parser } from "expr-eval";
 import Script from "next/script"
-import { useState } from "react";
+import { useContext, useState } from "react";
 
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
+import { gameplayContext } from "../play/GameplayContextProvider";
 
 
 function RivemuPlayer(
 {cartridgeData, args, in_card, score_function, tape}:
 {cartridgeData:Uint8Array, args:string, in_card:Uint8Array, score_function:string, tape?:Uint8Array}) {
+    const {setGameplayLog} = useContext(gameplayContext);
 
     const isTape = tape? true:false;
 
@@ -174,6 +176,17 @@ function RivemuPlayer(
         ) {
             rivemuStop();
             console.log("rivemu_on_finish")
+            if (!isTape) {
+                setGameplayLog(
+                    {
+                        log: new Uint8Array(rivlog),
+                        outcard: {
+                            value: new Uint8Array(outcard),
+                            hash: outhash
+                        }
+                    }
+                );    
+            }
             setPlaying({isPlaying: false, playCounter: playing.playCounter+1})
         };
     }

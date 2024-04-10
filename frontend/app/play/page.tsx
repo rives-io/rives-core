@@ -5,6 +5,7 @@ import { cartridge } from "../backend-libs/app/lib";
 import { envClient } from "../utils/clientEnv";
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from '@/app/components/RivemuPlayer';
+import GameplaySubmitter from "../components/GameplaySubmitter";
 
 
 const getScoreboard = async (scoreboard_id:string) => {
@@ -98,6 +99,7 @@ export default async function Play({searchParams}:{searchParams: {[key: string]:
     return (
         <main className="flex items-center justify-center h-lvh">
             <RivemuPlayer cartridgeData={cartridgeData} args={args} in_card={in_card} score_function={score_function} />
+            <GameplaySubmitter cartridge_id={cartridge_id} />
         </main>
     )
 }
