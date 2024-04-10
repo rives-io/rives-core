@@ -18,31 +18,23 @@ input=68737173030000000000000000000200000000000400110050000100040000004800000000
 input=0xa850c5824429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c
 ```
 
-- Snake replay
+- Snake tape
 
 ```shell
 input=0x49ee5e364429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c86e9ebacee2ca072cc896201d11c142fcfda227f91e88765a6e8136006b5882a00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007f01010404910000000300000000000000676866695dcc416ec3400c43513d4a33751cf4fed7edc2718d165a7c52045945d29d5caca2ead6dd575275f3affe6d74fdfb95f2e4f7fae31fe6731f5fb6c1615949641c96783bf5b56a59c684182c5b7c1b71622b5b6c2ce30c55d1be74062d68949797433b13ef6ca5153a3bf30300
 ```
 
-- Snake create simple scoreboard
+- Snake create simple rule
 
 ```shell
 input=0x494fdad84429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000000673696d706c65000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000573636f7265000000000000000000000000000000000000000000000000000000
 ```
 
-- Snake scoreboard replay
+- Snake scoreboard tape
 
 ```shell
 input=0xc0b7397ca7a39b72f29718e653e73503210fbb597057b7a1c77d1fe321a1afcff041d4e186e9ebacee2ca072cc896201d11c142fcfda227f91e88765a6e8136006b5882a0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000007f01010404910000000300000000000000676866695dcc416ec3400c43513d4a33751cf4fed7edc2718d165a7c52045945d29d5caca2ead6dd575275f3affe6d74fdfb95f2e4f7fae31fe6731f5fb6c1615949641c96783bf5b56a59c684182c5b7c1b71622b5b6c2ce30c55d1be74062d68949797433b13ef6ca5153a3bf30300
 ```
-
-- Clean old scoreboards
-
-```shell
-input=0x7b75384d
-```
-
-
 
 Then send the input with:
 
@@ -57,42 +49,36 @@ sunodo send generic --chain-id=31337 --rpc-url=http://127.0.0.1:8545 \
 List of cartridges (and with filters)
 
 ```shell
-curl -s "http://localhost:8080/inspect/app/cartridges" | jq -r '.reports[0].payload' | xxd -r -p | jq
-curl -s "http://localhost:8080/inspect/app/cartridges?tags=2d&name=nake&tags=action" | jq -r '.reports[0].payload' | xxd -r -p | jq
+curl -s "http://localhost:8080/inspect/core/cartridges" | jq -r '.reports[0].payload' | xxd -r -p | jq
+curl -s "http://localhost:8080/inspect/core/cartridges?tags=2d&name=nake&tags=action" | jq -r '.reports[0].payload' | xxd -r -p | jq
 ```
 
 Cartridge info
 
 ```shell
-curl -s http://localhost:8080/inspect/app/cartridge_info?id=4429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c | jq -r '.reports[0].payload' | xxd -r -p | jq
+curl -s http://localhost:8080/inspect/core/cartridge_info?id=4429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c | jq -r '.reports[0].payload' | xxd -r -p | jq
 ```
 
 Cartridge binary (could get from graphql with indexer too once inserted)
 
 ```shell
-curl -s http://localhost:8080/inspect/app/cartridge?id=4429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c | jq -r '.reports[0].payload'
+curl -s http://localhost:8080/inspect/core/cartridge?id=4429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c | jq -r '.reports[0].payload'
 ```
 
-Cartridge scoreboards
+Cartridge rules
 
 ```shell
-curl -s "http://localhost:8080/inspect/app/scoreboards?cartridge_id=4429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c" | jq -r '.reports[0].payload' | xxd -r -p | jq
-```
-
-Cartridge scoreboard score
-
-```shell
-curl -s "http://localhost:8080/inspect/app/scores?scoreboard_id=a7a39b72f29718e653e73503210fbb597057b7a1c77d1fe321a1afcff041d4e1" | jq -r '.reports[0].payload' | xxd -r -p | jq
+curl -s "http://localhost:8080/inspect/core/rules?cartridge_id=4429c48c5c15205b66056fd426b7c72940c2b366a7f746a7989b53730d52bb5c" | jq -r '.reports[0].payload' | xxd -r -p | jq
 ```
 
 indexer queries
 
 ```shell
 curl -s http://localhost:8080/inspect/indexer/indexer_query?tags=score | jq -r '.reports[0].payload' | xxd -r -p
-curl -s "http://localhost:8080/inspect/indexer/indexer_query?tags=replay&msg_sender=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" | jq -r '.reports[0].payload' | xxd -r -p
+curl -s "http://localhost:8080/inspect/indexer/indexer_query?tags=tape&msg_sender=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" | jq -r '.reports[0].payload' | xxd -r -p
 ```
 
-Indexer score from scoreboard
+Indexer score from rule
 
 ```shell
 indexer_result=$(curl -s http://localhost:8080/inspect/indexer/indexer_query?tags=score | jq -r '.reports[0].payload' | xxd -r -p | jq)

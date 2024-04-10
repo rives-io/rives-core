@@ -31,6 +31,8 @@ import { envClient } from "../utils/clientEnv";
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from "@mui/icons-material/Close";
 import { sha256 } from "js-sha256";
+// @ts-ignore
+import GIFEncoder from "gif-encoder-2";
 
 enum STATUS {
     WAITING,
@@ -65,6 +67,52 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
 }
 
 
+function generateGif(frames: string[],width:number,height:number): Promise<string> {
+
+    const encoder = new GIFEncoder(width,height,'octree');
+    encoder.setDelay(200);
+    encoder.start();
+    
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    let idx = 0;
+    const addFrames = new Array<Promise<void>>();
+    
+    for (const frame of frames) {
+        
+        const p: Promise<void> = new Promise(resolveLoad => {
+            const img = document.createElement("img");
+            img.width = width;
+            img.height = height;
+            img.onload = () => {
+                ctx?.drawImage(img,0,0,img.width,img.height);
+                encoder.addFrame(ctx);
+                resolveLoad();
+            };
+            img.src = frame;
+        })
+        addFrames.push(p);
+        idx++;
+    }
+    return Promise.all(addFrames).then(() => {
+        encoder
+        encoder.finish();
+        const buffer = encoder.out.getData();
+        if (buffer) {
+            var binary = '';
+            var len = buffer.byteLength;
+            for (var i = 0; i < len; i++) {
+                binary += String.fromCharCode( buffer[ i ] );
+            }
+            return window.btoa( binary );
+        }
+        return "";
+    });
+    
+}
+
 function CartridgeInfo() {
     const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
     const fileRef = useRef<HTMLInputElement | null>(null);
@@ -81,10 +129,20 @@ function CartridgeInfo() {
     //         setReloadScoreboardCount(reloadScoreboardCount+1);
     //     }
     // }, [submitLogStatus])
-
+    const [gifImage, setGifImage] = useState<string>("");
+    
     useEffect(() => {
-
-        console.log("gameplayLog",selectedCartridge?.gameplayLog?.length);
+        if (selectedCartridge?.lastFrames && selectedCartridge?.width && selectedCartridge?.height) {
+            if (selectedCartridge?.lastFrames) {
+                generateGif(selectedCartridge.lastFrames,selectedCartridge.width,selectedCartridge.height).then((gif) => {
+                    setGifImage(gif);
+                })
+                
+            }
+        }
+    }, [selectedCartridge?.outhash,selectedCartridge?.width,selectedCartridge?.height,selectedCartridge?.lastFrames])
+    
+    useEffect(() => {
         if (selectedCartridge?.gameplayLog) submitLog();
     }, [selectedCartridge?.gameplayLog])
 
@@ -187,7 +245,7 @@ function CartridgeInfo() {
         reader.onload = async (readerEvent) => {
             const data = readerEvent.target?.result;
             if (data) {
-                setGameplay(new Uint8Array(data as ArrayBuffer), undefined);
+                setGameplay(new Uint8Array(data as ArrayBuffer), undefined, undefined, undefined, undefined, undefined, undefined);
                 e.target.value = null;
             }
         };
@@ -220,7 +278,7 @@ function CartridgeInfo() {
         let modalBody;
         switch (submitLogStatus.status) {
             case STATUS.SUBMIT:
-                modalBody = <SubmitModal cancelFunction={setSubmitLogStatus} acceptFunction={verifyLog} />;
+                modalBody = <SubmitModal cancelFunction={setSubmitLogStatus} acceptFunction={verifyLog} gifImage={gifImage} />;
                 break;
             case STATUS.SUBMITING:
                 if (submitLogStatus.error) {
@@ -231,7 +289,7 @@ function CartridgeInfo() {
 
                 break;
             case STATUS.FINISHED:
-                modalBody = <FinishedSubmissionModal url={tapeUrl} />;
+                modalBody = <FinishedSubmissionModal url={tapeUrl} gifImage={gifImage} />;
                 break;
         }
 
@@ -430,14 +488,14 @@ function CartridgeInfo() {
 }
 
 
-function FinishedSubmissionModal({url}:{url:String}) {
+function FinishedSubmissionModal({url,gifImage}:{url:String,gifImage:string}) {
     const {selectedCartridge} = useContext(selectedCartridgeContext);
     return (
         <div>
             {/*body*/}
             <div className="relative p-4 flex justify-center items-center">
                 <div className={`relative my-6 px-6 flex-auto h-full`}>
-                    <div className="grid grid-cols-3 gap-4">
+                    {/* <div className="grid grid-cols-3 gap-4">
                         {selectedCartridge?.lastFrames?.map((frameImage: string, index: number) => {
                             return (
                                 <div key={index}>
@@ -445,7 +503,8 @@ function FinishedSubmissionModal({url}:{url:String}) {
                                 </div>
                             );
                         })}
-                    </div>
+                    </div> */}
+                    <Image className="border border-black" width={200} height={200}  src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
                 </div>
                 <button className="place-self-center" title='Tape' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
                     <div style={{ height: "auto", margin: "0 auto", maxWidth: 200, width: "100%" }} >
@@ -460,23 +519,24 @@ function FinishedSubmissionModal({url}:{url:String}) {
             </div>
         </div>
     );
-  }
+}
 
-function SubmitModal({cancelFunction,acceptFunction}:{cancelFunction(s:{ status: STATUS }):void,acceptFunction():void}) {
-    const {selectedCartridge} = useContext(selectedCartridgeContext);
+function SubmitModal({cancelFunction,acceptFunction,gifImage}:{cancelFunction(s:{ status: STATUS }):void,acceptFunction():void,gifImage:string}) {
+    
     return (
             <div>
                   {/*body*/}
-                    <div className={`relative my-6 px-6 flex-auto h-full`}>
+                    <div className={`relative my-6 px-6 flex-auto h-full items-center`}>
                         <div className="grid grid-cols-3 gap-4">
-                            {selectedCartridge?.lastFrames?.map((frameImage: string, index: number) => {
+                            {/* {selectedCartridge?.lastFrames?.map((frameImage: string, index: number) => {
                                 return (
                                     <div key={index}>
-                                        <Image className="border border-black" width={75} height={75} src={frameImage} alt={"Frame Not found"}/>
+                                        <Image className="border border-black" width={width} height={height} src={frameImage} alt={"Frame Not found"}/>
                                     </div>
                                 );
-                            })}
+                            })} */}
                         </div>
+                        <Image className="border border-black" width={200} height={200}  src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
                     </div>
                     <div className="flex items-center justify-end pb-2 pr-6">
                         <button

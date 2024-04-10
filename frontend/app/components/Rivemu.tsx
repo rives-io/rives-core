@@ -17,7 +17,7 @@ import { cartridge } from '../backend-libs/core/lib';
 import { envClient } from '../utils/clientEnv';
 import { useConnectWallet } from '@web3-onboard/react';
 
-const LAST_FRAMES_SIZE = 9;
+const LAST_FRAMES_SIZE = 20;
 const LAST_FRAME_FREQ = 4; // get freq frames per second
 
 enum RIVEMU_STATE {
@@ -43,10 +43,12 @@ function Rivemu() {
     const [scoreFunction,setScoreFunction] = useState<Expression>();
 
     const [lastFrameIndex, setLastFrameIndex] = useState<number>();
-    const [lastFrames,setLastFramesIndex] = useState<string[]>([])
+    const [lastFrames,setLastFrames] = useState<string[]>([])
 
     const [{ wallet }, connect] = useConnectWallet();
 
+    const [cartridgeWidth, setCartridgeWidth] = useState<number>();
+    const [cartridgeHeight, setCartridgeHeight] = useState<number>();
     useEffect(() => {
         if (!selectedCartridge || !selectedCartridge?.play) return;
 
@@ -163,7 +165,8 @@ function Rivemu() {
         setRivemuState(RIVEMU_STATE.PLAYING);
         setOverallScore(0);
         lastFrames.splice(0,lastFrames.length);
-        setLastFramesIndex(lastFrames);
+        setLastFrames(lastFrames);
+        setLastFrameIndex(0);
 
         if (selectedCartridge.scoreFunction)
             setScoreFunction(parser.parse(selectedCartridge.scoreFunction));
@@ -214,7 +217,8 @@ function Rivemu() {
         setRivemuState(RIVEMU_STATE.REPLAYING);
         setOverallScore(0);
         lastFrames.splice(0,lastFrames.length);
-        setLastFramesIndex(lastFrames);
+        setLastFrames(lastFrames);
+        setLastFrameIndex(0);
 
         if (selectedCartridge.scoreFunction)
             setScoreFunction(parser.parse(selectedCartridge.scoreFunction));
@@ -315,13 +319,11 @@ function Rivemu() {
             if (canvas) {
                 if (lastFrameIndex == undefined || frame >= lastFrameIndex + fps/LAST_FRAME_FREQ) {
                     const frameImage = (canvas as HTMLCanvasElement).toDataURL('image/jpeg');
-                    if (!lastFrames.includes(frameImage)) {
-                        if (lastFrames.push(frameImage) > LAST_FRAMES_SIZE) {
-                            lastFrames.splice(0,1);
-                        }
-                        setLastFrameIndex(frame);
-                        setLastFramesIndex(lastFrames);
+                    if (lastFrames.push(frameImage) > LAST_FRAMES_SIZE) {
+                        lastFrames.splice(0,1);
                     }
+                    setLastFrameIndex(frame);
+                    setLastFrames(lastFrames);
                 }
             }
         };
@@ -331,7 +333,8 @@ function Rivemu() {
             if (!playedOnce) setPlayedOnce(true);
             if (freshOpen) setFreshOpen(false);
             console.log("rivemu_on_begin");
-
+            setCartridgeHeight(height);
+            setCartridgeWidth(width);
         };
 
         // @ts-ignore:next-line
@@ -348,7 +351,7 @@ function Rivemu() {
                         const outcard_json = JSON.parse(outcard_str.substring(4));
                         score = scoreFunction.evaluate(outcard_json);
                     }
-                    setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash,score,lastFrames);
+                    setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash,score,lastFrames,cartridgeHeight,cartridgeWidth);
                 }
             }
             rivemuStop();

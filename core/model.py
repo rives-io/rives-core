@@ -165,6 +165,15 @@ def initialize_data():
         # except Exception as e:
         #     LOGGER.warning(e)
 
+        try:
+            cartridge_example_file = open('misc/particles.sqfs','rb')
+            cartridge_example_data = cartridge_example_file.read()
+            cartridge_example_file.close()
+            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
+            if is_inside_cm(): os.remove('misc/particles.sqfs')
+        except Exception as e:
+            LOGGER.warning(e)
+
         # name = "simple"
         # s = Rule(
         #     id = sha256(str2bytes(name)).hexdigest(),

@@ -38,6 +38,8 @@ export interface PlayableCartridge extends Cartridge {
     score: number | undefined;
     rule: string | undefined;
     lastFrames: string[] | undefined;
+    height: number | undefined;
+    width: number | undefined;
 }
 
 export function SelectedCartridgeProvider({ children }:{ children: React.ReactNode }) {
@@ -49,7 +51,9 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         rules({cartridge_id:cartridge.id,name:"default"},{cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"}).then(
             (reportOutput: InspectReport) => {
                 let aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
-                    args:undefined, scoreFunction:undefined, rule:undefined, score: undefined, replay:undefined, gameplayLog:undefined,
+                    args:undefined, scoreFunction:undefined, rule:undefined, 
+                    height: undefined, width: undefined,
+                    score: undefined, replay:undefined, gameplayLog:undefined,
                     outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
         
                 const output = new RulesOutput(reportOutput);
@@ -59,7 +63,6 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
                     aux.inCard = output.data[lastInd].in_card;
                     aux.scoreFunction = output.data[lastInd].score_function;
                     aux.rule = output.data[lastInd].id;
-                    console.log("aux",aux, output.data[lastInd], output.data[lastInd].id, output.data[lastInd].score_function)
                 }
                 setSelectedCartridge(aux as PlayableCartridge);
             }
@@ -103,15 +106,16 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         }
     }
 
-    const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string, score: number | undefined, lastFrames: string[] | undefined) => {
+    const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string, score: number | undefined, 
+            lastFrames: string[] | undefined, height: number | undefined, width: number | undefined,) => {
         if (selectedCartridge) {
             if (outcard == undefined)
                 if (gameplayLog == undefined)
-                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames});
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames, height, width});
                 else
-                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames, play: true, initCanvas:true});
+                    setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames, height, width, play: true, initCanvas:true});
             else
-                setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames});
+                setSelectedCartridge({...selectedCartridge, gameplayLog, outcard, outhash, score, lastFrames, height, width});
         }
     }
 

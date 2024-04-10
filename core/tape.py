@@ -175,11 +175,6 @@ def verify(payload: VerifyPayload) -> bool:
     outcard_valid = outhash == tape_outcard_hash
 
     outcard_format = outcard_raw[:4]
-    if outcard_format != b"JSON":
-        msg = f"Outcard format is not json"
-        LOGGER.error(msg)
-        add_output(msg)
-        return False
 
     outcard_str = bytes2str(outcard_raw[4:])
 

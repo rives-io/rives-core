@@ -170,8 +170,7 @@ function CartridgeScoreboard({cartridge_id, rule, reload, replay_function}:{
                                         }
                                     </td>
                                     <td className="py-2">
-                                        <button title='Play Log' className='scoreboard-btn' onClick={() => playReplay(scoreInfo)}><span><OndemandVideoIcon/></span></button>
-                                        <button title='Mint Screenshot' className='scoreboard-btn' onClick={() => window.open(`/mint/${scoreInfo._inputIndex}`, "_blank", "noopener,noreferrer")}><span><ImageIcon/></span></button>
+                                        <button title='Tape' className='scoreboard-btn' onClick={() => window.open(`/tapes/${scoreInfo.tape_hash.substring(2)}`, "_blank", "noopener,noreferrer")}><span><OndemandVideoIcon/></span></button>
                                     </td>
                                 </tr>
                             );
