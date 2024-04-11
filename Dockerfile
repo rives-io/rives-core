@@ -1,22 +1,52 @@
 # syntax=docker.io/docker/dockerfile:1.4
 ARG SUNODO_SDK_VERSION=0.4.0
+ARG SUNODO_SDK_RIV_VERSION=0.4.0-riv
 ARG MACHINE_EMULATOR_TOOLS_VERSION=0.14.1
 ARG OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+ARG KERNEL_VERSION=0.19.1-riv1
+ARG RIV_VERSION=0.3-rc3
+ARG ROLLUPS_NODE_VERSION=0.5.1
+ARG CM_CALLER_VERSION=0.0.1
+ARG NONODO_VERSION=0.0.1
+
+FROM sunodo/sdk:${SUNODO_SDK_VERSION} as sunodo-riv-sdk
+
+ARG KERNEL_VERSION
+
+RUN curl -s -L https://github.com/rives-io/kernel/releases/download/v${KERNEL_VERSION}/linux-6.5.9-ctsi-1-v${KERNEL_VERSION}.bin \
+    -o /usr/share/cartesi-machine/images/linux.bin
+
+
+# make build-release
+FROM sunodo/rollups-node:${ROLLUPS_NODE_VERSION} as node
+
+COPY ./image_0 /tmp/machine-snapshots/0
+COPY ./image /tmp/machine-snapshots/0_0
+
+ARG NONODO_VERSION
+RUN curl -s -L https://github.com/lynoferraz/nonodo/releases/download/v${NONODO_VERSION}/nonodo-v${NONODO_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
+    tar xzf - -C /usr/local/bin nonodo
+
+    ARG CM_CALLER_VERSION
+RUN curl -s -L https://github.com/lynoferraz/cm-caller/releases/download/v${CM_CALLER_VERSION}/cm-caller-v${CM_CALLER_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
+    tar xzf - -C /usr/local/bin cm-caller
+
+# TODO: make deploy here too, but don't do a second deploy for same cm
+
 
 FROM --platform=linux/riscv64 riv/toolchain:devel as riv-toolchain
 
 FROM --platform=linux/riscv64 cartesi/python:3.10-slim-jammy as base
 
-ARG SUNODO_SDK_VERSION
-ARG MACHINE_EMULATOR_TOOLS_VERSION
-ARG OPERATOR_ADDRESS
+ARG SUNODO_SDK_RIV_VERSION
 
-LABEL io.sunodo.sdk_version=${SUNODO_SDK_VERSION}
+LABEL io.sunodo.sdk_version=${SUNODO_SDK_RIV_VERSION}
 LABEL io.cartesi.rollups.ram_size=128Mi
 LABEL io.cartesi.rollups.data_size=32Mb
 LABEL io.cartesi.rollups.flashdrive_size=128Mb
 
 # Install tools
+ARG MACHINE_EMULATOR_TOOLS_VERSION
 ADD https://github.com/cartesi/machine-emulator-tools/releases/download/v${MACHINE_EMULATOR_TOOLS_VERSION}/machine-emulator-tools-v${MACHINE_EMULATOR_TOOLS_VERSION}.deb /
 RUN dpkg -i /machine-emulator-tools-v${MACHINE_EMULATOR_TOOLS_VERSION}.deb \
   && rm /machine-emulator-tools-v${MACHINE_EMULATOR_TOOLS_VERSION}.deb
@@ -39,24 +69,19 @@ pip install -r requirements.txt --no-cache
 find /usr/local/lib -type d -name __pycache__ -exec rm -r {} +
 EOF
 
-# install riv rootfs
-COPY --from=riv-toolchain /rootfs /rivos
-RUN cp /rivos/etc/sysctl.conf /etc/sysctl.conf
-RUN mkdir -p /rivos/cartridges
-
-# install custom init
-COPY --from=riv-toolchain /rootfs/sbin/init /usr/bin/cartesi-init
-
-# install musl libc
-RUN ln -s /rivos/lib/ld-musl-riscv64.so.1 /lib/
-
-# install busybox
-RUN ln -s /rivos/usr/busybox /usr/bin/busybox
-
-# install riv-chroot
-RUN ln -s /rivos/usr/bin/bwrap /usr/bin/ && \
-    ln -s /rivos/usr/lib/libcap.so.2 /usr/lib/ && \
-    ln -s /rivos/sbin/riv-chroot /sbin/
+# Install RIVOS
+ARG RIV_VERSION
+ADD --chmod=644 https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivos.ext2 /rivos.ext2
+ADD --chmod=644 https://raw.githubusercontent.com/rives-io/riv/v${RIV_VERSION}/rivos/skel/etc/sysctl.conf /etc/sysctl.conf
+ADD --chmod=755 https://raw.githubusercontent.com/rives-io/riv/v${RIV_VERSION}/rivos/skel/usr/sbin/cartesi-init /usr/sbin/cartesi-init
+ADD --chmod=755 https://raw.githubusercontent.com/rives-io/riv/v${RIV_VERSION}/rivos/skel/etc/cartesi-init.d/riv-init /etc/cartesi-init.d/riv-init
+RUN <<EOF
+set -e
+mkdir -p /rivos /cartridges
+echo "mount -o ro,noatime,nosuid -t ext2 /rivos.ext2 /rivos" > /etc/cartesi-init.d/riv-mount
+echo "mount --bind /cartridges /rivos/cartridges" >> /etc/cartesi-init.d/riv-mount
+chmod 755 /etc/cartesi-init.d/riv-mount
+EOF
 
 # Clean tools
 RUN apt remove -y build-essential git && apt -y autoremove
@@ -75,12 +100,16 @@ COPY misc/snake.sqfs misc/snake.sqfs
 COPY misc/freedoom.sqfs misc/freedoom.sqfs
 COPY misc/antcopter.sqfs misc/antcopter.sqfs
 COPY misc/monky.sqfs misc/monky.sqfs
-COPY misc/breakout.sqfs misc/breakout.sqfs
+# COPY misc/breakout.sqfs misc/breakout.sqfs
+COPY misc/particles.sqfs misc/particles.sqfs
+COPY misc/tetrix.sqfs misc/tetrix.sqfs
 COPY misc/test.rivlog misc/test.rivlog
 
+ARG OPERATOR_ADDRESS
+ENV OPERATOR_ADDRESS=${OPERATOR_ADDRESS}
 ENV ROLLUP_HTTP_SERVER_URL="http://127.0.0.1:5004"
 
 FROM base as dapp
 
 ENTRYPOINT ["rollup-init"]
-CMD ["cartesapp","run","core","--log-level","info"]
+CMD ["cartesapp","run","--log-level","info"]

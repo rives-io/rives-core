@@ -51,6 +51,9 @@ CARTRIDGE1_OUTHASH1 = '0x0a82193a55c985f71a9daf7f23181ed610ef241023eaac5f5657e8c
 CARTRIDGE1_LOG2 = '0x01010805c2000000a1000000a50000008584838281458dcb4e024114443955cd3cba87a165009108242446c5b81123262cddb940d77ebb1fe36220de9b4aa56a516730400092c00032081b5b9224fbd20bf77e36f0f92483c197b78ddd2f1a49bd008464bb6f113db9c74ac606230828887f2ac6e76c21c99618341fdae7b782b273c3babe5dfcea343dc4cfe8b038568f65aa1f625abf8e422007c8415c194d0c1d623b6bab18d3e1a9d0fedef3704deb25c9efa9b8a9779362f13cdbd4a73aa5a21d366135b47ecae5f7749d8aa66cab72b6ada237345e0d618e35a223918deec2177ad9e54e665cc0384859d0c964601be228a6eaf807'
 CARTRIDGE1_OUTHASH2 = '0xb1053c9679853136f74fefe5b60072d0175085f496a5575ba8636dffad3c6811'
 
+CARTRIDGE2_LOG1 = '0x01000504140000001b0000003e000000808281830000010202020103020003000001000201030203001505050a060611061b0f0201020a0b0b021405'
+CARTRIDGE2_OUTHASH1 = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+
 OUTHASH_BLANK = '0x' + '0'*64
 
 USER2_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
@@ -195,7 +198,6 @@ def test_should_insert_cartridge3(
     assert dapp_client.rollup.status
 
 
-@pytest.mark.dependency(depends=["test_should_insert_cartridge1"])
 @pytest.mark.order(after="test_should_insert_cartridge1")
 def test_should_retrieve_cartridge1_info(dapp_client: TestClient):
 
@@ -215,7 +217,6 @@ def test_should_retrieve_cartridge1_info(dapp_client: TestClient):
     assert output.name.lower() == CARTRIDGE1.lower()
 
 
-@pytest.mark.dependency(depends=["test_should_insert_cartridge1","test_should_insert_cartridge2","test_should_insert_cartridge3"])
 @pytest.mark.order(before="test_should_remove_cartridge3",after=["test_should_insert_cartridge1","test_should_insert_cartridge2","test_should_insert_cartridge3"])
 def test_should_retrieve_cartridges(dapp_client: TestClient):
 
@@ -301,7 +302,6 @@ def verify_tape_error_rule() -> bytes:
 
 
 @pytest.mark.order(after=["test_should_insert_cartridge1"])
-# @pytest.mark.dependency(depends=["test_should_insert_cartridge1"])
 def test_should_fail_verify_cartridge1_error_rule(
         dapp_client: TestClient,
         verify_tape_error_rule: bytes):
@@ -335,7 +335,6 @@ def verify_tape_error_outhash() -> bytes:
 
 
 @pytest.mark.order(after=["test_should_insert_cartridge1"])
-# @pytest.mark.dependency(depends=["test_should_insert_cartridge1"])
 def test_should_fail_verify_cartridge1_error_outhash(
         dapp_client: TestClient,
         verify_tape_error_outhash: bytes):
@@ -371,7 +370,6 @@ def verify_tape_error_score() -> bytes:
 
 
 @pytest.mark.order(after=["test_should_insert_cartridge1"])
-# @pytest.mark.dependency(depends=["test_should_insert_cartridge1"])
 def test_should_fail_verify_cartridge1_error_score(
         dapp_client: TestClient,
         verify_tape_error_score: bytes):
@@ -392,7 +390,7 @@ def test_should_fail_verify_cartridge1_error_score(
     assert report == "Score doesn't match"
 
 @pytest.fixture()
-def verify_tape() -> bytes:
+def verify_tape_cartridge1() -> bytes:
 
     model = VerifyPayload(
         rule_id=hex2bytes(generate_rule_id(hex2bytes(CARTRIDGE1_ID),str2bytes('default'))),
@@ -405,17 +403,16 @@ def verify_tape() -> bytes:
 
 
 @pytest.mark.order(after=["test_should_insert_cartridge1"])
-# @pytest.mark.dependency(depends=["test_should_insert_cartridge1"])
 def test_should_pass_verify_cartridge1(
         dapp_client: TestClient,
-        verify_tape: bytes):
+        verify_tape_cartridge1: bytes):
 
     header = ABIFunctionSelectorHeader(
         function="core.verify",
         argument_types=get_abi_types_from_model(VerifyPayload)
     ).to_bytes()
 
-    hex_payload = '0x' + (header + verify_tape).hex()
+    hex_payload = '0x' + (header + verify_tape_cartridge1).hex()
     dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
 
     assert dapp_client.rollup.status
@@ -427,17 +424,16 @@ def test_should_pass_verify_cartridge1(
 
 
 @pytest.mark.order(after=["test_should_pass_verify_cartridge1"])
-# @pytest.mark.dependency(depends=["test_should_insert_cartridge1"])
 def test_should_fail_verify_duplicate(
         dapp_client: TestClient,
-        verify_tape: bytes):
+        verify_tape_cartridge1: bytes):
 
     header = ABIFunctionSelectorHeader(
         function="core.verify",
         argument_types=get_abi_types_from_model(VerifyPayload)
     ).to_bytes()
 
-    hex_payload = '0x' + (header + verify_tape).hex()
+    hex_payload = '0x' + (header + verify_tape_cartridge1).hex()
     dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
 
     assert not dapp_client.rollup.status
@@ -447,10 +443,45 @@ def test_should_fail_verify_duplicate(
     report = report.decode('utf-8')
     assert report == "Tape already submitted"
 
+@pytest.fixture()
+def verify_tape_cartridge2() -> bytes:
+
+    model = VerifyPayload(
+        rule_id=hex2bytes(generate_rule_id(hex2bytes(CARTRIDGE2_ID),str2bytes('default'))),
+        outcard_hash=hex2bytes(CARTRIDGE2_OUTHASH1),
+        tape=hex2bytes(CARTRIDGE2_LOG1),
+        claimed_score=0
+    )
+
+    return encode_model(model, packed=False)
+
+
+@pytest.mark.order(after=["test_should_insert_cartridge2"])
+def test_should_pass_verify_cartridge2(
+        dapp_client: TestClient,
+        verify_tape_cartridge2: bytes):
+
+    header = ABIFunctionSelectorHeader(
+        function="core.verify",
+        argument_types=get_abi_types_from_model(VerifyPayload)
+    ).to_bytes()
+
+    hex_payload = '0x' + (header + verify_tape_cartridge2).hex()
+    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
+
+    assert dapp_client.rollup.status
+
+    notice = dapp_client.rollup.notices[-1]['data']['payload']
+    notice = bytes.fromhex(notice[2:])
+    notice = decode_to_model(model=VerificationOutput,data=notice)
+    assert notice.score == 0
+
+
 
 ###
 # Rule Tests
 
+# TODO: test game verification of no score game
 # TODO: test rule creation wrong operator wallet
 # TODO: test rule creation wrong formula
 # TODO: test rule creation wrong args

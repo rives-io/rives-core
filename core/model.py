@@ -2,11 +2,9 @@ import os
 from pydantic import BaseModel
 import logging
 from typing import Optional, List
-from hashlib import sha256
 import json
 from py_expression_eval import Parser
 import pickle
-import traceback
 
 from cartesi.abi import String, Bytes, Bytes32
 
@@ -147,14 +145,14 @@ def initialize_data():
         except Exception as e:
             LOGGER.warning(e)
 
-        try:
-            cartridge_example_file = open('misc/breakout.sqfs','rb')
-            cartridge_example_data = cartridge_example_file.read()
-            cartridge_example_file.close()
-            create_cartridge(cartridge_example_data,msg_sender="0xd33Dfbfb0D0961284656e0225CFfB561090762D3")
-            if is_inside_cm(): os.remove('misc/breakout.sqfs')
-        except Exception as e:
-            LOGGER.warning(e)
+        # try:
+        #     cartridge_example_file = open('misc/breakout.sqfs','rb')
+        #     cartridge_example_data = cartridge_example_file.read()
+        #     cartridge_example_file.close()
+        #     create_cartridge(cartridge_example_data,msg_sender="0xd33Dfbfb0D0961284656e0225CFfB561090762D3")
+        #     if is_inside_cm(): os.remove('misc/breakout.sqfs')
+        # except Exception as e:
+        #     LOGGER.warning(e)
 
         # try:
         #     cartridge_example_file = open('misc/2048.sqfs','rb')
@@ -164,6 +162,15 @@ def initialize_data():
         #     if is_inside_cm(): os.remove('misc/2048.sqfs')
         # except Exception as e:
         #     LOGGER.warning(e)
+
+        try:
+            cartridge_example_file = open('misc/tetrix.sqfs','rb')
+            cartridge_example_data = cartridge_example_file.read()
+            cartridge_example_file.close()
+            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
+            if is_inside_cm(): os.remove('misc/tetrix.sqfs')
+        except Exception as e:
+            LOGGER.warning(e)
 
         try:
             cartridge_example_file = open('misc/particles.sqfs','rb')

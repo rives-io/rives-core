@@ -38,7 +38,7 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes,
         outhash_path = "/run/outhash"
         screenshot_path = "/run/screenshot"
         outhist_path = "/run/outhist"
-        rivos_cartridges_path = f"/rivos/{CoreSettings.cartridges_path}" # absolute cartridges path on rivos
+        rivos_cartridges_path = f"/{CoreSettings.cartridges_path}" # absolute cartridges path on rivos
         data_cartridge_path = f"{get_cartridges_path()}/{cartridge_id}" # absolute data full cartridge path
         cartridge_path = f"/{CoreSettings.cartridges_path}/{cartridge_id}" # relative to rivos full cartridge path
         rivos_cartridge_path = f"{rivos_cartridges_path}/{cartridge_id}" # absolute full cartridge path on rivos
@@ -62,7 +62,7 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes,
             incard_file.close()
 
         run_args = []
-        run_args.append("riv-chroot")
+        run_args.append("/rivos/usr/sbin/riv-chroot")
         run_args.append("/rivos")
         run_args.extend(["--setenv", "RIV_CARTRIDGE", cartridge_path])
         run_args.extend(["--setenv", "RIV_REPLAYLOG", log_path])
@@ -80,6 +80,8 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes,
         run_args.append("riv-run")
         if riv_args is not None and len(riv_args) > 0:
             run_args.extend(riv_args.split())
+        print("==== DEBUG ====")
+        print(" ".join(run_args))
         result = subprocess.run(run_args)
         if result.returncode != 0:
             os.remove(log_path)
@@ -129,9 +131,13 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes,
     incard_path = len(in_card) > 0 and incard_temp.name or None
 
     absolute_cartridge_path = os.path.abspath(f"{get_cartridges_path()}/{cartridge_id}")
-    cwd = str(Path(CoreSettings.rivemu_path).parent.parent.absolute())
+
+    rivemu_path = CoreSettings.rivemu_path
+    if not os.path.isabs(rivemu_path):
+        rivemu_path = f"{os.getcwd()}/{rivemu_path}"
+    cwd = str(Path(rivemu_path).parent.absolute())
     run_args = []
-    run_args.append(CoreSettings.rivemu_path)
+    run_args.append(rivemu_path)
     run_args.append(f"-cartridge={absolute_cartridge_path}")
     run_args.append(f"-verify={log_temp.name}")
     run_args.append(f"-save-outcard={outcard_temp.name}")

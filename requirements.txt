@@ -1,5 +1,5 @@
 --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/
-cartesapp @ git+https://github.com/prototyp3-dev/cartesapp@241038a476fbd9cf2d2d62f42f90424a8a3060a0
+cartesapp @ git+https://github.com/prototyp3-dev/cartesapp@c62419963e1f092cd84569dc89d2b9f79a312975
 certifi==2024.2.2
 charset-normalizer==3.3.2
 click==8.1.7
@@ -22,7 +22,6 @@ pycryptodome==3.19.1
 pydantic==1.10.14
 pydantic-to-typescript==1.0.10
 pytest==7.4.4
-pytest-dependency==0.6.0
 pytest-order==1.2.1
 python-cartesi==0.1.0
 regex==2023.12.25
@@ -32,3 +31,4 @@ toolz==0.12.1
 typer==0.9.0
 typing_extensions==4.9.0
 urllib3==2.2.1
+watchdog==4.0.0

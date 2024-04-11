@@ -67,7 +67,7 @@ function Rivemu() {
         if (cancelled) {
             setRivemuState(RIVEMU_STATE.WAITING);
             rivemuHalt();
-            setOverallScore(0);
+            setOverallScore(undefined);
             stopCartridge();
         }
     }, [cancelled])
@@ -81,11 +81,21 @@ function Rivemu() {
     }, [rivemuState])
 
     useEffect(() => {
+        console.log("change wallet",wallet)
         if (!wallet) {
-          return;
+            setSignerAddress(undefined);
+            if (rivemuState == RIVEMU_STATE.PLAYING) {
+                rivemuRestart();
+            }
+            return;
         }
         const curSigner = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
-        curSigner.getAddress().then((a: String) => setSignerAddress(a.toLowerCase()));
+        curSigner.getAddress().then((a: String) => {
+            setSignerAddress(a.toLowerCase());
+            if (rivemuState == RIVEMU_STATE.PLAYING) {
+                rivemuRestart();
+            }
+        });
     },[wallet]);
 
     // useEffect(() => {
@@ -163,13 +173,15 @@ function Rivemu() {
         // }
         await rivemuHalt();
         setRivemuState(RIVEMU_STATE.PLAYING);
-        setOverallScore(0);
+        setOverallScore(undefined);
         lastFrames.splice(0,lastFrames.length);
         setLastFrames(lastFrames);
         setLastFrameIndex(0);
 
-        if (selectedCartridge.scoreFunction)
+        if (selectedCartridge.scoreFunction) {
+            setOverallScore(0);
             setScoreFunction(parser.parse(selectedCartridge.scoreFunction));
+        }
 
         // @ts-ignore:next-line
         let buf = Module._malloc(selectedCartridge.cartridgeData.length);
@@ -215,13 +227,15 @@ function Rivemu() {
         // }
         await rivemuHalt();
         setRivemuState(RIVEMU_STATE.REPLAYING);
-        setOverallScore(0);
+        setOverallScore(undefined);
         lastFrames.splice(0,lastFrames.length);
         setLastFrames(lastFrames);
         setLastFrameIndex(0);
 
-        if (selectedCartridge.scoreFunction)
+        if (selectedCartridge.scoreFunction) {
+            setOverallScore(0);
             setScoreFunction(parser.parse(selectedCartridge.scoreFunction));
+        }
 
         // @ts-ignore:next-line
         const cartridgeBuf = Module._malloc(selectedCartridge.cartridgeData.length);

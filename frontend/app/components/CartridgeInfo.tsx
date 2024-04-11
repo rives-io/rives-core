@@ -526,19 +526,10 @@ function SubmitModal({cancelFunction,acceptFunction,gifImage}:{cancelFunction(s:
     return (
             <div>
                   {/*body*/}
-                    <div className={`relative my-6 px-6 flex-auto h-full items-center`}>
-                        <div className="grid grid-cols-3 gap-4">
-                            {/* {selectedCartridge?.lastFrames?.map((frameImage: string, index: number) => {
-                                return (
-                                    <div key={index}>
-                                        <Image className="border border-black" width={width} height={height} src={frameImage} alt={"Frame Not found"}/>
-                                    </div>
-                                );
-                            })} */}
-                        </div>
+                    <div className={`flex justify-center my-6 px-6 flex-auto h-full`}>
                         <Image className="border border-black" width={200} height={200}  src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
                     </div>
-                    <div className="flex items-center justify-end pb-2 pr-6">
+                    <div className="flex justify-end pb-2 pr-6">
                         <button
                         className={`bg-red-500 text-white font-bold uppercase text-sm px-6 py-2 border border-red-500 hover:text-red-500 hover:bg-transparent`}
                         type="button"

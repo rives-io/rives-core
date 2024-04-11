@@ -20,7 +20,7 @@ class CoreSettings:
 @setup()
 def setup_settings():
     CoreSettings.version = os.getenv('RIVES_VERSION') or CoreSettings.version
-    CoreSettings.rivemu_path = os.getenv('RIVEMU_PATH')
+    CoreSettings.rivemu_path = os.getenv('RIVEMU_PATH') or CoreSettings.rivemu_path
     CoreSettings.operator_address = os.getenv('OPERATOR_ADDRESS') or CoreSettings.operator_address
     CoreSettings.insert_genesis_cartridges = bool(int(os.getenv('INSERT_GENESIS_CARTRIDGES'))) \
         if os.getenv('INSERT_GENESIS_CARTRIDGES') else CoreSettings.insert_genesis_cartridges

@@ -2,10 +2,8 @@ import os
 from pydantic import BaseModel
 import logging
 from typing import Optional, List
-from hashlib import sha256
 import json
 from py_expression_eval import Parser
-import pickle
 
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address
 
