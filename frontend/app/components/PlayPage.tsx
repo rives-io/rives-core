@@ -54,7 +54,7 @@ export default async function PlayPage({cartridge_id, rule_id}:{cartridge_id?: s
     let errorMsg:string|null = null;
 
     if (!(rule_id || cartridge_id) ) {
-        notFound();
+        errorMsg = "No rule or cartridge";
     }
 
     let rule:RuleInfo|null = null;
@@ -95,15 +95,12 @@ export default async function PlayPage({cartridge_id, rule_id}:{cartridge_id?: s
             </main>
         )
     }
-
-    console.log(rule)
-
   
     return (
         <main className="flex h-lvh items-center justify-center">
             <div className="grid grid-cols-1 gap-4 place-items-center ">
                 <span style={{color: 'white'}}>{rule ? "Rule: " + rule?.name : "No rules"}</span>
-                <RivemuPlayer cartridge_id={cartridge_id} cartridgeData={cartridgeData} args={args} in_card={in_card} scoreFunction={score_function} />
+                <RivemuPlayer cartridge_id={cartridge_id} rule_id={rule_id} cartridgeData={cartridgeData} args={args} in_card={in_card} scoreFunction={score_function} />
             </div>
             <GameplaySubmitter />
         </main>

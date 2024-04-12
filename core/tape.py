@@ -1,4 +1,3 @@
-import os
 from pydantic import BaseModel
 import logging
 from typing import Optional, List
@@ -11,11 +10,11 @@ from cartesapp.storage import helpers
 from cartesapp.context import get_metadata
 from cartesapp.input import mutation, query
 from cartesapp.output import output, add_output, event, emit_event, index_input
-from cartesapp.utils import hex2bytes, str2bytes, bytes2str
+from cartesapp.utils import hex2bytes, bytes2str
 
 from .model import insert_rule, Rule, RuleData, Cartridge, TapeHash
 from .riv import verify_log
-from .core_settings import CoreSettings, generate_tape_id, get_version
+from .core_settings import CoreSettings, generate_tape_id, get_version, generate_entropy
 
 LOGGER = logging.getLogger(__name__)
 
@@ -152,11 +151,8 @@ def verify(payload: VerifyPayload) -> bool:
     # process tape
     LOGGER.info(f"Verifying tape...")
     try:
-        entropy_args = f"" # TODO: enable this f"-entropy {metadata.msg_sender}"
-        # entropy_args = f"20 -entropy {metadata.msg_sender}" # ANTCOPTER
-        args = f"{rule.args} {entropy_args}" if rule.args != "" else entropy_args
-        # verification_output = verify_log(rule.cartridge_id,payload.tape,args,rule.in_card,get_screenshot=True)
-        verification_output = verify_log(rule.cartridge_id,payload.tape,args,rule.in_card)
+        entropy = generate_entropy(metadata.msg_sender, rule.id)
+        verification_output = verify_log(rule.cartridge_id,payload.tape,rule.args,rule.in_card,entropy=entropy)
         outcard_raw = verification_output.get('outcard')
         outhash = verification_output.get('outhash')
         # screenshot = verification_output.get('screenshot')

@@ -10,6 +10,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import RestartIcon from '@mui/icons-material/RestartAlt';
 import StopIcon from '@mui/icons-material/Stop';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import { sha256 } from "js-sha256";
 // import * as GIFEncoder from 'gif-encoder-2';
 
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
@@ -26,6 +27,22 @@ enum RIVEMU_STATE {
     PLAYING,
     REPLAY_READY,
     REPLAYING
+}
+
+function generateEntropy(userAddress?:String, ruleId?:String): string {
+
+    const hexRuleId = `0x${ruleId}`;
+    if (!userAddress || userAddress.length != 42 || !ethers.utils.isHexString(userAddress) || !ethers.utils.isHexString(hexRuleId)) {
+        return "";
+    }
+
+    const userBytes = ethers.utils.arrayify(`${userAddress}`);
+    const ruleIdBytes = ethers.utils.arrayify(hexRuleId);
+
+    var fullEntropyBytes = new Uint8Array(userBytes.length + ruleIdBytes.length);
+    fullEntropyBytes.set(userBytes);
+    fullEntropyBytes.set(ruleIdBytes, userBytes.length);
+    return sha256(fullEntropyBytes);
 }
 
 function Rivemu() {
@@ -132,7 +149,7 @@ function Rivemu() {
 
     function coverFallback() {
         return (
-            <button className='relative h-full w-full' onClick={rivemuStart}>
+            <button className='relative h-full w-full' onClick={!selectedCartridge?.replay ? rivemuStart : rivemuReplay}>
                 {freshOpen ? <Image alt={"Cover " + selectedCartridge?.name}
                 id="canvas-cover"
                 layout='fill'
@@ -144,7 +161,7 @@ function Rivemu() {
                 /> : <></>}
 
                 <span className='absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white'
-                    style={{backgroundColor: "#8b5cf6", padding: "10px"}}>Click to Play!</span>
+                    style={{backgroundColor: "#8b5cf6", padding: "10px"}}>Click to {!selectedCartridge?.replay ? "Play" : "Replay"}!</span>
 
             </button>
         );
@@ -192,18 +209,26 @@ function Rivemu() {
         // @ts-ignore:next-line
         Module.HEAPU8.set(inCard, incardBuf);
         let params = selectedCartridge?.args || "";
-        // TODO: Add singner address to entropy
-        // params = `${params} -entropy ${signerAddress}`;
+        // entropy
+        let entropy = "";
+        if (signerAddress) {
+            entropy = generateEntropy(signerAddress,selectedCartridge.rule);
+            if (entropy.length == 0) {
+                alert("Invalid entropy");
+                return;
+            }
+        }
         // @ts-ignore:next-line
         Module.ccall(
             "rivemu_start_record",
             null,
-            ['number', 'number', 'number', 'number', 'string'],
+            ['number', 'number', 'number', 'number', 'string', 'string'],
             [
                 buf,
                 selectedCartridge.cartridgeData.length,
                 incardBuf,
                 selectedCartridge.inCard?.length || 0,
+                entropy,
                 params || ''
             ]
         );
@@ -249,17 +274,24 @@ function Rivemu() {
         let incardBuf = Module._malloc(inCard.length);
         // @ts-ignore:next-line
         Module.HEAPU8.set(inCard, incardBuf);
+        // entropy
+        const entropy = generateEntropy(selectedCartridge.replayUserAddress,selectedCartridge.replayRule);
+        if (entropy.length == 0) {
+            alert("Invalid entropy");
+            return;
+        }
         const params = selectedCartridge?.args || "";
         // @ts-ignore:next-line
         Module.ccall(
             "rivemu_start_replay",
             null,
-            ['number', 'number', 'number', 'number', 'string', 'number', 'number'],
+            ['number', 'number', 'number', 'number', 'string', 'string', 'number', 'number'],
             [
                 cartridgeBuf,
                 selectedCartridge.cartridgeData.length,
                 incardBuf,
                 inCard.length,
+                entropy,
                 params,
                 rivlogBuf,
                 selectedCartridge.replay.length
@@ -395,7 +427,7 @@ function Rivemu() {
                         </button>
                 }
 
-                {overallScore ? <span>Score: {overallScore}</span> : <span>no score</span>}
+                {!selectedCartridge.rule && !selectedCartridge.replayRule ? <></> : overallScore == undefined ? <span>no score</span> : <span>Score: {overallScore}</span>}
 
                 <button className="bg-gray-700 text-white absolute top-1 end-10 border border-gray-700 hover:border-black"
                     hidden={rivemuState === RIVEMU_STATE.WAITING}

@@ -1,9 +1,6 @@
-import os
 from pydantic import BaseModel
 import logging
-from hashlib import sha256
 from typing import Optional, List
-import json
 import base64
 
 from cartesi.abi import String, Bytes, Bytes32, UInt

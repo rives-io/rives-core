@@ -9,11 +9,28 @@ import { useConnectWallet } from '@web3-onboard/react';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { gameplayContext } from "../play/GameplayContextProvider";
+import { sha256 } from "js-sha256";
 
+function generateEntropy(userAddress?:String, ruleId?:String): string {
+
+    const hexRuleId = `0x${ruleId}`;
+    if (!userAddress || userAddress.length != 42 || !ethers.utils.isHexString(userAddress) || !ethers.utils.isHexString(hexRuleId)) {
+        return "";
+    }
+
+    const userBytes = ethers.utils.arrayify(`${userAddress}`);
+    const ruleIdBytes = ethers.utils.arrayify(hexRuleId);
+
+    var fullEntropyBytes = new Uint8Array(userBytes.length + ruleIdBytes.length);
+    fullEntropyBytes.set(userBytes);
+    fullEntropyBytes.set(ruleIdBytes, userBytes.length);
+    return sha256(fullEntropyBytes);
+}
 
 function RivemuPlayer(
-{cartridgeData, cartridge_id, rule_id, args, in_card, scoreFunction, userAddress, tape}:
-{cartridgeData:Uint8Array, cartridge_id: string, rule_id?:string, args?:string, in_card?:Uint8Array, scoreFunction?:string, userAddress?:string, tape?:Uint8Array}) {
+        {cartridgeData, cartridge_id, rule_id, args, in_card, scoreFunction, userAddress, tape}:
+        {cartridgeData:Uint8Array, cartridge_id: string, rule_id?:string, args?:string, in_card?:Uint8Array, 
+            scoreFunction?:string, userAddress?:string, tape?:Uint8Array}) {
     const {setGameplayLog} = useContext(gameplayContext);
 
     const isTape = tape? true:false;
@@ -82,24 +99,20 @@ function RivemuPlayer(
         // @ts-ignore:next-line
         Module.HEAPU8.set(inCard, incardBuf);
         const params = "";
-        // TODO: Add singner address to entropy
-        // params = `${params} -entropy ${signerAddress}`;
-        console.log(
-            "rivemu_start_record",
-            null,
-            ['number', 'number', 'number', 'number', 'string'],
-            [
-                cartridgeBuf,
-                cartridgeData.length,
-                incardBuf,
-                inCard.length,
-                params
-            ])
+        // entropy
+        let entropy = "";
+        if (signerAddress) {
+            entropy = generateEntropy(signerAddress,rule_id);
+            if (entropy.length == 0) {
+                alert("Invalid entropy");
+                return;
+            }
+        }
         // @ts-ignore:next-line
         Module.ccall(
             "rivemu_start_record",
             null,
-            ['number', 'number', 'number', 'number', 'string'],
+            ['number', 'number', 'number', 'number', 'string', 'string'],
             [
                 cartridgeBuf,
                 cartridgeData.length,
@@ -146,18 +159,23 @@ function RivemuPlayer(
         // @ts-ignore:next-line
         Module.HEAPU8.set(inCard, incardBuf);
         const params = args || "";
-        // TODO: Add singner address to entropy
-        // params = `${params} -entropy ${userAddress}`;
+        // entropy
+        const entropy = generateEntropy(userAddress,rule_id);
+        if (entropy.length == 0) {
+            alert("Invalid entropy");
+            return;
+        }
         // @ts-ignore:next-line
         Module.ccall(
             "rivemu_start_replay",
             null,
-            ['number', 'number', 'number', 'number', 'string', 'number', 'number'],
+            ['number', 'number', 'number', 'number', 'string', 'string', 'number', 'number'],
             [
                 cartridgeBuf,
                 cartridgeData.length,
                 incardBuf,
                 inCard.length,
+                entropy,
                 params,
                 rivlogBuf,
                 tape.length
@@ -265,10 +283,13 @@ function RivemuPlayer(
     return (
         <main className="flex items-center justify-center">
             <section className="grid grid-cols-1 gap-4 place-items-center">
-                <div className="relative">
-                {
-                    !playing.isPlaying?
-                        <button className={'absolute gameplay-screen text-gray-500 hover:text-white t-0 backdrop-blur-sm ' + (playing.playCounter == 0 ? 'border' : '')} onClick={isTape? playTape: playGame}>
+                <div>
+                <div className='relative bg-gray-500 p-2 text-center'>
+                    { !rule_id ? <></> : currScore == undefined ? <span>no score</span> : <span>Score: {currScore}</span>}
+                </div>
+                    <div className="relative">
+                    { !playing.isPlaying?
+                        <button className={'absolute gameplay-screen text-gray-500 hover:text-white t-0 backdrop-blur-sm border border-gray-500'} onClick={isTape? playTape: playGame}>
                             {
                                 playing.playCounter === 0?
                                     <PlayArrowIcon className='text-7xl'/>
@@ -279,7 +300,7 @@ function RivemuPlayer(
                         </button>
                     : <></> }
                         <canvas
-                            className='gameplay-screen t-0'
+                            className='gameplay-screen t-0 border border-gray-500'
                             id="canvas"
                             onContextMenu={(e) => e.preventDefault()}
                             tabIndex={-1}
@@ -289,9 +310,12 @@ function RivemuPlayer(
                             }}
                         />
                     </div>
-                {!isTape && rule_id && !playing.isPlaying && playing.playCounter > 0 ? <button className="btn" onClick={() => {alert("submit tape")}} disabled={signerAddress == undefined}>
-                  <span>Verify Tape {signerAddress ? "" : " (wallet not connected)"}</span><br/>
-                </button> : <></>}
+                </div>
+                {!isTape && rule_id ? 
+                    <button className="btn" onClick={() => {alert("submit tape")}} disabled={signerAddress == undefined || playing.isPlaying || playing.playCounter === 0}>
+                        <span>Verify Tape {signerAddress ? "" : " (wallet not connected)"}</span><br/>
+                    </button>
+                : <></>}
             </section>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
         </main>

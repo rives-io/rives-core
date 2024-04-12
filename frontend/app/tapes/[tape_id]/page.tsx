@@ -47,7 +47,6 @@ const getTapePayload = async (tapeId:string):Promise<VerifyPayload> => {
         },
         {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
     );
-    console.log(replayLogs[0])
     if (replayLogs.length === 0) throw new Error(`Tape ${tapeId} not found!`);
     return replayLogs[0];
 }
@@ -182,7 +181,7 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
 
     return (
         <main className="flex items-center justify-center h-lvh">
-            <RivemuPlayer cartridge_id={rule.cartridge_id} cartridgeData={cartridgeData} args={rule.args} in_card={inCard} scoreFunction={rule.score_function} tape={tape} userAddress={tapePayload._msgSender} />
+            <RivemuPlayer cartridge_id={rule.cartridge_id} rule_id={rule.id} cartridgeData={cartridgeData} args={rule.args} in_card={inCard} scoreFunction={rule.score_function} tape={tape} userAddress={tapePayload._msgSender} />
         </main>
     )
 }

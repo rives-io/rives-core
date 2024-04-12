@@ -4,7 +4,7 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
-RIV_VERSION := 0.3-rc3
+RIV_VERSION := 0.3-rc4
 KERNEL_VERSION := 0.19.1-riv1
 
 define setup_venv =
@@ -47,11 +47,6 @@ run-dev: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ri
 
 run-reader: ; $(value setup_venv)
 	cartesapp node --mode reader
-
-# Test targets
-test-verbose: --load-env --check-rivemu-env ; $(value setup_venv)
-	echo RIVEMU_PATH=${RIVEMU_PATH} pytest --capture=no --log-cli-level=DEBUG --maxfail=1 --order-dependencies
-
 
 # Aux env targets
 --load-env: ${ENVFILE}
@@ -102,3 +97,8 @@ rivemu/rivos/rivos.ext2:
 
 build-release:
 	docker build -f Dockerfile --target node .sunodo/ -t ghcr.io/rives/rives-core:$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(git rev-parse --short HEAD)
+
+# Test targets
+test-verbose: --load-env --check-rivemu-env ; $(value setup_venv)
+	RIVEMU_PATH=${RIVEMU_PATH} pytest --capture=no --log-cli-level=DEBUG --maxfail=1 --order-dependencies
+

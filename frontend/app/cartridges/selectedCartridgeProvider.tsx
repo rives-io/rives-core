@@ -27,19 +27,21 @@ export interface PlayableCartridge extends Cartridge {
     initCanvas: boolean;
     play: boolean;
     downloading: boolean;
-    cartridgeData: Uint8Array | undefined;
-    inCard: Uint8Array | undefined;
-    args: string | undefined;
-    scoreFunction: string | undefined;
-    replay: Uint8Array | undefined;
-    gameplayLog: Uint8Array | undefined;
-    outcard: Uint8Array | undefined;
-    outhash: string | undefined;
-    score: number | undefined;
-    rule: string | undefined;
-    lastFrames: string[] | undefined;
-    height: number | undefined;
-    width: number | undefined;
+    cartridgeData?: Uint8Array;
+    inCard?: Uint8Array;
+    args?: string;
+    scoreFunction?: string;
+    replay?: Uint8Array;
+    gameplayLog?: Uint8Array;
+    outcard?: Uint8Array;
+    outhash?: string;
+    score?: number;
+    rule?: string;
+    lastFrames?: string[];
+    height?: number;
+    width?: number;
+    replayUserAddress?: string;
+    replayRule?: string;
 }
 
 export function SelectedCartridgeProvider({ children }:{ children: React.ReactNode }) {
@@ -52,7 +54,7 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
             (reportOutput: InspectReport) => {
                 let aux = {...cartridge, play:false, downloading:false, cartridgeData:undefined, inCard:undefined,
                     args:undefined, scoreFunction:undefined, rule:undefined, 
-                    height: undefined, width: undefined,
+                    height: undefined, width: undefined, replayUserAddress: undefined, replayRule: undefined,
                     score: undefined, replay:undefined, gameplayLog:undefined,
                     outcard:undefined, outhash:undefined, initCanvas:selectedCartridge?.initCanvas};
         
@@ -88,9 +90,9 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
 
     }
 
-    const setReplay = (replay: Uint8Array) => {
+    const setReplay = (replayRule: string, replay: Uint8Array, replayUserAddress: string) => {
         if (selectedCartridge) {
-            setSelectedCartridge({...selectedCartridge, play:false, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay, initCanvas:true});
+            setSelectedCartridge({...selectedCartridge, play:false, gameplayLog:undefined, outcard:undefined, outhash:undefined, replay, replayRule, replayUserAddress, initCanvas:true});
         }
     }
 
@@ -106,8 +108,8 @@ export function SelectedCartridgeProvider({ children }:{ children: React.ReactNo
         }
     }
 
-    const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string, score: number | undefined, 
-            lastFrames: string[] | undefined, height: number | undefined, width: number | undefined,) => {
+    const setGameplay = (gameplayLog: Uint8Array, outcard: Uint8Array, outhash: string, score?: number, 
+            lastFrames?: string[], height?: number, width?: number,) => {
         if (selectedCartridge) {
             if (outcard == undefined)
                 if (gameplayLog == undefined)

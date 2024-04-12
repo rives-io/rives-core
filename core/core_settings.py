@@ -3,7 +3,7 @@ from hashlib import sha256
 
 from cartesapp.storage import Storage
 from cartesapp.setup import setup
-from cartesapp.utils import str2bytes
+from cartesapp.utils import hex2bytes
 
 ###
 # Settings
@@ -51,3 +51,6 @@ def get_cartridge_tapes_filename() -> str:
 
 def generate_rule_id(cartridge_id: bytes,bytes_name: bytes) -> str:
     return sha256(cartridge_id + bytes_name).hexdigest()
+
+def generate_entropy(user_address: str, rule_id: str) -> str:
+    return sha256(hex2bytes(user_address) + hex2bytes(rule_id)).hexdigest()

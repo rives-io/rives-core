@@ -29,7 +29,7 @@ def riv_get_cover(cartridge_id):
     return result.stdout
 
 
-def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes,
+def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entropy: str = None,
                frame: int =None,get_outhist=False,get_screenshot=False) -> dict[str,bytes]:
     if is_inside_cm(): # use riv os
         log_path = "/run/replaylog"
@@ -76,6 +76,8 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes,
             run_args.extend(["--setenv", "RIV_INCARD", incard_path])
         if frame is not None:
             run_args.extend(["--setenv", "RIV_STOP_FRAME", f"{frame}"])
+        if entropy is not None:
+            run_args.extend(["--setenv", "RIV_ENTROPY", f"{entropy}"])
         run_args.extend(["--setenv", "RIV_NO_YIELD", "y"])
         run_args.append("riv-run")
         if riv_args is not None and len(riv_args) > 0:
@@ -151,6 +153,8 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes,
         run_args.append(f"-load-incard={incard_temp.name}")
     if frame is not None:
         run_args.append(f"-stop-frame={frame}")
+    if entropy is not None:
+        run_args.append(f"-entropy={entropy}")
     if riv_args is not None and len(riv_args) > 0:
         run_args.append(f"-args='{riv_args}'")
 

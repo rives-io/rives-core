@@ -198,12 +198,15 @@ def initialize_data():
                 "in_card":b"",
                 "score_function":"score"
             }
+            rule_conf = RuleData.parse_obj(rule_conf_dict)
+            rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))
+            if helpers.count(r for r in Rule if r.id == rule_id) > 0:
+                raise Exception(f"Rule already exists")
             test_replay_file = open(CoreSettings.test_tape_path,'rb')
             test_replay = test_replay_file.read()
             test_replay_file.close()
 
             verification_output = verify_log(antcopter_id,test_replay,rule_conf_dict["args"],rule_conf_dict["in_card"])
-            rule_conf = RuleData.parse_obj(rule_conf_dict)
             insert_rule(rule_conf,verification_output.get("outcard"),msg_sender="0xCB76129e0eD325E1E5c17F3f363BC2e93a227eCF")
         except Exception as e:
             LOGGER.warning(e)

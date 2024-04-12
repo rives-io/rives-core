@@ -22,7 +22,7 @@ import Image from "next/image";
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
 import Loader from "../components/Loader";
-import { VerificationOutput, getOutputs, verify } from '../backend-libs/core/lib';
+import { VerificationOutput, getOutputs, verify, VerifyPayload as VerifyPayloadInput } from '../backend-libs/core/lib';
 import { VerifyPayload } from '../backend-libs/core/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
@@ -254,18 +254,19 @@ function CartridgeInfo() {
 
     async function prepareReplay(output: VerificationOutput) {
         if (selectedCartridge) {
-            const replayLog: Array<Uint8Array> = await getOutputs(
+
+            const replayLogs:Array<VerifyPayloadInput> = await getOutputs(
                 {
-                    tags: ["tape", selectedCartridge?.id],
-                    timestamp_gte: output.timestamp.toNumber(),
-                    timestamp_lte: output.timestamp.toNumber(),
-                    msg_sender: output.user_address,
-                    type: 'report'
+                    tags: ["tape",output.tape_hash.slice(2)],
+                    type: 'input'
                 },
                 {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
             );
-            if (replayLog.length > 0) {
-                setReplay(replayLog[0]);
+            if (replayLogs.length > 0) {
+
+                const tapePayload:VerifyPayloadInput = replayLogs[0];
+                if (ethers.utils.isHexString(tapePayload.tape) && ethers.utils.isHexString(tapePayload.rule_id))
+                    setReplay(tapePayload.rule_id.slice(2), ethers.utils.arrayify(tapePayload.tape), tapePayload._msgSender);
             }
         }
     }
