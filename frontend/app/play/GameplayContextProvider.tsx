@@ -16,8 +16,11 @@ export interface Outcard {
 }
 
 export interface Gameplay {
+    cartridge_id: string,
     log: Uint8Array,
-    outcard: Outcard
+    outcard: Outcard,
+    score?: number,
+    rule_id: string
 }
 
 export function GameplayProvider({ children }:{ children: React.ReactNode }) {

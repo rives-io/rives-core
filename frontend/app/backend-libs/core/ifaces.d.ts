@@ -6,21 +6,36 @@
  */
 
 export interface _Master_ {
+  InserCartridgePayload: InserCartridgePayload;
+  VerificationOutput: VerificationOutput;
   RulesOutput: RulesOutput;
   RuleCreated: RuleCreated;
-  CartridgeInfo: CartridgeInfo;
+  CartridgePayloadSplittable: CartridgePayloadSplittable;
   GetRulesPayload: GetRulesPayload;
   VerifyPayload: VerifyPayload;
+  CartridgeInfo: CartridgeInfo;
+  RuleData: RuleData;
+  CartridgesPayload: CartridgesPayload;
   CartridgeInserted: CartridgeInserted;
   CartridgesOutput: CartridgesOutput;
-  RuleData: RuleData;
   CartridgeRemoved: CartridgeRemoved;
-  CartridgesPayload: CartridgesPayload;
   CartridgePayload: CartridgePayload;
   RemoveCartridgePayload: RemoveCartridgePayload;
-  InserCartridgePayload: InserCartridgePayload;
-  CartridgePayloadSplittable: CartridgePayloadSplittable;
-  VerificationOutput: VerificationOutput;
+}
+export interface InserCartridgePayload {
+  data: string;
+}
+export interface VerificationOutput {
+  version: string;
+  cartridge_id: string;
+  cartridge_input_index: number;
+  user_address: string;
+  timestamp: number;
+  score: number;
+  rule_id: string;
+  rule_input_index: number;
+  tape_hash: string;
+  tape_input_index: number;
 }
 export interface RulesOutput {
   data: RuleInfo[];
@@ -42,6 +57,23 @@ export interface RuleCreated {
   rule_id: string;
   created_by: string;
   created_at: number;
+}
+export interface CartridgePayloadSplittable {
+  id: string;
+  part?: number;
+}
+export interface GetRulesPayload {
+  cartridge_id?: string;
+  id?: string;
+  name?: string;
+  page?: number;
+  page_size?: number;
+}
+export interface VerifyPayload {
+  rule_id: string;
+  outcard_hash: string;
+  tape: string;
+  claimed_score: number;
 }
 export interface CartridgeInfo {
   id: string;
@@ -65,17 +97,19 @@ export interface Author {
   name: string;
   link: string;
 }
-export interface GetRulesPayload {
+export interface RuleData {
   cartridge_id: string;
+  name: string;
+  description: string;
+  args: string;
+  in_card: string;
+  score_function: string;
+}
+export interface CartridgesPayload {
   name?: string;
+  tags?: string[];
   page?: number;
   page_size?: number;
-}
-export interface VerifyPayload {
-  rule_id: string;
-  outcard_hash: string;
-  tape: string;
-  claimed_score: number;
 }
 export interface CartridgeInserted {
   cartridge_id: string;
@@ -87,46 +121,13 @@ export interface CartridgesOutput {
   total: number;
   page: number;
 }
-export interface RuleData {
-  cartridge_id: string;
-  name: string;
-  description: string;
-  args: string;
-  in_card: string;
-  score_function: string;
-}
 export interface CartridgeRemoved {
   cartridge_id: string;
   timestamp: number;
-}
-export interface CartridgesPayload {
-  name?: string;
-  tags?: string[];
-  page?: number;
-  page_size?: number;
 }
 export interface CartridgePayload {
   id: string;
 }
 export interface RemoveCartridgePayload {
   id: string;
-}
-export interface InserCartridgePayload {
-  data: string;
-}
-export interface CartridgePayloadSplittable {
-  id: string;
-  part?: number;
-}
-export interface VerificationOutput {
-  version: string;
-  cartridge_id: string;
-  cartridge_input_index: number;
-  user_address: string;
-  timestamp: number;
-  score: number;
-  rule_id: string;
-  rule_input_index: number;
-  tape_hash: string;
-  tape_input_index: number;
 }

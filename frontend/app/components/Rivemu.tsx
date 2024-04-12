@@ -81,7 +81,6 @@ function Rivemu() {
     }, [rivemuState])
 
     useEffect(() => {
-        console.log("change wallet",wallet)
         if (!wallet) {
             setSignerAddress(undefined);
             if (rivemuState == RIVEMU_STATE.PLAYING) {

@@ -14,16 +14,8 @@ export const envClient = envsafe({
     input: process.env.NEXT_PUBLIC_NETWORK_CHAIN_ID,
     desc: "Network ChainId (in hex) where the Cartesi DApp was deployed."
   }),
-  NFT_ADDR: str({
-    input: process.env.NEXT_PUBLIC_NFT_ADDR,
-    desc: "Rives Score NFT ETH address."
-  }),
-  SCOREBOARD_CARTRIDGE_ID: str({
-    input: process.env.NEXT_PUBLIC_SCOREBOARD_CARTRIDGE_ID,
-    desc: "Cartridge id to consider scoreboard."
-  }),
-  SCOREBOARD_ID: str({
-    input: process.env.NEXT_PUBLIC_SCOREBOARD_ID,
-    desc: "Scoreboard id."
+  CONTESTS: str({
+    input: process.env.NEXT_PUBLIC_CONTESTS,
+    desc: "Contests json list."
   })
 })

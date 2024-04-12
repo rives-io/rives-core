@@ -113,6 +113,7 @@ def initialize_data():
             cartridge_example_file = open('misc/snake.sqfs','rb')
             cartridge_example_data = cartridge_example_file.read()
             cartridge_example_file.close()
+            snake_id = generate_cartridge_id(cartridge_example_data)
             create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
             if is_inside_cm(): os.remove('misc/snake.sqfs')
         except Exception as e:
@@ -122,6 +123,7 @@ def initialize_data():
             cartridge_example_file = open('misc/freedoom.sqfs','rb')
             cartridge_example_data = cartridge_example_file.read()
             cartridge_example_file.close()
+            freedoom_id = generate_cartridge_id(cartridge_example_data)
             create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
             if is_inside_cm(): os.remove('misc/freedoom.sqfs')
         except Exception as e:
@@ -131,6 +133,7 @@ def initialize_data():
             cartridge_example_file = open('misc/antcopter.sqfs','rb')
             cartridge_example_data = cartridge_example_file.read()
             cartridge_example_file.close()
+            antcopter_id = generate_cartridge_id(cartridge_example_data)
             create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
             if is_inside_cm(): os.remove('misc/antcopter.sqfs')
         except Exception as e:
@@ -140,6 +143,7 @@ def initialize_data():
             cartridge_example_file = open('misc/monky.sqfs','rb')
             cartridge_example_data = cartridge_example_file.read()
             cartridge_example_file.close()
+            monky_id = generate_cartridge_id(cartridge_example_data)
             create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
             if is_inside_cm(): os.remove('misc/monky.sqfs')
         except Exception as e:
@@ -149,6 +153,7 @@ def initialize_data():
         #     cartridge_example_file = open('misc/breakout.sqfs','rb')
         #     cartridge_example_data = cartridge_example_file.read()
         #     cartridge_example_file.close()
+        #     breakout_id = generate_cartridge_id(cartridge_example_data)
         #     create_cartridge(cartridge_example_data,msg_sender="0xd33Dfbfb0D0961284656e0225CFfB561090762D3")
         #     if is_inside_cm(): os.remove('misc/breakout.sqfs')
         # except Exception as e:
@@ -158,6 +163,7 @@ def initialize_data():
         #     cartridge_example_file = open('misc/2048.sqfs','rb')
         #     cartridge_example_data = cartridge_example_file.read()
         #     cartridge_example_file.close()
+        #     id_2048 = generate_cartridge_id(cartridge_example_data)
         #     create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
         #     if is_inside_cm(): os.remove('misc/2048.sqfs')
         # except Exception as e:
@@ -167,6 +173,7 @@ def initialize_data():
             cartridge_example_file = open('misc/tetrix.sqfs','rb')
             cartridge_example_data = cartridge_example_file.read()
             cartridge_example_file.close()
+            tetrix_id = generate_cartridge_id(cartridge_example_data)
             create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
             if is_inside_cm(): os.remove('misc/tetrix.sqfs')
         except Exception as e:
@@ -176,34 +183,31 @@ def initialize_data():
             cartridge_example_file = open('misc/particles.sqfs','rb')
             cartridge_example_data = cartridge_example_file.read()
             cartridge_example_file.close()
+            particles_id = generate_cartridge_id(cartridge_example_data)
             create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
             if is_inside_cm(): os.remove('misc/particles.sqfs')
         except Exception as e:
             LOGGER.warning(e)
 
-        # name = "simple"
-        # s = Rule(
-        #     id = sha256(str2bytes(name)).hexdigest(),
-        #     cartridge_id = "907ab088197625939b2137998b0efd59f30b3683093733c1ca4e0a62d638e09f",
-        #     name = name,
-        #     created_by = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        #     created_at = 1704078000,
-        #     args = "",
-        #     in_card = b'',
-        #     score_function = "score"
-        # )
-        # name = "apple 2 seconds"
-        # s = Rule(
-        #     id = sha256(str2bytes(name)).hexdigest(),
-        #     cartridge_id = "907ab088197625939b2137998b0efd59f30b3683093733c1ca4e0a62d638e09f",
-        #     name = name,
-        #     created_by = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        #     created_at = 0,
-        #     args = "",
-        #     in_card = b'',
-        #     score_function = "1000 * apples - 50*frame"
-        # )
+        try:
+            rule_conf_dict = {
+                "cartridge_id":hex2bytes(antcopter_id),
+                "name":"Only 5 to beat",
+                "description":"You'll have only 5 lives to beat the game. Each new level and each apple earn you points, but you loose point with time. Be fast and efficient! ",
+                "args":"5",
+                "in_card":b"",
+                "score_function":"score"
+            }
+            test_replay_file = open(CoreSettings.test_tape_path,'rb')
+            test_replay = test_replay_file.read()
+            test_replay_file.close()
 
+            verification_output = verify_log(antcopter_id,test_replay,rule_conf_dict["args"],rule_conf_dict["in_card"])
+            rule_conf = RuleData.parse_obj(rule_conf_dict)
+            insert_rule(rule_conf,verification_output.get("outcard"),msg_sender="0xCB76129e0eD325E1E5c17F3f363BC2e93a227eCF")
+        except Exception as e:
+            LOGGER.warning(e)
+            
 
 ###
 # Helpers
@@ -228,6 +232,11 @@ def create_default_rule(cartridge_id,outcard_raw,**metadata):
     return insert_rule(rule_conf,outcard_raw,**metadata)
     
 def insert_rule(rule_conf,outcard_raw,**metadata):
+    # str2bytes(metadata.msg_sender) + metadata.timestamp.to_bytes(32, byteorder='big')
+    rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))
+
+    if helpers.count(r for r in Rule if r.id == rule_id) > 0:
+        raise Exception(f"Rule already exists")
     # process outcard
     function_log = "no function"
     if rule_conf.score_function is not None and rule_conf.score_function != "":
@@ -252,10 +261,7 @@ def insert_rule(rule_conf,outcard_raw,**metadata):
         except Exception as e:
             raise Exception(f"Couldn't parse score: {e}")
         function_log = f"function {rule_conf.score_function}"
-
-    # str2bytes(metadata.msg_sender) + metadata.timestamp.to_bytes(32, byteorder='big')
-    rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))
-
+    
     LOGGER.info(f"Creating rule {rule_conf.name} (id={rule_id}) with {function_log}")
 
     new_rule = Rule(

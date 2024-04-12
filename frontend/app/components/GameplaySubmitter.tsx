@@ -8,7 +8,7 @@ import { gameplayContext } from "../play/GameplayContextProvider";
 import { useConnectWallet } from "@web3-onboard/react";
 
 
-function GameplaySubmitter({cartridge_id}:{cartridge_id:string}) {
+function GameplaySubmitter() {
     const {gameplay, setGameplayLog} = useContext(gameplayContext);
     const [{ wallet }, connect] = useConnectWallet();
 

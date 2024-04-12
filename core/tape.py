@@ -27,10 +27,11 @@ class VerifyPayload(BaseModel):
     rule_id:        Bytes32
     outcard_hash:   Bytes32
     tape:           Bytes
-    claimed_score:  UInt
+    claimed_score:  Int
 
 class GetRulesPayload(BaseModel):
-    cartridge_id:   str
+    cartridge_id:   Optional[str]
+    id:             Optional[str]
     name:           Optional[str]
     page:           Optional[int]
     page_size:      Optional[int]
@@ -243,8 +244,12 @@ def verify(payload: VerifyPayload) -> bool:
 
 @query()
 def rules(payload: GetRulesPayload) -> bool:
-    rules_query = Rule.select(lambda r: r.cartridge_id == payload.cartridge_id)
-
+    rules_query = Rule.select()
+    
+    if payload.id is not None:
+        rules_query = rules_query.filter(lambda r: payload.id == r.id)
+    if payload.cartridge_id is not None:
+        rules_query = rules_query.filter(lambda r: r.cartridge_id == payload.cartridge_id)
     if payload.name is not None:
         rules_query = rules_query.filter(lambda r: payload.name in r.name)
 

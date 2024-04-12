@@ -11,3 +11,6 @@ INDEX_INPUTS = True
 
 # Path dir to database
 STORAGE_PATH = 'data'
+
+# Case insensitivity for like queries
+CASE_INSENSITIVITY_LIKE = True
