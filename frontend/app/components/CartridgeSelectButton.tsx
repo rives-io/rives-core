@@ -2,8 +2,8 @@
 
 import React, { useContext, useEffect } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
-import { CartridgeInfo as Cartridge } from "../backend-libs/app/ifaces"
-import { cartridgeInfo } from '../backend-libs/app/lib';
+import { CartridgeInfo as Cartridge } from "../backend-libs/core/ifaces"
+import { cartridgeInfo } from '../backend-libs/core/lib';
 import { envClient } from '../utils/clientEnv';
 
 function CartridgeSelectButton({cartridge, index}:{cartridge:Cartridge, index:number}) {

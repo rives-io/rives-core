@@ -187,4 +187,8 @@ body {
   .gameplay-section {
     @apply gameplay-screen fixed z-10 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2;
   }
+
+  .vertical-option-tabs-header {
+    @apply flex flex-col space-y-1 bg-gray-400 bg-opacity-40 p-1;
+  }
 }

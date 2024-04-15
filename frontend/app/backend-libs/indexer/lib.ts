@@ -9,7 +9,7 @@ import {
     advanceInput, inspect, 
     AdvanceOutput, InspectOptions, AdvanceInputOptions, GraphqlOptions,
     EtherDepositOptions, ERC20DepositOptions, ERC721DepositOptions,
-    Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher, 
+    Report as CartesiReport, Notice as CartesiNotice, Voucher as CartesiVoucher, Input as CartesiInput,
     advanceDAppRelay, advanceERC20Deposit, advanceERC721Deposit, advanceEtherDeposit,
     queryNotice, queryReport, queryVoucher
 } from "cartesi-client";
@@ -20,7 +20,7 @@ import addFormats from "ajv-formats"
 
 import { 
     genericAdvanceInput, genericInspect, IOType, Models,
-    IOData, Output, Event, ContractCall, InspectReport, 
+    IOData, Input, Output, Event, ContractCall, InspectReport, 
     MutationOptions, QueryOptions, 
     CONVENTIONAL_TYPES, decodeToConventionalTypes
 } from "../cartesapp/utils"
@@ -67,7 +67,7 @@ export async function indexerQuery(
  * Models Decoders/Exporters
  */
 
-export function decodeToModel(data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport, modelName: string): any {
+export function decodeToModel(data: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport | CartesiInput, modelName: string): any {
     if (modelName == undefined)
         throw new Error("undefined model");
     if (CONVENTIONAL_TYPES.includes(modelName))
@@ -85,6 +85,10 @@ export function exportToModel(data: any, modelName: string): string {
     return exporter(data);
 }
 
+export class IndexerPayloadInput extends Input<ifaces.IndexerPayload> { constructor(data: CartesiInput) { super(models['IndexerPayload'],data); } }
+export function decodeToIndexerPayloadInput(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport | CartesiInput): IndexerPayloadInput {
+    return new IndexerPayloadInput(output as CartesiInput);
+}
 export class IndexerPayload extends IOData<ifaces.IndexerPayload> { constructor(data: ifaces.IndexerPayload, validate: boolean = true) { super(models['IndexerPayload'],data,validate); } }
 export function exportToIndexerPayload(data: ifaces.IndexerPayload): string {
     const dataToExport: IndexerPayload = new IndexerPayload(data);
@@ -92,7 +96,7 @@ export function exportToIndexerPayload(data: ifaces.IndexerPayload): string {
 }
 
 export class IndexerOutput extends Output<ifaces.IndexerOutput> { constructor(output: CartesiReport | InspectReport) { super(models['IndexerOutput'],output); } }
-export function decodeToIndexerOutput(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport): IndexerOutput {
+export function decodeToIndexerOutput(output: CartesiReport | CartesiNotice | CartesiVoucher | InspectReport | CartesiInput): IndexerOutput {
     return new IndexerOutput(output as CartesiReport);
 }
 
@@ -105,15 +109,16 @@ export const models: Models = {
     'IndexerPayload': {
         ioType:IOType.queryPayload,
         abiTypes:[],
-        params:['tags', 'output_type', 'msg_sender', 'timestamp_gte', 'timestamp_lte', 'module', 'input_index'],
+        params:['tags', 'type', 'msg_sender', 'timestamp_gte', 'timestamp_lte', 'module', 'input_index', 'order_by', 'order_dir', 'page', 'page_size'],
+        decoder: decodeToIndexerPayloadInput,
         exporter: exportToIndexerPayload,
-        validator: ajv.compile<ifaces.IndexerPayload>(JSON.parse('{"title": "IndexerPayload", "type": "object", "properties": {"tags": {"type": "array", "items": {"type": "string"}}, "output_type": {"type": "string"}, "msg_sender": {"type": "string"}, "timestamp_gte": {"type": "integer"}, "timestamp_lte": {"type": "integer"}, "module": {"type": "string"}, "input_index": {"type": "integer"}}}'))
+        validator: ajv.compile<ifaces.IndexerPayload>(JSON.parse('{"title": "IndexerPayload", "type": "object", "properties": {"tags": {"type": "array", "items": {"type": "string"}}, "type": {"type": "string"}, "msg_sender": {"type": "string"}, "timestamp_gte": {"type": "integer"}, "timestamp_lte": {"type": "integer"}, "module": {"type": "string"}, "input_index": {"type": "integer"}, "order_by": {"type": "string"}, "order_dir": {"type": "string"}, "page": {"type": "integer"}, "page_size": {"type": "integer"}}}'))
     },
     'IndexerOutput': {
         ioType:IOType.report,
         abiTypes:[],
-        params:['data'],
+        params:['data', 'total', 'page'],
         decoder: decodeToIndexerOutput,
-        validator: ajv.compile<ifaces.IndexerOutput>(JSON.parse('{"title": "IndexerOutput", "type": "object", "properties": {"data": {"type": "array", "items": {"$ref": "#/definitions/OutputIndex"}}}, "required": ["data"], "definitions": {"OutputIndex": {"title": "OutputIndex", "type": "object", "properties": {"output_type": {"type": "string"}, "module": {"type": "string"}, "class_name": {"type": "string"}, "input_index": {"type": "integer"}, "output_index": {"type": "integer"}}, "required": ["output_type", "module", "class_name", "input_index", "output_index"]}}}'))
+        validator: ajv.compile<ifaces.IndexerOutput>(JSON.parse('{"title": "IndexerOutput", "type": "object", "properties": {"data": {"type": "array", "items": {"$ref": "#/definitions/OutputIndex"}}, "total": {"type": "integer"}, "page": {"type": "integer"}}, "required": ["data", "total", "page"], "definitions": {"OutputIndex": {"title": "OutputIndex", "type": "object", "properties": {"type": {"type": "string"}, "module": {"type": "string"}, "class_name": {"type": "string"}, "input_index": {"type": "integer"}, "output_index": {"type": "integer"}}, "required": ["type", "module", "class_name", "input_index"]}}}'))
     },
     };

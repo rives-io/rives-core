@@ -17,12 +17,13 @@ import CodeIcon from '@mui/icons-material/Code';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
 import QRCode from "react-qr-code";
+import Image from "next/image";
 
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
 import Loader from "../components/Loader";
-import { ReplayScore, getOutputs, replay, scoreboardReplay } from '../backend-libs/app/lib';
-import { Replay, ScoreboardReplayPayload } from '../backend-libs/app/ifaces';
+import { VerificationOutput, getOutputs, verify, VerifyPayload as VerifyPayloadInput } from '../backend-libs/core/lib';
+import { VerifyPayload } from '../backend-libs/core/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
@@ -30,15 +31,13 @@ import { envClient } from "../utils/clientEnv";
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from "@mui/icons-material/Close";
 import { sha256 } from "js-sha256";
-import nftAbiFile from "../contracts/RivesScoreNFT.sol/RivesScoreNFT.json"
-
-const nftAbi: any = nftAbiFile;
+// @ts-ignore
+import GIFEncoder from "gif-encoder-2";
 
 enum STATUS {
     WAITING,
     SUBMIT,
     SUBMITING,
-    SIGN,
     FINISHED
 }
 
@@ -68,6 +67,52 @@ function logFeedback(logStatus:LOG_STATUS, setLogStatus:Function) {
 }
 
 
+function generateGif(frames: string[],width:number,height:number): Promise<string> {
+
+    const encoder = new GIFEncoder(width,height,'octree');
+    encoder.setDelay(200);
+    encoder.start();
+    
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    let idx = 0;
+    const addFrames = new Array<Promise<void>>();
+    
+    for (const frame of frames) {
+        
+        const p: Promise<void> = new Promise(resolveLoad => {
+            const img = document.createElement("img");
+            img.width = width;
+            img.height = height;
+            img.onload = () => {
+                ctx?.drawImage(img,0,0,img.width,img.height);
+                encoder.addFrame(ctx);
+                resolveLoad();
+            };
+            img.src = frame;
+        })
+        addFrames.push(p);
+        idx++;
+    }
+    return Promise.all(addFrames).then(() => {
+        encoder
+        encoder.finish();
+        const buffer = encoder.out.getData();
+        if (buffer) {
+            var binary = '';
+            var len = buffer.byteLength;
+            for (var i = 0; i < len; i++) {
+                binary += String.fromCharCode( buffer[ i ] );
+            }
+            return window.btoa( binary );
+        }
+        return "";
+    });
+    
+}
+
 function CartridgeInfo() {
     const {selectedCartridge, playCartridge, setGameplay, setReplay} = useContext(selectedCartridgeContext);
     const fileRef = useRef<HTMLInputElement | null>(null);
@@ -76,12 +121,7 @@ function CartridgeInfo() {
     const [submitLogStatus, setSubmitLogStatus] = useState({status: STATUS.WAITING} as LOG_STATUS);
     const [reloadScoreboardCount, setReloadScoreboardCount] = useState(0);
 
-    const [mintUrl, setMintUrl] = useState("/mint/1");
-    const [userAlias, setUserAlias] = useState('');
-    const [bypassSubmitModal, setBypassSubmitModal] = useState(false);
-    const [operator,setOperator] = useState<String>();
-    const [signerAddress,setSignerAddress] = useState<String>();
-
+    const [tapeUrl, setTapeUrl] = useState("/tapes/0");
     // useEffect(() => {
     //     // auto reload scoreboard only if
     //     // gameplay log sent is valid and the selected cartridge is the same of the gameplay sent
@@ -89,28 +129,22 @@ function CartridgeInfo() {
     //         setReloadScoreboardCount(reloadScoreboardCount+1);
     //     }
     // }, [submitLogStatus])
-
+    const [gifImage, setGifImage] = useState<string>("");
+    
     useEffect(() => {
-
-        console.log("gameplayLog",selectedCartridge?.gameplayLog?.length);
+        if (selectedCartridge?.lastFrames && selectedCartridge?.width && selectedCartridge?.height) {
+            if (selectedCartridge?.lastFrames) {
+                generateGif(selectedCartridge.lastFrames,selectedCartridge.width,selectedCartridge.height).then((gif) => {
+                    setGifImage(gif);
+                })
+                
+            }
+        }
+    }, [selectedCartridge?.outhash,selectedCartridge?.width,selectedCartridge?.height,selectedCartridge?.lastFrames])
+    
+    useEffect(() => {
         if (selectedCartridge?.gameplayLog) submitLog();
     }, [selectedCartridge?.gameplayLog])
-
-    useEffect(() => {
-        if (!wallet) {
-          return;
-        }
-        const curSigner = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
-        const curContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,curSigner);
-        curContract.provider.getCode(curContract.address).then((code) => {
-          if (code == '0x') {
-              console.log("Couldn't get nft contract")
-              return;
-          }
-          curSigner.getAddress().then((a: String) => setSignerAddress(a.toLowerCase()));
-          curContract.operator().then((o: String) => setOperator(o.toLowerCase()));
-        });
-    },[wallet]);
 
     if (!selectedCartridge) return <></>;
 
@@ -131,14 +165,11 @@ function CartridgeInfo() {
             await connect();
         }
 
-        if (bypassSubmitModal)
-            submitLogWithAlias(userAlias);
-        else
-            setSubmitLogStatus({status: STATUS.SUBMIT});
-            //setShowSubmitModal(true);
+        setSubmitLogStatus({status: STATUS.SUBMIT});
+        //setShowSubmitModal(true);
     }
 
-    async function submitLogWithAlias(userAliasToSubmit:string = "") {
+    async function verifyLog() {
         // replay({car});
         if (!selectedCartridge || !selectedCartridge.gameplayLog){
             return;
@@ -149,16 +180,8 @@ function CartridgeInfo() {
         if (!wallet) {
             return;
         }
-        setUserAlias(userAliasToSubmit);
+
         const signer = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
-        const inputData: Replay = {
-            user_alias:userAliasToSubmit,
-            cartridge_id:"0x"+selectedCartridge.id,
-            outcard_hash: '0x' + selectedCartridge.outhash,
-            args: selectedCartridge.args || "",
-            in_card: selectedCartridge.inCard ? ethers.utils.hexlify(selectedCartridge.inCard) : "0x",
-            log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
-        }
         console.log("Sending Replay:")
         if (decoder.decode(selectedCartridge.outcard.slice(0,4)) == 'JSON') {
             console.log("Replay Outcard",JSON.parse(decoder.decode(selectedCartridge.outcard).substring(4)))
@@ -172,17 +195,13 @@ function CartridgeInfo() {
         try {
             setSubmitLogStatus({status: STATUS.SUBMITING});
             let receipt: ContractReceipt;
-            if (selectedCartridge.id != envClient.SCOREBOARD_CARTRIDGE_ID) {
-                receipt = await replay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
-            } else {
-                const inputData: ScoreboardReplayPayload = {
-                    user_alias:userAliasToSubmit,
-                    scoreboard_id: '0x' + envClient.SCOREBOARD_ID,
-                    outcard_hash: '0x' + selectedCartridge.outhash,
-                    log: ethers.utils.hexlify(selectedCartridge.gameplayLog)
-                }
-                receipt = await scoreboardReplay(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+            const inputData: VerifyPayload = {
+                rule_id: '0x' + selectedCartridge.rule,
+                outcard_hash: '0x' + selectedCartridge.outhash,
+                tape: ethers.utils.hexlify(selectedCartridge.gameplayLog),
+                claimed_score: selectedCartridge.score || 0
             }
+            receipt = await verify(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
 
             if (receipt == undefined || receipt.events == undefined)
                 throw new Error("Couldn't send transaction");
@@ -192,26 +211,17 @@ function CartridgeInfo() {
             if (inputIndex == undefined)
                 throw new Error("Couldn't get input index");
 
-            let signature = "";
-            const nftContract = new ethers.Contract(envClient.NFT_ADDR,nftAbi.abi,signer);
-
-            const code = await nftContract.provider.getCode(nftContract.address);
-            if (code == '0x') {
-                setSubmitLogStatus({status: STATUS.WAITING, error: "Couldn't get nft contract"});
-            } else if ((await signer.getAddress()).toLowerCase() == (await nftContract.operator()).toLowerCase()) {
-                const gameplayHash = sha256(selectedCartridge.gameplayLog);
-                setSubmitLogStatus({status: STATUS.SIGN});
-                const signedHash = await signer.signMessage(ethers.utils.arrayify("0x"+gameplayHash));
-                signature = `?signature=${signedHash}`;
-            }
-
-            setMintUrl(`/mint/${Number(inputIndex._hex)}${signature}`)
+            setTapeUrl(`/tapes/${getTapeId(selectedCartridge.gameplayLog)}`);
             // setShowNftLinkModal(true);
             setSubmitLogStatus({status: STATUS.FINISHED});
 
         } catch (error) {
             setSubmitLogStatus({...submitLogStatus, error: (error as Error).message});
         }
+    }
+
+    function getTapeId(log: Uint8Array): String {
+        return sha256(log);
     }
 
     async function uploadLog() {
@@ -235,40 +245,41 @@ function CartridgeInfo() {
         reader.onload = async (readerEvent) => {
             const data = readerEvent.target?.result;
             if (data) {
-                setGameplay(new Uint8Array(data as ArrayBuffer), undefined);
+                setGameplay(new Uint8Array(data as ArrayBuffer), undefined, undefined, undefined, undefined, undefined, undefined);
                 e.target.value = null;
             }
         };
         reader.readAsArrayBuffer(e.target.files[0])
     }
 
-    async function prepareReplay(replayScore: ReplayScore) {
+    async function prepareReplay(output: VerificationOutput) {
         if (selectedCartridge) {
-            const replayLog: Array<Uint8Array> = await getOutputs(
+
+            const replayLogs:Array<VerifyPayloadInput> = await getOutputs(
                 {
-                    tags: ["replay", selectedCartridge?.id],
-                    timestamp_gte: replayScore.timestamp.toNumber(),
-                    timestamp_lte: replayScore.timestamp.toNumber(),
-                    msg_sender: replayScore.user_address,
-                    output_type: 'report'
+                    tags: ["tape",output.tape_hash.slice(2)],
+                    type: 'input'
                 },
                 {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
             );
-            if (replayLog.length > 0) {
-                setReplay(replayLog[0]);
+            if (replayLogs.length > 0) {
+
+                const tapePayload:VerifyPayloadInput = replayLogs[0];
+                if (ethers.utils.isHexString(tapePayload.tape) && ethers.utils.isHexString(tapePayload.rule_id))
+                    setReplay(tapePayload.rule_id.slice(2), ethers.utils.arrayify(tapePayload.tape), tapePayload._msgSender);
             }
         }
     }
 
 
     function submissionHandler() {
-        const isOperator = operator == signerAddress;
+
         if (submitLogStatus.status === STATUS.WAITING) return <></>;
 
         let modalBody;
         switch (submitLogStatus.status) {
             case STATUS.SUBMIT:
-                modalBody = <SubmitModal cancelFunction={setSubmitLogStatus} acceptFunction={submitLogWithAlias} bypassModal={setBypassSubmitModal} />;
+                modalBody = <SubmitModal cancelFunction={setSubmitLogStatus} acceptFunction={verifyLog} gifImage={gifImage} />;
                 break;
             case STATUS.SUBMITING:
                 if (submitLogStatus.error) {
@@ -278,12 +289,8 @@ function CartridgeInfo() {
                 }
 
                 break;
-            case STATUS.SIGN:
-                modalBody = <div className="p-6 flex justify-center"><div className='w-12 h-12 border-2 rounded-full border-current border-r-transparent animate-spin'></div></div>;
-                break;
-
             case STATUS.FINISHED:
-                modalBody = <NftLinkModal url={mintUrl} />;
+                modalBody = <FinishedSubmissionModal url={tapeUrl} gifImage={gifImage} />;
                 break;
         }
 
@@ -305,17 +312,13 @@ function CartridgeInfo() {
                             </button>
                         </div>
                         <div className="flex space-x-8 justify-center items-end">
-                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status < STATUS.SIGN? "bg-black text-white":""}`}>
+                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status < STATUS.FINISHED? "bg-black text-white":""}`}>
                                 <span className="text-lg">1</span>
                                 <span>Submit</span>
                             </div>
-                            {isOperator ? <div className={`flex flex-col items-center p-2 ${submitLogStatus.status == STATUS.SIGN? "bg-black text-white":""}`}>
+                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status > STATUS.SUBMITING? "bg-black text-white":""}`}>
                                 <span className="text-lg">2</span>
-                                <span>Sign</span>
-                            </div> : <></>}
-                            <div className={`flex flex-col items-center p-2 ${submitLogStatus.status > STATUS.SIGN? "bg-black text-white":""}`}>
-                                <span className="text-lg">{isOperator ? 3 : 2 }</span>
-                                <span>Check NFT</span>
+                                <span>Share</span>
                             </div>
 
                         </div>
@@ -435,7 +438,7 @@ function CartridgeInfo() {
                             <div className="w-full flex">
                                 <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
                             </div>
-                            <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} replay_function={prepareReplay}/>
+                            <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} rule={selectedCartridge.rule} replay_function={prepareReplay}/>
 
                         </Tab.Panel>
 
@@ -486,12 +489,25 @@ function CartridgeInfo() {
 }
 
 
-function NftLinkModal({url}:{url:String}) {
+function FinishedSubmissionModal({url,gifImage}:{url:String,gifImage:string}) {
+    const {selectedCartridge} = useContext(selectedCartridgeContext);
     return (
         <div>
             {/*body*/}
             <div className="relative p-4 flex justify-center items-center">
-                <button className="place-self-center" title='Nft Score Screenshot' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
+                <div className={`relative my-6 px-6 flex-auto h-full`}>
+                    {/* <div className="grid grid-cols-3 gap-4">
+                        {selectedCartridge?.lastFrames?.map((frameImage: string, index: number) => {
+                            return (
+                                <div key={index}>
+                                    <Image className="border border-black" width={75} height={75} src={frameImage} alt={"Frame Not found"}/>
+                                </div>
+                            );
+                        })}
+                    </div> */}
+                    <Image className="border border-black" width={200} height={200}  src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
+                </div>
+                <button className="place-self-center" title='Tape' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
                     <div style={{ height: "auto", margin: "0 auto", maxWidth: 200, width: "100%" }} >
                         <QRCode
                         size={200}
@@ -504,31 +520,17 @@ function NftLinkModal({url}:{url:String}) {
             </div>
         </div>
     );
-  }
+}
 
-function SubmitModal({cancelFunction,acceptFunction,bypassModal}:{cancelFunction(s:{ status: STATUS }):void,acceptFunction(s:string):void,bypassModal(s:boolean):void}) {
-    const [alias, setAlias] = useState('');
-    const [bypass, setBypass] = useState(false);
-
+function SubmitModal({cancelFunction,acceptFunction,gifImage}:{cancelFunction(s:{ status: STATUS }):void,acceptFunction():void,gifImage:string}) {
+    
     return (
             <div>
                   {/*body*/}
-                    <fieldset className={`relative my-6 px-6 flex-auto h-full`}>
-                        <div >
-                            <legend>
-                                user alias
-                            </legend>
-                            <input type="text" maxLength={12} value={alias} onChange={e => setAlias(e.target.value.slice(0, 12))} />
-                        </div>
-                        <div className="mt-2">
-                            <input id="bypass-checkbox" type="checkbox" checked={bypass} onChange={e => setBypass(e.target.checked)} >
-                            </input>
-                            <label htmlFor="bypass-checkbox" className="ms-2">
-                                remember my alias
-                            </label>
-                        </div>
-                    </fieldset>
-                    <div className="flex items-center justify-end pb-2 pr-6">
+                    <div className={`flex justify-center my-6 px-6 flex-auto h-full`}>
+                        <Image className="border border-black" width={200} height={200}  src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
+                    </div>
+                    <div className="flex justify-end pb-2 pr-6">
                         <button
                         className={`bg-red-500 text-white font-bold uppercase text-sm px-6 py-2 border border-red-500 hover:text-red-500 hover:bg-transparent`}
                         type="button"
@@ -539,7 +541,7 @@ function SubmitModal({cancelFunction,acceptFunction,bypassModal}:{cancelFunction
                         <button
                         className={`bg-emerald-500 text-white font-bold uppercase text-sm px-6 py-2 ml-1 border border-emerald-500 hover:text-emerald-500 hover:bg-transparent`}
                         type="button"
-                        onClick={() => {acceptFunction(alias);bypassModal(bypass);}}
+                        onClick={() => {acceptFunction()}}
                         >
                             Submit
                         </button>

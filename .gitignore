@@ -1,8 +1,10 @@
 .sunodo
 .venv
 __pycache__
-cartridges
 cache
 data
-frontend/app/contracts
-!frontend/app/contracts/RivesScoreNFT.sol
+.env
+.env.*
+.vscode
+rivemu
+.machine_config.json
