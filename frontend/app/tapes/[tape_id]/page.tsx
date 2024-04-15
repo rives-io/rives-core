@@ -72,18 +72,6 @@ const getRule = async (cartridgeId:string,ruleId:string):Promise<RuleInfo> => {
 
 
 export default async function Tape({ params }: { params: { tape_id: string } }) {
-    
-    // // state managing
-    // const [scoreInfo, setScoreInfo] = useState<VerificationOutput|null>(null)
-    // const [cartridgeData, setCartridgeData] = useState<Uint8Array|null>(null)
-    // const [tape, setTape] = useState<Uint8Array|null>(null)
-    // const [error, setError] = useState<String|null>(null);
-
-    // // riv state
-    // const [currScore, setCurrScore] = useState(0);
-    // const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
-
-    
     let errorMsg:string|undefined = undefined;
     let scoreInfo:VerificationOutput|undefined = undefined;
     let cartridgeData:Uint8Array|undefined = undefined;
@@ -93,10 +81,13 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
     let rule:RuleInfo|undefined = undefined;
     
     try {
-        scoreInfo = await getScoreInfo(params.tape_id);
+        const scorePromise = getScoreInfo(params.tape_id);
+        const tapePayloadPromise = getTapePayload(params.tape_id);
+        
+        scoreInfo = await scorePromise;
         cartridgeData = await getCartridgeData(scoreInfo.cartridge_id);
         
-        tapePayload = await getTapePayload(params.tape_id);
+        tapePayload = await tapePayloadPromise;
         const tapeData = tapePayload.tape;
         if (typeof tapeData != "string" || !ethers.utils.isHexString(tapeData))
             throw new Error("Corrupted tape");
@@ -118,22 +109,6 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
         console.log("error",error)
         errorMsg = (error as Error).message;
     }
-
-    // useEffect(() => {
-    //     getScoreInfo(params.tape_id)
-    //     .then((score) => {
-    //         setScoreInfo(score);
-    //         getCartridgeData(score.cartridge_id)
-    //         .then(setCartridgeData)
-    //         .catch((error) => setError((error as Error).message));
-    //     })
-    //     .catch((error) => setError((error as Error).message));
-    // }, [])
-
-    // useEffect(() => {
-    //     getTape(params.tape_id).then(setTape);
-    // }, [cartridgeData])
-
 
     // BEGIN: error and feedback handling
     if (errorMsg) {
