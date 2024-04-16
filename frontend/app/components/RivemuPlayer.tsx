@@ -38,6 +38,8 @@ function RivemuPlayer(
     // rivemu state
     const [currScore, setCurrScore] = useState<number>();
     const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
+    const [currProgress, setCurrProgress] = useState<number>();
+    const [totalFrames, setTotalFrames] = useState<number>();
 
     // signer
     const [signerAddress,setSignerAddress] = useState<String>();
@@ -144,6 +146,7 @@ function RivemuPlayer(
         if (scoreFunction) {
             setCurrScore(0);
         }
+        setCurrProgress(0);
 
         // @ts-ignore:next-line
         const cartridgeBuf = Module._malloc(cartridgeData.length);
@@ -219,21 +222,26 @@ function RivemuPlayer(
         window.rivemu_on_frame = function (
             outcard: ArrayBuffer,
             frame: number,
+            cycles: number,
             fps: number,
-            mips: number,
+            cpu_cost: number,
+            cpu_speed: number,
             cpu_usage: number,
-            cycles: number
+            cpu_quota: number
         ) {
             if (scoreFunctionEvaluator && decoder.decode(outcard.slice(0,4)) == 'JSON') {
                 const outcard_str = decoder.decode(outcard);
                 const outcard_json = JSON.parse(outcard_str.substring(4));
                 setCurrScore(scoreFunctionEvaluator.evaluate(outcard_json));
             }
+            if (isTape && totalFrames && totalFrames != 0)
+                setCurrProgress(100 * Math.round(frame/totalFrames));
         };
 
         // @ts-ignore:next-line
         window.rivemu_on_begin = function (width: number, height: number, target_fps: number, total_frames: number) {
             console.log("rivemu_on_begin");
+            if (isTape && total_frames) setTotalFrames(total_frames);
         };
 
         // @ts-ignore:next-line
@@ -315,6 +323,11 @@ function RivemuPlayer(
                     <button className="btn" onClick={() => {alert("submit tape")}} disabled={signerAddress == undefined || playing.isPlaying || playing.playCounter === 0}>
                         <span>Verify Tape {signerAddress ? "" : " (wallet not connected)"}</span><br/>
                     </button>
+                : <></>}
+                {isTape ? 
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                    <div className="bg-blue-600 h-2.5 rounded-full" style={{width: `${currProgress}%`}}></div>
+                </div>
                 : <></>}
             </section>
             <Script src="/rivemu.js?" strategy="lazyOnload" />

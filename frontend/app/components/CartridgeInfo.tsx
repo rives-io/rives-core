@@ -490,21 +490,11 @@ function CartridgeInfo() {
 
 
 function FinishedSubmissionModal({url,gifImage}:{url:String,gifImage:string}) {
-    const {selectedCartridge} = useContext(selectedCartridgeContext);
     return (
         <div>
             {/*body*/}
             <div className="relative p-4 flex justify-center items-center">
                 <div className={`relative my-6 px-6 flex-auto h-full`}>
-                    {/* <div className="grid grid-cols-3 gap-4">
-                        {selectedCartridge?.lastFrames?.map((frameImage: string, index: number) => {
-                            return (
-                                <div key={index}>
-                                    <Image className="border border-black" width={75} height={75} src={frameImage} alt={"Frame Not found"}/>
-                                </div>
-                            );
-                        })}
-                    </div> */}
                     <Image className="border border-black" width={200} height={200}  src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
                 </div>
                 <button className="place-self-center" title='Tape' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>

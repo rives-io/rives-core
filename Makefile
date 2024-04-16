@@ -4,8 +4,7 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
-RIV_VERSION := 0.3-rc4
-KERNEL_VERSION := 0.19.1-riv1
+RIV_VERSION := 0.3-rc7
 
 define setup_venv =
 @if [ ! -d .venv ]; then python3 -m venv .venv; fi
@@ -82,18 +81,10 @@ sunodo-sdk:
 	docker build --tag sunodo/sdk:0.4.0-riv --target sunodo-riv-sdk .
 
 rivemu: rivemu/rivemu
-rivemu/rivemu: rivemu/kernel/linux.bin rivemu/rivos/rivos.ext2
+rivemu/rivemu: #rivemu/kernel/linux.bin rivemu/rivos/rivos.ext2
 	mkdir -p rivemu
 	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(shell dpkg --print-architecture) -o rivemu/rivemu
 	chmod +x rivemu/rivemu
-
-rivemu/kernel/linux.bin:
-	mkdir -p rivemu/kernel
-	curl -s -L https://github.com/rives-io/kernel/releases/download/v${KERNEL_VERSION}/linux-6.5.9-ctsi-1-v${KERNEL_VERSION}.bin -o rivemu/kernel/linux.bin
-
-rivemu/rivos/rivos.ext2:
-	mkdir -p rivemu/rivos
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivos.ext2 -o rivemu/rivos/rivos.ext2
 
 build-release:
 	docker build -f Dockerfile --target node .sunodo/ -t ghcr.io/rives/rives-core:$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(git rev-parse --short HEAD)

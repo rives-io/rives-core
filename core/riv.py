@@ -142,11 +142,13 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
     run_args.append(rivemu_path)
     run_args.append(f"-cartridge={absolute_cartridge_path}")
     run_args.append(f"-verify={log_temp.name}")
+    run_args.append(f"-no-window")
+    run_args.append(f"-no-yield")
+    run_args.append(f"-quiet")
     run_args.append(f"-save-outcard={outcard_temp.name}")
     run_args.append(f"-save-outhash={outhash_temp.name}")
     if get_outhist:
         run_args.append(f"-save-outhist={outhist_temp.name}")
-    run_args.append(f"-speed=1000000")
     if get_screenshot:
         run_args.append(f"-save-screenshot={screenshot_temp.name}")
     if in_card is not None and len(in_card):
