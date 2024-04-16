@@ -235,7 +235,6 @@ function RivemuPlayer(
                 setCurrScore(scoreFunctionEvaluator.evaluate(outcard_json));
             }
             if (isTape && totalFrames && totalFrames != 0){
-                console.log(frame, totalFrames)
                 setCurrProgress(Math.round(100 * frame/totalFrames));
             }
         };
