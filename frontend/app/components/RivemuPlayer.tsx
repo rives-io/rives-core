@@ -234,8 +234,10 @@ function RivemuPlayer(
                 const outcard_json = JSON.parse(outcard_str.substring(4));
                 setCurrScore(scoreFunctionEvaluator.evaluate(outcard_json));
             }
-            if (isTape && totalFrames && totalFrames != 0)
-                setCurrProgress(100 * Math.round(frame/totalFrames));
+            if (isTape && totalFrames && totalFrames != 0){
+                console.log(frame, totalFrames)
+                setCurrProgress(Math.round(100 * frame/totalFrames));
+            }
         };
 
         // @ts-ignore:next-line
