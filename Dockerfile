@@ -4,9 +4,9 @@ ARG SUNODO_SDK_RIV_VERSION=0.4.0-riv
 ARG MACHINE_EMULATOR_TOOLS_VERSION=0.14.1
 ARG OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 ARG KERNEL_VERSION=0.19.1-riv1
-ARG RIV_VERSION=0.3-rc4
-ARG ROLLUPS_NODE_VERSION=0.5.1
-ARG CM_CALLER_VERSION=0.0.1
+ARG RIV_VERSION=0.3-rc7
+ARG ROLLUPS_NODE_VERSION=1.4.0
+ARG CM_CALLER_VERSION=0.1.0
 ARG NONODO_VERSION=0.0.1
 
 FROM sunodo/sdk:${SUNODO_SDK_VERSION} as sunodo-riv-sdk
@@ -18,7 +18,7 @@ RUN curl -s -L https://github.com/rives-io/kernel/releases/download/v${KERNEL_VE
 
 
 # make build-release
-FROM sunodo/rollups-node:${ROLLUPS_NODE_VERSION} as node
+FROM cartesi/rollups-node:${ROLLUPS_NODE_VERSION} as node
 
 COPY ./image_0 /tmp/machine-snapshots/0
 COPY ./image /tmp/machine-snapshots/0_0
@@ -27,7 +27,7 @@ ARG NONODO_VERSION
 RUN curl -s -L https://github.com/lynoferraz/nonodo/releases/download/v${NONODO_VERSION}/nonodo-v${NONODO_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
     tar xzf - -C /usr/local/bin nonodo
 
-    ARG CM_CALLER_VERSION
+ARG CM_CALLER_VERSION
 RUN curl -s -L https://github.com/lynoferraz/cm-caller/releases/download/v${CM_CALLER_VERSION}/cm-caller-v${CM_CALLER_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
     tar xzf - -C /usr/local/bin cm-caller
 

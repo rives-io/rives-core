@@ -142,13 +142,17 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
     run_args.append(rivemu_path)
     run_args.append(f"-cartridge={absolute_cartridge_path}")
     run_args.append(f"-verify={log_temp.name}")
+    run_args.append(f"-quiet")
     run_args.append(f"-save-outcard={outcard_temp.name}")
     run_args.append(f"-save-outhash={outhash_temp.name}")
     if get_outhist:
         run_args.append(f"-save-outhist={outhist_temp.name}")
-    run_args.append(f"-speed=1000000")
     if get_screenshot:
         run_args.append(f"-save-screenshot={screenshot_temp.name}")
+        run_args.append(f"-speed=10000")
+    else:
+        run_args.append(f"-no-window")
+        run_args.append(f"-no-yield")
     if in_card is not None and len(in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     if frame is not None:
@@ -158,7 +162,7 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
     if riv_args is not None and len(riv_args) > 0:
         run_args.append(f"-args='{riv_args}'")
 
-    result = subprocess.run(run_args, cwd=cwd)
+    result = subprocess.run(run_args)
     if result.returncode != 0:
         log_temp.close()
         outcard_temp.close()

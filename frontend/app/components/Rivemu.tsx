@@ -346,10 +346,12 @@ function Rivemu() {
         window.rivemu_on_frame = function (
             outcard: ArrayBuffer,
             frame: number,
+            cycles: number,
             fps: number,
-            mips: number,
+            cpu_cost: number,
+            cpu_speed: number,
             cpu_usage: number,
-            cycles: number
+            cpu_quota: number
         ) {
             if (decoder.decode(outcard.slice(0,4)) == 'JSON') {
                 const outcard_str = decoder.decode(outcard);

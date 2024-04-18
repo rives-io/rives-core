@@ -205,7 +205,7 @@ def verify(payload: VerifyPayload) -> bool:
 
         LOGGER.info(f"Expected Score: {payload.claimed_score}")
         LOGGER.info(f"Computed Score: {score}")
-        LOGGER.info(f"Valid Outcard Hash : {score_valid}")
+        LOGGER.info(f"Valid Score : {score_valid}")
 
         if not score_valid:
             msg = f"Score doesn't match"
