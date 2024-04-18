@@ -5,7 +5,7 @@ import { RuleInfo } from '@/app/backend-libs/core/ifaces';
 import { envClient } from '@/app/utils/clientEnv';
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from '@/app/components/RivemuPlayer';
-
+import { getTapeGif } from "@/app/utils/util";
 
 const getScoreInfo = async (tapeId:string):Promise<VerificationOutput> => {
     const scores:Array<VerificationOutput> = await getOutputs(
@@ -70,6 +70,18 @@ const getRule = async (cartridgeId:string,ruleId:string):Promise<RuleInfo> => {
     return data.data[0];
 }
 
+
+// or Dynamic metadata
+export async function generateMetadata({ params }: { params: { tape_id: string } }) {
+    const gifImage = await getTapeGif(params.tape_id);
+
+    return {
+        openGraph: {
+          images: ["data:image/gif;base64,"+gifImage],
+        },
+    }
+
+}
 
 export default async function Tape({ params }: { params: { tape_id: string } }) {
     let errorMsg:string|undefined = undefined;

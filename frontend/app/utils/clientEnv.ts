@@ -14,6 +14,10 @@ export const envClient = envsafe({
     input: process.env.NEXT_PUBLIC_NETWORK_CHAIN_ID,
     desc: "Network ChainId (in hex) where the Cartesi DApp was deployed."
   }),
+  GIF_SERVER_URL: url({
+    input: process.env.NEXT_PUBLIC_GIF_SERVER_URL,
+    desc: "GIF Server URL."
+  }),
   CONTESTS: str({
     input: process.env.NEXT_PUBLIC_CONTESTS,
     desc: "Contests json list."
