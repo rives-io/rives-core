@@ -21,6 +21,8 @@ export async function getTapeGif(tape_id:string):Promise<string> {
 }
 
 export async function getTapesGifs(tapes:Array<string>):Promise<Array<string>> {
+    if (tapes.length == 0) return [];
+    
     const response = await fetch(`${envClient.GIF_SERVER_URL}/gifs`,
         {
             method: "POST",
