@@ -3,7 +3,7 @@ from hashlib import sha256
 
 from cartesapp.storage import Storage
 from cartesapp.setup import setup
-from cartesapp.utils import hex2bytes
+from cartesapp.utils import hex2bytes, str2bytes
 
 ###
 # Settings
@@ -12,7 +12,7 @@ class CoreSettings:
     cartridges_path = "cartridges"
     scoreboard_ttl = 7776000 # 90 days
     test_tape_path = 'misc/test.rivlog'
-    version = ''
+    version = '0'
     rivemu_path = os.getenv('RIVEMU_PATH')
     operator_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     insert_genesis_cartridges = True
@@ -29,7 +29,7 @@ def setup_settings():
 # Helpers
 
 def get_version() -> bytes:
-    version = bytes.fromhex(CoreSettings.version)
+    version = str2bytes(CoreSettings.version)
     if len(version) > 32: version = version[-32:]
     return b'\0'*(32-len(version)) + version
 

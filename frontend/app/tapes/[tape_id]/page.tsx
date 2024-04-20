@@ -20,7 +20,7 @@ const getScoreInfo = async (tapeId:string):Promise<VerificationOutput> => {
 }
 
 const getCartridgeData = async (cartridgeId:string):Promise<Uint8Array> => {
-    const formatedCartridgeId = cartridgeId.slice(2);
+    const formatedCartridgeId = cartridgeId;
     const data = await cartridge(
         {
             id:formatedCartridgeId
@@ -51,10 +51,9 @@ const getTapePayload = async (tapeId:string):Promise<VerifyPayload> => {
     return replayLogs[0];
 }
 
-const getRule = async (cartridgeId:string,ruleId:string):Promise<RuleInfo> => {
+const getRule = async (ruleId:string):Promise<RuleInfo> => {
     const data = await rules(
         {
-            cartridge_id:cartridgeId,
             id:ruleId
         },
         {
@@ -73,7 +72,6 @@ const getRule = async (cartridgeId:string,ruleId:string):Promise<RuleInfo> => {
 
 export default async function Tape({ params }: { params: { tape_id: string } }) {
     let errorMsg:string|undefined = undefined;
-    let scoreInfo:VerificationOutput|undefined = undefined;
     let cartridgeData:Uint8Array|undefined = undefined;
     let tapePayload:VerifyPayload|undefined = undefined;
     let tape:Uint8Array|undefined = undefined;
@@ -81,20 +79,16 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
     let rule:RuleInfo|undefined = undefined;
     
     try {
-        const scorePromise = getScoreInfo(params.tape_id);
-        const tapePayloadPromise = getTapePayload(params.tape_id);
-        
-        scoreInfo = await scorePromise;
-        cartridgeData = await getCartridgeData(scoreInfo.cartridge_id);
-        
-        tapePayload = await tapePayloadPromise;
+        tapePayload = await getTapePayload(params.tape_id);
         const tapeData = tapePayload.tape;
         if (typeof tapeData != "string" || !ethers.utils.isHexString(tapeData))
             throw new Error("Corrupted tape");
         tape = ethers.utils.arrayify(tapeData);
         
-        rule = await getRule(scoreInfo.cartridge_id.slice(2),tapePayload.rule_id.slice(2));
+        rule = await getRule(tapePayload.rule_id.slice(2));
         
+        cartridgeData = await getCartridgeData(rule.cartridge_id);
+
         if (!rule)
             throw new Error("Can't find rule");
 
@@ -118,14 +112,6 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
                     <ReportIcon className='text-red-500 text-5xl' />
                     <span style={{color: 'white'}}> {errorMsg}</span>
                 </div>
-            </main>
-        )
-    }
-
-    if (!scoreInfo) {
-        return (
-            <main className="flex items-center justify-center h-lvh text-white">
-                Getting Info...
             </main>
         )
     }

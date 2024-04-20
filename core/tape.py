@@ -1,10 +1,10 @@
 from pydantic import BaseModel
 import logging
-from typing import Optional, List
+from typing import Optional, List, Annotated
 import json
 from py_expression_eval import Parser
 
-from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address
+from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address, ABIType
 
 from cartesapp.storage import helpers
 from cartesapp.context import get_metadata
@@ -14,7 +14,7 @@ from cartesapp.utils import hex2bytes, bytes2str
 
 from .model import insert_rule, Rule, RuleData, Cartridge, TapeHash
 from .riv import verify_log
-from .core_settings import CoreSettings, generate_tape_id, get_version, generate_entropy
+from .core_settings import CoreSettings, generate_tape_id, get_version, generate_entropy, get_cartridges_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +34,20 @@ class GetRulesPayload(BaseModel):
     name:           Optional[str]
     page:           Optional[int]
     page_size:      Optional[int]
+
+UInt256List = Annotated[List[int], ABIType('uint256[]')]
+Int256List = Annotated[List[int], ABIType('int256[]')]
+Bytes32List = Annotated[List[bytes], ABIType('bytes32[]')]
+StringList = Annotated[List[str], ABIType('string[]')]
+AddressList = Annotated[List[str], ABIType('address[]')]
+
+class ExternalVerificationPayload(BaseModel):
+    user_addresses:     AddressList
+    rule_ids:           Bytes32List
+    tape_hashes:        Bytes32List
+    tape_input_indexes: UInt256List
+    tape_timestamps:    UInt256List
+    scores:             Int256List
 
 # Outputs
 
@@ -102,7 +116,10 @@ def create_rule(payload: RulePayload) -> bool:
         test_replay = test_replay_file.read()
         test_replay_file.close()
 
-        verification_output = verify_log(payload.cartridge_id.hex(),test_replay,payload.args,payload.in_card)
+        with open(f"{get_cartridges_path()}/{payload.cartridge_id}",'rb')as cartridge_file:
+            cartridge_data = cartridge_file.read()
+
+        verification_output = verify_log(cartridge_data,test_replay,payload.args,payload.in_card)
         rule_id = insert_rule(payload,verification_output.get("outcard"),**get_metadata().dict())
     except Exception as e:
         msg = f"Couldn't run cartridge test: {e}"
@@ -120,7 +137,7 @@ def create_rule(payload: RulePayload) -> bool:
 
     return True
 
-@mutation()
+@mutation(msg_sender=CoreSettings.operator_address)
 def verify(payload: VerifyPayload) -> bool:
     metadata = get_metadata()
 
@@ -152,7 +169,11 @@ def verify(payload: VerifyPayload) -> bool:
     LOGGER.info(f"Verifying tape...")
     try:
         entropy = generate_entropy(metadata.msg_sender, rule.id)
-        verification_output = verify_log(rule.cartridge_id,payload.tape,rule.args,rule.in_card,entropy=entropy)
+
+        with open(f"{get_cartridges_path()}/{rule.cartridge_id}",'rb')as cartridge_file:
+            cartridge_data = cartridge_file.read()
+
+        verification_output = verify_log(cartridge_data,payload.tape,rule.args,rule.in_card,entropy=entropy)
         outcard_raw = verification_output.get('outcard')
         outhash = verification_output.get('outhash')
         # screenshot = verification_output.get('screenshot')
@@ -171,14 +192,14 @@ def verify(payload: VerifyPayload) -> bool:
 
     outcard_format = outcard_raw[:4]
 
-    outcard_str = bytes2str(outcard_raw[4:])
+    outcard_print = bytes2str(outcard_raw[4:]) if outcard_format in [b"JSON",b"TEXT"] else outcard_raw[4:]
 
-    LOGGER.info(f"==== BEGIN OUTCARD ({outcard_format}) ====")
-    LOGGER.info(outcard_str)
-    LOGGER.info("==== END OUTCARD ====")
-    LOGGER.info(f"Expected Outcard Hash: {payload.outcard_hash.hex()}")
-    LOGGER.info(f"Computed Outcard Hash: {outhash.hex()}")
-    LOGGER.info(f"Valid Outcard Hash : {outcard_valid}")
+    LOGGER.debug(f"==== BEGIN OUTCARD ({outcard_format}) ====")
+    LOGGER.debug(outcard_print)
+    LOGGER.debug("==== END OUTCARD ====")
+    LOGGER.debug(f"Expected Outcard Hash: {payload.outcard_hash.hex()}")
+    LOGGER.debug(f"Computed Outcard Hash: {outhash.hex()}")
+    LOGGER.debug(f"Valid Outcard Hash: {outcard_valid}")
 
     if not outcard_valid:
         msg = f"Out card hash doesn't match"
@@ -187,14 +208,16 @@ def verify(payload: VerifyPayload) -> bool:
         return False
 
     score = 0
-    if rule.score_function is not None:
-        if outcard_format == b"JSON":
-            try:
-                outcard_json = json.loads(outcard_str)
-                parser = Parser()
-                score = parser.parse(rule.score_function).evaluate(outcard_json)
-            except Exception as e:
-                LOGGER.info(f"Couldn't load/parse score from json: {e}")
+    if rule.score_function is not None and len(rule.score_function) > 0 and outcard_format == b"JSON":
+        try:
+            outcard_json = json.loads(outcard_print)
+            parser = Parser()
+            score = parser.parse(rule.score_function).evaluate(outcard_json)
+        except Exception as e:
+            msg = f"Couldn't load/parse score from json: {e}"
+            LOGGER.error(msg)
+            add_output(msg)
+            return False
 
         # compare claimed score
         claimed_score = payload.claimed_score
@@ -203,9 +226,9 @@ def verify(payload: VerifyPayload) -> bool:
 
         score_valid = score == claimed_score
 
-        LOGGER.info(f"Expected Score: {payload.claimed_score}")
-        LOGGER.info(f"Computed Score: {score}")
-        LOGGER.info(f"Valid Score : {score_valid}")
+        LOGGER.debug(f"Expected Score: {payload.claimed_score}")
+        LOGGER.debug(f"Computed Score: {score}")
+        LOGGER.debug(f"Valid Score: {score_valid}")
 
         if not score_valid:
             msg = f"Score doesn't match"
@@ -213,6 +236,7 @@ def verify(payload: VerifyPayload) -> bool:
             add_output(msg)
             return False
 
+    LOGGER.info(f"Tape verified")
 
     out_ev = VerificationOutput(
         version=get_version(),
@@ -227,11 +251,119 @@ def verify(payload: VerifyPayload) -> bool:
         tape_input_index = metadata.input_index
     )
 
-    index_input(tags=['tape',rule.cartridge_id,payload.rule_id.hex(),tape_id])
+    index_input(tags=['tape',rule.cartridge_id,payload.rule_id.hex(),tape_id],value=metadata.timestamp)
     emit_event(out_ev,tags=['score',rule.cartridge_id,payload.rule_id.hex(),tape_id],value=score)
     # add_output(screenshot,tags=['screenshot',rule.cartridge_id,payload.rule_id.hex(),tape_hash.hexdigest()])
 
+    TapeHash.set_verified(rule.cartridge_id,tape_id)
+
+    return True
+
+@mutation()
+def register_external_verification(payload: VerifyPayload) -> bool:
+    metadata = get_metadata()
+    # get Rule
+    rule = Rule.get(lambda r: r.id == payload.rule_id.hex())
+    if rule is None:
+        msg = f"rule {payload.rule_id.hex()} doesn't exist"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    tape_id = generate_tape_id(payload.tape)
+    
+    if TapeHash.check_duplicate(rule.cartridge_id,tape_id):
+        msg = f"Tape already submitted"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    cartridge = helpers.select(c for c in Cartridge if c.id == rule.cartridge_id).first()
+
+    if cartridge is None:
+        msg = f"Cartridge not found"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    LOGGER.info(f"Received new tape")
+    index_input(tags=['tape',rule.cartridge_id,payload.rule_id.hex(),tape_id],value=metadata.timestamp)
     TapeHash.add(rule.cartridge_id,tape_id)
+
+    return True
+
+
+@mutation(msg_sender=CoreSettings.operator_address)
+def external_verification(payload: ExternalVerificationPayload) -> bool:
+
+    payload_lens = [
+        len(payload.user_addresses),
+        len(payload.rule_ids),
+        len(payload.tape_hashes),
+        len(payload.tape_input_indexes),
+        len(payload.tape_timestamps),
+        len(payload.scores),
+    ]
+
+    if len(set(payload_lens)) != 1:
+        msg = f"payload have distinct sizes"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
+    LOGGER.info(f"Received batch of tape verifications")
+    for ind in range(len(payload.tape_hashes)):
+
+        tape_id = payload.tape_hashes[ind]
+
+        # get Rule
+        rule = Rule.get(lambda r: r.id == payload.rule_ids[ind].hex())
+        if rule is None:
+            msg = f"rule {payload.rule_ids[ind].hex()} doesn't exist"
+            LOGGER.warning(msg)
+            # add_output(msg)
+            # return False
+            continue
+        
+        if not TapeHash.check_duplicate(rule.cartridge_id,tape_id.hex()):
+            msg = f"Tape not submitted"
+            LOGGER.warning(msg)
+            # add_output(msg)
+            # return False
+            continue
+
+        if TapeHash.check_verified(rule.cartridge_id,tape_id.hex()):
+            msg = f"Tape already verified"
+            LOGGER.warning(msg)
+            # add_output(msg)
+            # return False
+            continue
+
+        cartridge = helpers.select(c for c in Cartridge if c.id == rule.cartridge_id).first()
+
+        if cartridge is None:
+            msg = f"Cartridge not found"
+            LOGGER.error(msg)
+            # add_output(msg)
+            # return False
+            continue
+
+        out_ev = VerificationOutput(
+            version=get_version(),
+            cartridge_id = hex2bytes(cartridge.id),
+            cartridge_input_index = cartridge.input_index,
+            user_address = payload.user_addresses[ind],
+            timestamp = payload.tape_timestamps[ind],
+            score = payload.scores[ind],
+            rule_id = rule.id,
+            rule_input_index = rule.input_index,
+            tape_hash = tape_id,
+            tape_input_index = payload.tape_input_indexes[ind]
+        )
+
+        LOGGER.info(f"Sending tape verification output")
+        emit_event(out_ev,tags=['score',rule.cartridge_id,payload.rule_ids[ind].hex(),tape_id.hex()],value=payload.scores[ind])
+        TapeHash.set_verified(rule.cartridge_id,tape_id.hex())
 
     return True
 

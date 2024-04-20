@@ -11,11 +11,16 @@ define setup_venv =
 @if [[ "VIRTUAL_ENV" != "" ]]; then . .venv/bin/activate; fi
 @if [ -z "$(pip freeze)" ]; then
 	if [ -f requirements.txt ]; then 
-		pip install -r requirements.txt;
+		pip install -r requirements.txt
+		pip install git+https://github.com/prototyp3-dev/cartesapp@main#egg=cartesapp[dev] --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/
+		pip install pytest-order
 	else
 		pip install git+https://github.com/prototyp3-dev/cartesapp@main --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/
 		echo --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/ >> requirements.txt
+		pip install py-expression-eval
 		pip freeze >> requirements.txt
+		pip install git+https://github.com/prototyp3-dev/cartesapp@main#egg=cartesapp[dev] --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/
+		pip install pytest-order
 	fi
 fi
 endef
@@ -24,28 +29,32 @@ endef
 
 all: sunodo-riv build build-reader-node
 
+setup-env: ; $(value setup_venv)
+
 # build targets
 build: --load-env --check-opaddr-env ; $(value setup_venv)
-	cartesapp build --config user=root --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS}
+	cartesapp build --config user=root --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS} $(ARGS)
 
 build-reader-node: ; $(value setup_venv)
-	cartesapp build-reader-image
+	cartesapp build-reader-image $(ARGS)
 
 build-dev-node: ; $(value setup_venv)
-	cartesapp build-dev-image
+	cartesapp build-dev-image $(ARGS)
 
 build-%: --load-env-% --check-opaddr-env ; $(value setup_venv)
-	cartesapp build --config user=root --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS}
+	cartesapp build --config user=root --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS}\
+	 --config envs=RIVES_VERSION=$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)\
+	 $(ARGS)
 
 # Run targets
 run: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ; $(value setup_venv)
-	cartesapp node
+	cartesapp node $(ARGS)
 
 run-dev: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env rivemu ; $(value setup_venv)
-	RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} cartesapp node --mode dev
+	RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} cartesapp node --mode dev $(ARGS)
 
 run-reader: ; $(value setup_venv)
-	cartesapp node --mode reader
+	cartesapp node --mode reader $(ARGS)
 
 # Aux env targets
 --load-env: ${ENVFILE}
@@ -87,7 +96,7 @@ rivemu/rivemu: #rivemu/kernel/linux.bin rivemu/rivos/rivos.ext2
 	chmod +x rivemu/rivemu
 
 build-release:
-	docker build -f Dockerfile --target node .sunodo/ -t ghcr.io/rives/rives-core:$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(git rev-parse --short HEAD)
+	docker build -f Dockerfile --target node .sunodo/ -t ghcr.io/rives/rives-core:$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
 
 # Test targets
 test-verbose: --load-env --check-rivemu-env ; $(value setup_venv)
