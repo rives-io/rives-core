@@ -9,10 +9,22 @@ import { getTapesGifs } from "../utils/util";
 import Image from "next/image";
 import Link from "next/link";
 
-async function getTapes(current_page:number) {
+
+interface TapesRequest {
+  currentPage:number,
+  pageSize:number,
+  atEnd:boolean,
+  orderBy?:string,  
+  cartridge?:string // can be used to filter by cartridge
+}
+
+
+async function getTapes(options:TapesRequest) {
   const verificationOutputs:Array<VerificationOutput> = await getOutputs(
     {
-        tags: ["score"]
+        tags: ["score"],
+        page: options.currentPage,
+        page_size: options.pageSize,
     },
     {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
   );
@@ -36,28 +48,62 @@ function hideTapeInfo(id:string) {
 
 
 export default function Tapes() {
-  const [verificationOutputs, setVerificationOutputs] = useState<Array<VerificationOutput>|null>(null);
-  const [gifs, setGifs] = useState<Array<string>|null>(null);
-  const [currentPage, setCurrentPage] = useState(0)
-  const [cartridgeMap, setCartridgeMap] = useState<Record<string, CartridgeInfo>>({});
+  const [verificationOutputs, setVerificationOutputs] = useState<Array<VerificationOutput>>([]);
+  const [gifs, setGifs] = useState<Array<string>>([]);
+  const [cartridgeInfoMap, setCartridgeInfoMap] = useState<Record<string, CartridgeInfo>>({});
+  const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: 12, atEnd: false})
+  const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    getTapes(currentPage).then(async (result) => {
-      setVerificationOutputs(result)
-      let tapes:Set<string> = new Set();
-      let idToInfoMap:Record<string, CartridgeInfo> = {};
-      result.map(async (verificationOutput) => {
-        tapes.add(verificationOutput.tape_hash.slice(2))
-        if (!idToInfoMap[verificationOutput.tape_hash]) {
-          idToInfoMap[verificationOutput.cartridge_id.slice(2)] = await getGameInfo(verificationOutput.cartridge_id.slice(2));
-        }
-      });
-      setCartridgeMap(idToInfoMap);
-      getTapesGifs(Array.from(tapes)).then(setGifs);
-    });
+    const getFirstPage = async () => {
+      await nextPage();
+      setFetching(false);
+    }
+
+    getFirstPage();
   }, [])
 
-  if (!verificationOutputs || !gifs) {
+  if (typeof window !== "undefined") {
+    window.onscroll = function(ev) {
+      if ((window.innerHeight + Math.round(window.scrollY)) >= document.body.offsetHeight) {
+        console.log("bottom of the page");
+        nextPage();
+      }
+    };  
+  }
+
+  async function nextPage() {
+    if (tapesRequestOptions.atEnd) return;
+    const tapesOutputs = await getTapes(tapesRequestOptions);
+    
+    // no more tapes to get
+    if (tapesOutputs.length == 0) {
+      setTapesRequestOptions({...tapesRequestOptions, atEnd: true});
+      return;
+    }
+
+    setVerificationOutputs([...verificationOutputs, ...tapesOutputs]);
+    let tapes:Set<string> = new Set();
+    let idToInfoMap:Record<string, CartridgeInfo> = {};
+
+    for (let i = 0; i < tapesOutputs.length; i++) {
+      const tapeOutput = tapesOutputs[i];
+
+      tapes.add(tapeOutput.tape_hash.slice(2));
+      if (! (cartridgeInfoMap[tapeOutput.cartridge_id] || idToInfoMap[tapeOutput.cartridge_id])) {
+        idToInfoMap[tapeOutput.cartridge_id] = await getGameInfo(tapeOutput.cartridge_id.slice(2));
+      }
+    }
+
+    if (Object.keys(idToInfoMap).length > 0) setCartridgeInfoMap({...cartridgeInfoMap, ...idToInfoMap});
+
+    const newGifs = await getTapesGifs(Array.from(tapes));
+    setGifs([...gifs, ...newGifs]);
+
+    setTapesRequestOptions({...tapesRequestOptions, currentPage: tapesRequestOptions.currentPage+1})
+  }
+
+  if (fetching && tapesRequestOptions.currentPage == 0) {
     return (
       <main className="flex items-center justify-center h-lvh text-white">
         Fetching Tapes
@@ -75,12 +121,12 @@ export default function Tapes() {
 
 
   return (
-    <main className="flex justify-center h-lvh">
+    <main>
       <section className="py-16 my-8 w-full flex justify-center">
-        <div className="grid grid-cols-4 space-x-4">
+        <div className="grid grid-cols-4 gap-4">
           {
             verificationOutputs.map((verificationOutput, index) => {
-              const cartridgeName = cartridgeMap[verificationOutput.cartridge_id.slice(2)].name;
+              const cartridgeName = cartridgeInfoMap[verificationOutput.cartridge_id]?.name;
               const user = verificationOutput.user_address;
               const player = `${user.slice(0, 6)}...${user.substring(user.length-4,user.length)}`;
               const timestamp = new Date(verificationOutput.timestamp*1000).toLocaleDateString();
@@ -106,7 +152,7 @@ export default function Tapes() {
                
             })
           }
-        </div>
+        </div >
       </section>
     </main>
   )
