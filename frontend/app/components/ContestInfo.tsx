@@ -3,9 +3,9 @@
 
 
 import { Tab } from '@headlessui/react'
-import { ScoreboardInfo } from '../backend-libs/app/ifaces'
+import { RuleInfo } from '../backend-libs/core/ifaces'
 
-function ContestInfo({contest}:{contest:ScoreboardInfo}) {
+function ContestInfo({contest}:{contest:RuleInfo}) {
 
 
     return (

@@ -1,4 +1,4 @@
-import { ScoreboardInfo } from "@/app/backend-libs/app/ifaces";
+import { RuleInfo } from "@/app/backend-libs/core/ifaces";
 import ContestInfo from "@/app/components/ContestInfo";
 import { delay } from "@/app/utils/util";
 import Link from "next/link";
@@ -6,8 +6,9 @@ import Link from "next/link";
 
 const getScoreboard = async (scoreboard_id:string) => {
   await delay(2000);
-  let scoreboard:ScoreboardInfo = {
+  let scoreboard:RuleInfo = {
       args: "",
+      description: "Amazing Contest",
       cartridge_id: "bce46ba409378be140598c80bc2cc7f186aed3de1d05b31918376dd06e3b6fdf",
       created_at: 1712187277,
       created_by: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
