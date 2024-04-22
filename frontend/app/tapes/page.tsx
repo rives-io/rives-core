@@ -25,6 +25,8 @@ async function getTapes(options:TapesRequest) {
         tags: ["score"],
         page: options.currentPage,
         page_size: options.pageSize,
+        order_by: "timestamp",
+        order_dir: "desc"
     },
     {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
   );
@@ -139,12 +141,12 @@ export default function Tapes() {
                     onMouseOver={() => showTapeInfo(verificationOutput.tape_hash)}
                     onMouseOut={() => hideTapeInfo(verificationOutput.tape_hash)}
                   >
-                    <div className="text-center p-2 h-fit bg-black bg-opacity-10 flex flex-col">
+                    <div className="text-center p-2 h-fit bg-black bg-opacity-50 flex flex-col">
                       <span className="text-sm">{cartridgeName}</span>
                       <span className="text-xs">Score: {verificationOutput.score.toString()}</span>
                     </div>
 
-                    <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-10">{player} on {timestamp}</div>
+                    <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-50">{player} on {timestamp}</div>
                   </div>
                   <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+gifs[index]} alt={"Not found"}/>
                 </Link>
