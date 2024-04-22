@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 
-interface Contest {
+export interface Contest {
   rule_id:string,
   start:number,
   end:number,
