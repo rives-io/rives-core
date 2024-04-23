@@ -1,4 +1,4 @@
-import { str, envsafe, url } from 'envsafe';
+import { str, envsafe, url, json } from 'envsafe';
 
 
 export const envClient = envsafe({
@@ -18,7 +18,7 @@ export const envClient = envsafe({
     input: process.env.NEXT_PUBLIC_GIF_SERVER_URL,
     desc: "GIF Server URL."
   }),
-  CONTESTS: str({
+  CONTESTS: json({
     input: process.env.NEXT_PUBLIC_CONTESTS,
     desc: "Contests json list."
   })
