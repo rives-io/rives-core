@@ -10,6 +10,7 @@ define setup_venv =
 @if [ -z "$(pip freeze)" ]; then
 	if [ -f requirements.txt ]; then 
 		pip install -r requirements.txt;
+		pip install dagster-webserver
 	else
 		pip install git+https://github.com/prototyp3-dev/cartesapp@main --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/
 		pip install web3
@@ -18,6 +19,7 @@ define setup_venv =
 		pip install py-expression-eval
 		echo --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/ >> requirements.txt
 		pip freeze >> requirements.txt
+		pip install dagster-webserver
 	fi
 fi
 endef
@@ -35,10 +37,14 @@ run: --load-env --check-envs rivemu ; $(value setup_venv)
 run-%: --load-env-% --check-envs rivemu ; $(value setup_venv)
 	python external_verifier.py $(ARGS)
 
+run-cloud-services: --load-env --check-envs rivemu ; $(value setup_venv)
+	dagster dev -f services.py $(ARGS)
 
+run-cloud-services-%: --load-env-% --check-envs rivemu ; $(value setup_venv)
+	dagster dev -f services.py $(ARGS)
 # Aux env targets
 --load-env: ${ENVFILE}
-	$(eval include include $(PWD)/${ENVFILE})
+	$(eval include include $(shell pwd)/${ENVFILE})
 
 ${ENVFILE}:
 	@test ! -f $@ && echo "$(ENVFILE) not found. Creating with default values" 

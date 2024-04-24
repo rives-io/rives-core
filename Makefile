@@ -102,3 +102,9 @@ build-release:
 test-verbose: --load-env --check-rivemu-env ; $(value setup_venv)
 	RIVEMU_PATH=${RIVEMU_PATH} pytest --capture=no --log-cli-level=DEBUG --maxfail=1 --order-dependencies
 
+
+run-external-verifier:
+	make -C external_verifier run ARGS='$(ARGS)'
+
+run-external-verifier-cloud-services:
+	make -C external_verifier run-cloud-services ARGS='$(ARGS)'
