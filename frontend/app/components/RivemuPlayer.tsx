@@ -8,7 +8,7 @@ import { useConnectWallet } from '@web3-onboard/react';
 
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
-import { gameplayContext } from "../play/GameplayContextProvider";
+import { GIF_FRAME_FREQ, gameplayContext } from "../play/GameplayContextProvider";
 import { sha256 } from "js-sha256";
 
 function generateEntropy(userAddress?:String, ruleId?:String): string {
@@ -31,7 +31,7 @@ function RivemuPlayer(
         {cartridgeData, cartridge_id, rule_id, args, in_card, scoreFunction, userAddress, tape}:
         {cartridgeData:Uint8Array, cartridge_id: string, rule_id?:string, args?:string, in_card?:Uint8Array, 
             scoreFunction?:string, userAddress?:string, tape?:Uint8Array}) {
-    const {setGameplayLog} = useContext(gameplayContext);
+    const {setGameplayLog, setGifResolution, addGifFrame} = useContext(gameplayContext);
 
     const isTape = tape? true:false;
 
@@ -40,26 +40,19 @@ function RivemuPlayer(
     const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
     const [currProgress, setCurrProgress] = useState<number>();
     const [totalFrames, setTotalFrames] = useState<number>();
+    const [lastFrameIndex, setLastFrameIndex] = useState<number>();
 
     // signer
-    const [signerAddress,setSignerAddress] = useState<String>();
-    const [{ wallet }, connect] = useConnectWallet();
+    const [{ wallet }] = useConnectWallet();
+    const [signerAddress, setSignerAddress] = useState<String|null>(wallet? wallet.accounts[0].address.toLowerCase(): null);
 
     useEffect(() => {
         if (!wallet) {
-            setSignerAddress(undefined);
-            if (!isTape && playing.isPlaying) {
-                rivemuStart();
-            }
-            return;
+            setSignerAddress(null);
         }
-        const curSigner = new ethers.providers.Web3Provider(wallet.provider, 'any').getSigner();
-        curSigner.getAddress().then((a: String) => {
-            setSignerAddress(a.toLowerCase());
-            if (!isTape && playing.isPlaying) {
-                rivemuStart();
-            }
-        });
+        else {
+            setSignerAddress(wallet.accounts[0].address.toLowerCase());
+        }
     },[wallet]);
 
 
@@ -120,6 +113,7 @@ function RivemuPlayer(
                 cartridgeData.length,
                 incardBuf,
                 inCard.length,
+                entropy,
                 params
             ]
         );
@@ -236,6 +230,13 @@ function RivemuPlayer(
             }
             if (isTape && totalFrames && totalFrames != 0){
                 setCurrProgress(Math.round(100 * frame/totalFrames));
+            } else if (lastFrameIndex == undefined || frame >= lastFrameIndex + fps/GIF_FRAME_FREQ) {
+                const canvas = document.getElementById("canvas");
+                if (!canvas) return;
+
+                const frameImage = (canvas as HTMLCanvasElement).toDataURL('image/jpeg');
+                addGifFrame(frameImage);
+                setLastFrameIndex(frame);
             }
         };
 
@@ -243,6 +244,7 @@ function RivemuPlayer(
         window.rivemu_on_begin = function (width: number, height: number, target_fps: number, total_frames: number) {
             console.log("rivemu_on_begin");
             if (isTape && total_frames) setTotalFrames(total_frames);
+            else setGifResolution(width, height);
         };
 
         // @ts-ignore:next-line
@@ -272,7 +274,6 @@ function RivemuPlayer(
                         rule_id
                     }
                 );
-                // TODO: submit tape
             }
             setPlaying({isPlaying: false, playCounter: playing.playCounter+1})
         };

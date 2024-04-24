@@ -28,6 +28,7 @@
     "gif-encoder": "^0.7.2",
     "js-sha256": "^0.10.1",
     "next": "14.0.4",
+    "next-share": "^0.27.0",
     "react": "^18",
     "react-dom": "^18",
     "react-qr-code": "^2.0.12",
