@@ -1,30 +1,63 @@
-import { ScoreboardInfo } from "@/app/backend-libs/app/ifaces";
+import { cartridgeInfo, rules } from "@/app/backend-libs/core/lib";
+import { CartridgeInfo, RuleInfo } from "@/app/backend-libs/core/ifaces";
 import ContestInfo from "@/app/components/ContestInfo";
-import { delay } from "@/app/utils/util";
+import { envClient } from "@/app/utils/clientEnv";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 
-const getScoreboard = async (scoreboard_id:string) => {
-  await delay(2000);
-  let scoreboard:ScoreboardInfo = {
-      args: "",
-      cartridge_id: "bce46ba409378be140598c80bc2cc7f186aed3de1d05b31918376dd06e3b6fdf",
-      created_at: 1712187277,
-      created_by: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      id: "0",
-      in_card:"",
-      name: "Contest Name",
-      score_function: ""
+export interface Contest {
+  rule_id:string,
+  start:number,
+  end:number,
+  prize:string,
+  winner?:string
+}
+
+const getContest = (rule_id:string) => {
+  const contestList = envClient.CONTESTS as Array<Contest>;
+
+  for (let i = 0; i < contestList.length; i++) {
+    const contest = contestList[i];
+    if (contest.rule_id == rule_id) {
+      return contest;
+    }
   }
 
-  return scoreboard;
+  return null;
+}
+
+const getRule = async(rule_id:string):Promise<RuleInfo|null> => {
+  const rulesFound = (await rules({id: rule_id}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true})).data;
+
+  if (rulesFound.length == 0) return null;
+
+  return rulesFound[0];
+}
+
+async function getGameInfo(cartridge_id:string) {
+  const cartridgeWithInfo:CartridgeInfo = await cartridgeInfo({id:cartridge_id},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"});
+
+  return cartridgeWithInfo;
 }
 
 export default async function Contest({ params }: { params: { contest_id: string } }) {
   const contest_id = params.contest_id;
-  const currDate = new Date();
 
-  const contest = await getScoreboard(contest_id);
+  const contestMetadata = getContest(contest_id);
+
+  if (!contestMetadata) {
+    notFound();
+  }
+
+  const contest = await getRule(contest_id);
+  if (!contest) {
+    notFound();
+  }
+
+  const currDate = new Date().getTime()/1000; // divide by 1000 to convert from miliseconds to seconds
+  const contestIsOpen = currDate >= contest.created_at && currDate < contestMetadata.end;
+  const game = await getGameInfo(contest.cartridge_id);
 
   return (
       <main className="flex justify-center h-svh">
@@ -33,17 +66,18 @@ export default async function Contest({ params }: { params: { contest_id: string
             
             <div className="flex flex-col">
               <span className="text-2xl">{contest.name}</span>
-              <span className="text-[10px] opacity-60">{new Date(contest.created_at*1000).toLocaleString()} until {new Date((contest.created_at*1000)+(86400*1000)).toLocaleString()}</span>
+              <span className="text-[10px] opacity-60">{new Date(contest.created_at*1000).toLocaleString()} until {new Date((contestMetadata.end*1000)).toLocaleString()}</span>
             </div>
 
             <div className="flex flex-col">
-              <span>Prize: $1000</span>
-              <span>Winner: TBA</span>
+              <span>Game: {game.name}</span>
+              <span>Prize: {contestMetadata.prize}</span>
+              <span>Winner: {contestMetadata.winner? contestMetadata.winner: "TBA"}</span>
             </div>
 
-            <Link href={`/play?=${contest.id}`} className="btn"
+            <Link href={`/play/rule/${contest.id}`} className="btn flex items-center"
               style={{
-                pointerEvents: (currDate > new Date((contest.created_at*1000)+(86400*1000))) ? "none" : "auto",
+                pointerEvents: contestIsOpen ? "auto":"none",
               }}>
               PLAY
             </Link>

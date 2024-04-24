@@ -3,18 +3,12 @@
 import { ContractReceipt, ethers } from "ethers";
 import React, { Suspense, useContext, useEffect, useRef, useState } from 'react'
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
-import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
-import PublishIcon from '@mui/icons-material/Publish';
-import UploadIcon from '@mui/icons-material/Upload';
-import DownloadIcon from '@mui/icons-material/Download';
-import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import { Tab } from '@headlessui/react'
 import { Canvas } from '@react-three/fiber';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
+import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import CachedIcon from '@mui/icons-material/Cached';
-import StadiumIcon from '@mui/icons-material/Stadium';
-import CodeIcon from '@mui/icons-material/Code';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
 import QRCode from "react-qr-code";
@@ -35,6 +29,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { sha256 } from "js-sha256";
 // @ts-ignore
 import GIFEncoder from "gif-encoder-2";
+import { insertTapeGif } from "../utils/util";
 
 enum STATUS {
     WAITING,
@@ -163,7 +158,7 @@ function CartridgeInfo() {
             return;
         }
         if (!wallet) {
-            await alert("Connect first to upload a gameplay log.");
+            alert("Connect first to upload a gameplay log.");
             await connect();
         }
 
@@ -208,12 +203,11 @@ function CartridgeInfo() {
             if (receipt == undefined || receipt.events == undefined)
                 throw new Error("Couldn't send transaction");
 
-            const inputEvent = receipt.events[0];
-            const inputIndex = inputEvent.args && inputEvent.args[1];
-            if (inputIndex == undefined)
-                throw new Error("Couldn't get input index");
+            const gameplay_id = getTapeId(selectedCartridge.gameplayLog);
+            
+            await insertTapeGif(gameplay_id, gifImage);
 
-            setTapeUrl(`/tapes/${getTapeId(selectedCartridge.gameplayLog)}`);
+            setTapeUrl(`/tapes/${gameplay_id}`);
             // setShowNftLinkModal(true);
             setSubmitLogStatus({status: STATUS.FINISHED});
 
@@ -222,7 +216,7 @@ function CartridgeInfo() {
         }
     }
 
-    function getTapeId(log: Uint8Array): String {
+    function getTapeId(log: Uint8Array): string {
         return sha256(log);
     }
 
