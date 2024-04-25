@@ -17,15 +17,13 @@ from cartesi import abi
 from cartesi.models import ABIFunctionSelectorHeader
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
-
-
-sys.path.append("..")
+if os.path.isdir('../core'):
+    sys.path.append("..")
 
 from core.cartridge import InserCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload
 from core.riv import verify_log
-from core.core_settings import  generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id
-
+from core.core_settings import CoreSettings, setup_settings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
 
 LOGGER = logging.getLogger("external_verifier.common")
 
@@ -48,14 +46,14 @@ REDIS_HOST = os.getenv('REDIS_HOST') or "localhost"
 REDIS_PORT = os.getenv('REDIS_PORT') or 6379
 RPC_URL = os.getenv('RPC_URL') or "http://localhost:8545"
 
-# checklikely
+# check likely
 INPUT_BOX_ADDRESS = os.getenv('INPUTBOX_ADDRESS') or "0x59b22D57D4f067708AB0c00552767405926dc768"
 INPUT_BOX_ABI_FILE = 'InputBox.json'
 TEST_TAPE_PATH = os.getenv('TEST_TAPE_PATH') or '../misc/test.rivlog'
+GENESIS_CARTRIDGES_PATH = os.getenv('GENESIS_CARTRIDGES_PATH') or '../misc'
+GENESIS_CARTRIDGES = os.getenv('GENESIS_CARTRIDGES')
 
 # consts
-SERIALIZED_INPUT_DATA_TYPES = ['address','uint','uint','bytes']
-
 REDIS_VERIFY_QUEUE_KEY = f"rives_verify_queue_{RIVES_VERSION}"
 REDIS_VERIFY_PROCESSING_QUEUE_KEY = f"rives_verify_processing_queue_{RIVES_VERSION}"
 REDIS_CARTRIDGES_KEY = f"rives_cartridges_{RIVES_VERSION}"
@@ -112,6 +110,9 @@ class InputData(BaseModel):
 
 class Error(BaseModel):
     msg: str
+
+generate_cartridge_id = core_generate_cartridge_id
+
 
 ###
 # Storage models
@@ -568,15 +569,16 @@ class InputFinder:
 # Setup functions
 
 def set_envs():
-    os.environ["RIVES_VERSION"] = RIVES_VERSION
-    os.environ["RIVEMU_PATH"] = RIVEMU_PATH
-    os.environ["OPERATOR_ADDRESS"] = OPERATOR_ADDRESS
+    if RIVES_VERSION is not None: os.environ["RIVES_VERSION"] = RIVES_VERSION
+    if RIVEMU_PATH is not None: os.environ["RIVEMU_PATH"] = RIVEMU_PATH
+    if OPERATOR_ADDRESS is not None: os.environ["OPERATOR_ADDRESS"] = OPERATOR_ADDRESS
+    if GENESIS_CARTRIDGES is not None: os.environ["GENESIS_CARTRIDGES"] = GENESIS_CARTRIDGES
+    setup_settings()
 
 def initialize_redis_with_genesis_data():
-    genesis_cartridges = ['snake','freedoom','antcopter','monky','tetrix','particles']
-    for cartridge_name in genesis_cartridges:
+    for cartridge_name in CoreSettings.genesis_cartridges:
         try:
-            with open(f"../misc/{cartridge_name}.sqfs",'rb') as f:
+            with open(f"{GENESIS_CARTRIDGES_PATH}/{cartridge_name}.sqfs",'rb') as f:
                 cartridge_data = f.read()
             cartridge_id = generate_cartridge_id(cartridge_data)
             add_cartridge(cartridge_id,cartridge_data)

@@ -6,6 +6,8 @@ SHELL := /bin/bash
 
 RIV_VERSION := 0.3-rc7
 
+RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
+
 define setup_venv =
 @if [ ! -d .venv ]; then python3 -m venv .venv; fi
 @if [[ "VIRTUAL_ENV" != "" ]]; then . .venv/bin/activate; fi
@@ -43,7 +45,7 @@ build-dev-node: ; $(value setup_venv)
 
 build-%: --load-env-% --check-opaddr-env ; $(value setup_venv)
 	cartesapp build --config user=root --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS}\
-	 --config envs=RIVES_VERSION=$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)\
+	 --config envs=RIVES_VERSION=${RIVES_VERSION} --config build-args=RIVES_VERSION=${RIVES_VERSION}\
 	 $(ARGS)
 
 # Run targets
@@ -63,7 +65,7 @@ run-reader: ; $(value setup_venv)
 ${ENVFILE}:
 	@test ! -f $@ && echo "$(ENVFILE) not found. Creating with default values" 
 	echo ROLLUP_HTTP_SERVER_URL=http://localhost:8080/rollup >> $(ENVFILE)
-	echo RIVEMU_PATH=rivemu/rivemu >> $(ENVFILE)
+	echo RIVEMU_PATH=rivemu >> $(ENVFILE)
 	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
 
 --load-env-%: --${ENVFILE}.%
@@ -89,11 +91,13 @@ sunodo-sdk-riv: sunodo-sdk
 sunodo-sdk:
 	docker build --tag sunodo/sdk:0.4.0-riv --target sunodo-riv-sdk .
 
-rivemu: rivemu/rivemu
-rivemu/rivemu: #rivemu/kernel/linux.bin rivemu/rivos/rivos.ext2
-	mkdir -p rivemu
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(shell dpkg --print-architecture) -o rivemu/rivemu
-	chmod +x rivemu/rivemu
+rivemu: #rivemu/rivemu
+	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(shell dpkg --print-architecture) -o rivemu
+	chmod +x rivemu
+# rivemu/rivemu: rivemu/kernel/linux.bin rivemu/rivos/rivos.ext2
+# 	mkdir -p rivemu
+# 	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(shell dpkg --print-architecture) -o rivemu/rivemu
+# 	chmod +x rivemu/rivemu
 
 build-release:
 	docker build -f Dockerfile --target node .sunodo/ -t ghcr.io/rives/rives-core:$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
@@ -108,3 +112,6 @@ run-external-verifier:
 
 run-external-verifier-cloud-services:
 	make -C external_verifier run-cloud-services ARGS='$(ARGS)'
+
+build-external-verifier-cloud:
+	docker build --target external-verifier-cloud . -t ghcr.io/rives/exteral-verifier:$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)

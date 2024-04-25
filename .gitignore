@@ -8,3 +8,4 @@ data
 .vscode
 rivemu
 .machine_config.json
+InputBox.json

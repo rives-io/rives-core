@@ -7,12 +7,9 @@ import logging
 import math
 import traceback
 
-sys.path.append("..")
-
-from core.core_settings import generate_cartridge_id, setup_settings
-
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, \
-    set_envs, initialize_redis_with_genesis_data, add_cartridge, add_rule,  push_verification, verify_payload, deserialize_verification, deserialize_output
+    set_envs, initialize_redis_with_genesis_data, add_cartridge, add_rule,  push_verification, verify_payload, \
+    deserialize_verification, deserialize_output, generate_cartridge_id
 
 
 LOGGER = logging.getLogger("external_verifier")
@@ -167,7 +164,6 @@ disable_enqueuer: Optional[bool] = False, disable_verifier: Optional[bool] = Fal
     Storage(db)
     # os.chdir('..')
     set_envs()
-    setup_settings()
     initialize_redis_with_genesis_data()
 
     if log_level is not None:

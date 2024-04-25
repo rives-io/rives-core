@@ -15,15 +15,15 @@ class CoreSettings:
     version = '0'
     rivemu_path = os.getenv('RIVEMU_PATH')
     operator_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    insert_genesis_cartridges = True
+    genesis_cartridges = ['snake','freedoom','antcopter','monky','tetrix','particles']
 
 @setup()
 def setup_settings():
     CoreSettings.version = os.getenv('RIVES_VERSION') or CoreSettings.version
     CoreSettings.rivemu_path = os.getenv('RIVEMU_PATH') or CoreSettings.rivemu_path
     CoreSettings.operator_address = os.getenv('OPERATOR_ADDRESS') or CoreSettings.operator_address
-    CoreSettings.insert_genesis_cartridges = bool(int(os.getenv('INSERT_GENESIS_CARTRIDGES'))) \
-        if os.getenv('INSERT_GENESIS_CARTRIDGES') else CoreSettings.insert_genesis_cartridges
+    CoreSettings.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split())) \
+        if os.getenv('GENESIS_CARTRIDGES') else CoreSettings.genesis_cartridges
 
 ###
 # Helpers

@@ -12,12 +12,8 @@ from dagster import sensor, op, job, define_asset_job, asset, run_status_sensor,
 from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
-sys.path.append("..")
-
-from core.core_settings import generate_cartridge_id, setup_settings
-
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
-    tape_verification, add_cartridge, add_rule, set_envs, initialize_redis_with_genesis_data
+    tape_verification, add_cartridge, add_rule, set_envs, initialize_redis_with_genesis_data, generate_cartridge_id
 
 
 ###
@@ -56,8 +52,8 @@ class ExternalVerificationOutputList(BaseModel):
 
 @op
 def initialize_storage_op(context: OpExecutionContext):
+    context.log.info(f"initializing storage")
     set_envs()
-    setup_settings()
     initialize_redis_with_genesis_data()
 
 @job
@@ -151,19 +147,18 @@ verify_asset_job = define_asset_job(
 ###
 # Sensor
 
-@run_status_sensor(run_status=DagsterRunStatus.STARTED,request_job=initialize_storage_job)
+@sensor(job=initialize_storage_job)
 def initialization_sensor(context: SensorEvaluationContext):
-    context.log.info(f"initialization_sensor")
-    # cursor = context.cursor or None
-    # if cursor is not None:
-    #     yield SkipReason("Already run once")
-    #     return
-    run_key = "init"
+    context.log.info(f"initialization sensor {context.cursor=}")
+    cursor = context.cursor or None
+    if cursor is not None:
+        yield SkipReason("Already run once")
+        return
+    run_key = "initialized"
     yield RunRequest(
         run_key=run_key,
     )
-    # context.update_cursor(run_key)
-
+    context.update_cursor(run_key)
 
 @sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job])
 def inputs_sensor(context: SensorEvaluationContext):
@@ -287,14 +282,5 @@ def submit_verification_sensor(context: MultiAssetSensorEvaluationContext):
         )
     )
 
-
-###
-# Definitions
-
-defs = Definitions(
-    assets=[verification_output_asset],
-    jobs=[verify_asset_job,initialize_storage_job,add_cartridge_job,add_rule_job, submit_verification_job],
-    sensors=[inputs_sensor,initialization_sensor,submit_verification_sensor],
-)
 
 Storage(DbType.redis)

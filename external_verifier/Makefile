@@ -4,6 +4,8 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
+SUNODO_DEVNET_VERSION := 1.4.0
+
 define setup_venv =
 @if [ ! -d .venv ]; then python3 -m venv .venv; fi
 @if [[ "VIRTUAL_ENV" != "" ]]; then . .venv/bin/activate; fi
@@ -31,17 +33,18 @@ all: build build-reader-node
 setup-env: ; $(value setup_venv)
 
 # Run targets
-run: --load-env --check-envs rivemu ; $(value setup_venv)
+run: --load-env --check-envs rivemu InputBox.json ; $(value setup_venv)
 	python external_verifier.py $(ARGS)
 
-run-%: --load-env-% --check-envs rivemu ; $(value setup_venv)
+run-%: --load-env-% --check-envs rivemu InputBox.json ; $(value setup_venv)
 	python external_verifier.py $(ARGS)
 
-run-cloud-services: --load-env --check-envs rivemu ; $(value setup_venv)
-	dagster dev -f services.py $(ARGS)
+run-cloud-services: --load-env --check-envs rivemu InputBox.json ; $(value setup_venv)
+	dagster dev -f __init__.py $(ARGS)
 
-run-cloud-services-%: --load-env-% --check-envs rivemu ; $(value setup_venv)
-	dagster dev -f services.py $(ARGS)
+run-cloud-services-%: --load-env-% --check-envs rivemu InputBox.json ; $(value setup_venv)
+	dagster dev -f __init__.py $(ARGS)
+
 # Aux env targets
 --load-env: ${ENVFILE}
 	$(eval include include $(shell pwd)/${ENVFILE})
@@ -70,6 +73,9 @@ ${ENVFILE}.%:
 	@test ! -z '${PRIVATE_KEY}' || echo "Must define PRIVATE_KEY in env" && test ! -z '${PRIVATE_KEY}'
 
 rivemu: ../rivemu
+
+InputBox.json:
+	docker run --rm sunodo/devnet:$(SUNODO_DEVNET_VERSION) bash -c "cat localhost.json | jq '.contracts.InputBox' " | sed  "/^0x/d" > InputBox.json
 
 ../rivemu:
 	make -C .. rivemu
