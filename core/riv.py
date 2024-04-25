@@ -29,7 +29,7 @@ def riv_get_cover(cartridge_id):
     return result.stdout
 
 
-def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entropy: str = None,
+def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, entropy: str = None,
                frame: int =None,get_outhist=False,get_screenshot=False) -> dict[str,bytes]:
     if is_inside_cm(): # use riv os
         log_path = "/run/replaylog"
@@ -39,14 +39,17 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
         screenshot_path = "/run/screenshot"
         outhist_path = "/run/outhist"
         rivos_cartridges_path = f"/{CoreSettings.cartridges_path}" # absolute cartridges path on rivos
-        data_cartridge_path = f"{get_cartridges_path()}/{cartridge_id}" # absolute data full cartridge path
-        cartridge_path = f"/{CoreSettings.cartridges_path}/{cartridge_id}" # relative to rivos full cartridge path
-        rivos_cartridge_path = f"{rivos_cartridges_path}/{cartridge_id}" # absolute full cartridge path on rivos
+        # data_cartridge_path = f"{get_cartridges_path()}/{cartridge_id}" # absolute data full cartridge path
+        cartridge_path = f"/{CoreSettings.cartridges_path}/run_cartridge" #{cartridge_id}" # relative to rivos full cartridge path
+        rivos_cartridge_path = f"{rivos_cartridges_path}/run_cartridge" #{cartridge_id}" # absolute full cartridge path on rivos
         
         if not os.path.exists(rivos_cartridges_path):
             os.makedirs(rivos_cartridges_path)
 
-        shutil.copy2(data_cartridge_path, rivos_cartridge_path)
+        # shutil.copy2(data_cartridge_path, rivos_cartridge_path)
+
+        with open(rivos_cartridge_path,'wb') as cartridge_file:
+            cartridge_file.write(cartridge_data)
 
         with open(log_path,'wb') as log_file:
             log_file.write(log)
@@ -82,8 +85,6 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
         run_args.append("riv-run")
         if riv_args is not None and len(riv_args) > 0:
             run_args.extend(riv_args.split())
-        print("==== DEBUG ====")
-        print(" ".join(run_args))
         result = subprocess.run(run_args)
         if result.returncode != 0:
             os.remove(log_path)
@@ -114,6 +115,8 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
         return {"outhist":outhist_raw, "outhash":outhash,"screenshot":screenshot,"outcard":outcard_raw}
 
     # use rivemu
+    cartridge_temp = tempfile.NamedTemporaryFile()
+    cartridge_file = cartridge_temp.file
     log_temp = tempfile.NamedTemporaryFile()
     log_file = log_temp.file
     incard_temp = tempfile.NamedTemporaryFile()
@@ -122,6 +125,9 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
     outhist_temp = tempfile.NamedTemporaryFile()
     outhash_temp = tempfile.NamedTemporaryFile(mode='w+')
     screenshot_temp = tempfile.NamedTemporaryFile()
+
+    cartridge_file.write(cartridge_data)
+    cartridge_file.flush()
 
     log_file.write(log)
     log_file.flush()
@@ -132,7 +138,7 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
 
     incard_path = len(in_card) > 0 and incard_temp.name or None
 
-    absolute_cartridge_path = os.path.abspath(f"{get_cartridges_path()}/{cartridge_id}")
+    absolute_cartridge_path = cartridge_temp.name # os.path.abspath(f"{get_cartridges_path()}/{cartridge_id}")
 
     rivemu_path = CoreSettings.rivemu_path
     if not os.path.isabs(rivemu_path):
@@ -177,6 +183,7 @@ def verify_log(cartridge_id: str,log: bytes,riv_args: str,in_card: bytes, entrop
     screenshot = screenshot_temp.file.read()
     outhist_raw = outhist_temp.file.read()
 
+    cartridge_temp.close()
     log_temp.close()
     outcard_temp.close()
     incard_temp.close()

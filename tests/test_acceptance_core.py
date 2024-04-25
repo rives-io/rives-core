@@ -312,7 +312,7 @@ def test_should_fail_verify_cartridge1_error_rule(
     ).to_bytes()
 
     hex_payload = '0x' + (header + verify_tape_error_rule).hex()
-    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
+    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER2_ADDRESS)
 
     assert not dapp_client.rollup.status
 
@@ -345,7 +345,7 @@ def test_should_fail_verify_cartridge1_error_outhash(
     ).to_bytes()
 
     hex_payload = '0x' + (header + verify_tape_error_outhash).hex()
-    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
+    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER2_ADDRESS)
 
     assert not dapp_client.rollup.status
 
@@ -380,7 +380,7 @@ def test_should_fail_verify_cartridge1_error_score(
     ).to_bytes()
 
     hex_payload = '0x' + (header + verify_tape_error_score).hex()
-    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
+    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER2_ADDRESS)
 
     assert not dapp_client.rollup.status
 
@@ -403,7 +403,7 @@ def verify_tape_cartridge1() -> bytes:
 
 
 @pytest.mark.order(after=["test_should_insert_cartridge1"])
-def test_should_pass_verify_cartridge1(
+def test_should_fail_user_verify_cartridge1(
         dapp_client: TestClient,
         verify_tape_cartridge1: bytes):
 
@@ -414,6 +414,21 @@ def test_should_pass_verify_cartridge1(
 
     hex_payload = '0x' + (header + verify_tape_cartridge1).hex()
     dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
+
+    assert not dapp_client.rollup.status
+
+@pytest.mark.order(after=["test_should_insert_cartridge1"])
+def test_should_pass_verify_cartridge1(
+        dapp_client: TestClient,
+        verify_tape_cartridge1: bytes):
+
+    header = ABIFunctionSelectorHeader(
+        function="core.verify",
+        argument_types=get_abi_types_from_model(VerifyPayload)
+    ).to_bytes()
+
+    hex_payload = '0x' + (header + verify_tape_cartridge1).hex()
+    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER2_ADDRESS)
 
     assert dapp_client.rollup.status
 
@@ -434,7 +449,7 @@ def test_should_fail_verify_duplicate(
     ).to_bytes()
 
     hex_payload = '0x' + (header + verify_tape_cartridge1).hex()
-    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
+    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER2_ADDRESS)
 
     assert not dapp_client.rollup.status
 
@@ -467,7 +482,7 @@ def test_should_pass_verify_cartridge2(
     ).to_bytes()
 
     hex_payload = '0x' + (header + verify_tape_cartridge2).hex()
-    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER3_ADDRESS)
+    dapp_client.send_advance(hex_payload=hex_payload, msg_sender=USER2_ADDRESS)
 
     assert dapp_client.rollup.status
 
@@ -477,11 +492,25 @@ def test_should_pass_verify_cartridge2(
     assert notice.score == 0
 
 
+###
+# External Verification Tests
+
+# TODO: test request external verification wrong rule
+# TODO: test request external verification wrong cartridge
+# TODO: test request external verification 1
+# TODO: test request external verification 1 duplicate
+# TODO: test request external verification 2
+# TODO: test request external verification 3
+# TODO: test external verification wrong sizes
+# TODO: test external verification wrong rule
+# TODO: test external verification wrong cartridge
+# TODO: test external verification unsubmitted tape
+# TODO: test external verification 1
+# TODO: test external verification 2 and 3
 
 ###
 # Rule Tests
 
-# TODO: test game verification of no score game
 # TODO: test rule creation wrong operator wallet
 # TODO: test rule creation wrong formula
 # TODO: test rule creation wrong args
