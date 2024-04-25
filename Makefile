@@ -100,7 +100,17 @@ rivemu: #rivemu/rivemu
 # 	chmod +x rivemu/rivemu
 
 build-release:
-	docker build -f Dockerfile --target node .sunodo/ -t ghcr.io/rives/rives-core:$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
+	docker build -f Dockerfile --target node .sunodo/ \
+		-t ghcr.io/rives-io/rives-core:$$IMAGE_VERSION \
+		--label "org.opencontainers.image.title=rives-core" \
+		--label "org.opencontainers.image.description=RIVES Core Node" \
+		--label "org.opencontainers.image.source=https://github.com/rives-io/rives-core" \
+		--label "org.opencontainers.image.revision=$$(git rev-parse HEAD)" \
+		--label "org.opencontainers.image.created=$$(date -Iseconds --utc)" \
+		--label "org.opencontainers.image.licenses=Apache-2.0" \
+		--label "org.opencontainers.image.url=https://rives.io" \
+		--label "org.opencontainers.image.version=$$IMAGE_VERSION"
 
 # Test targets
 test-verbose: --load-env --check-rivemu-env ; $(value setup_venv)
