@@ -23,6 +23,8 @@ RUN curl -s -L https://github.com/rives-io/kernel/releases/download/v${KERNEL_VE
 # make build-release
 FROM cartesi/rollups-node:${ROLLUPS_NODE_VERSION} as node
 
+USER root
+
 COPY ./image_0 /tmp/machine-snapshots/0
 COPY ./image /tmp/machine-snapshots/0_0
 
@@ -33,6 +35,8 @@ RUN curl -s -L https://github.com/lynoferraz/nonodo/releases/download/v${NONODO_
 ARG CM_CALLER_VERSION
 RUN curl -s -L https://github.com/lynoferraz/cm-caller/releases/download/v${CM_CALLER_VERSION}/cm-caller-v${CM_CALLER_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
     tar xzf - -C /usr/local/bin cm-caller
+
+USER cartesi
 
 # TODO: make deploy here too, but don't do a second deploy for same cm
 
