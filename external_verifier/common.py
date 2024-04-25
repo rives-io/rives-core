@@ -576,13 +576,35 @@ def set_envs():
     setup_settings()
 
 def initialize_redis_with_genesis_data():
+    cartridge_ids = {}
     for cartridge_name in CoreSettings.genesis_cartridges:
         try:
             with open(f"{GENESIS_CARTRIDGES_PATH}/{cartridge_name}.sqfs",'rb') as f:
                 cartridge_data = f.read()
             cartridge_id = generate_cartridge_id(cartridge_data)
+            cartridge_ids[cartridge_name] = cartridge_id
             add_cartridge(cartridge_id,cartridge_data)
 
+        except Exception as e:
+            LOGGER.warning(e)
+            traceback.print_exc()
+
+    LOGGER.info(f"{cartridge_ids=}")
+    genesis_rule_cartridge = "antcopter"
+    if cartridge_ids.get(genesis_rule_cartridge) is not None:
+        try:
+            name = "Only 5 to beat"
+            rule_id = generate_rule_id(hex2bytes(cartridge_ids[genesis_rule_cartridge]),str2bytes(name))
+            rule_conf_dict = {
+                "id": rule_id,
+                "cartridge_id":cartridge_ids[genesis_rule_cartridge],
+                "args":"5",
+                "in_card":b"",
+                "score_function":"score",
+                "sender":OPERATOR_ADDRESS
+            }
+            rule = Rule.parse_obj(rule_conf_dict)
+            add_rule(rule)
         except Exception as e:
             LOGGER.warning(e)
 

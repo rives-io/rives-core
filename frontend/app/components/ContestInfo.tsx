@@ -4,6 +4,7 @@
 
 import { Tab } from '@headlessui/react'
 import { RuleInfo } from '../backend-libs/core/ifaces'
+import RuleLeaderboard from './RuleLeaderboard'
 
 function ContestInfo({contest}:{contest:RuleInfo}) {
 
@@ -35,7 +36,7 @@ function ContestInfo({contest}:{contest:RuleInfo}) {
                     </Tab.Panel>
 
                     <Tab.Panel className="game-tab-content">
-                        Leaderboard Content
+                        <RuleLeaderboard cartridge_id={contest.cartridge_id} rule={contest.id} />
                     </Tab.Panel>
 
                 </Tab.Panels>
