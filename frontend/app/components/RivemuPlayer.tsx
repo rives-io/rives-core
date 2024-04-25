@@ -321,11 +321,6 @@ function RivemuPlayer(
                         />
                     </div>
                 </div>
-                {!isTape && rule_id ? 
-                    <button className="btn" onClick={() => {alert("submit tape")}} disabled={signerAddress == undefined || playing.isPlaying || playing.playCounter === 0}>
-                        <span>Verify Tape {signerAddress ? "" : " (wallet not connected)"}</span><br/>
-                    </button>
-                : <></>}
                 {isTape ? 
                 <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
                     <div className="bg-blue-600 h-2.5 rounded-full" style={{width: `${currProgress}%`}}></div>

@@ -1,23 +1,11 @@
 import { ethers } from "ethers";
 
-import { VerificationOutput,VerifyPayload,cartridge, getOutputs, rules } from '@/app/backend-libs/core/lib';
+import { VerifyPayload, cartridge, getOutputs, rules } from '@/app/backend-libs/core/lib';
 import { RuleInfo } from '@/app/backend-libs/core/ifaces';
 import { envClient } from '@/app/utils/clientEnv';
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from '@/app/components/RivemuPlayer';
 import { getTapeGif } from "@/app/utils/util";
-
-const getScoreInfo = async (tapeId:string):Promise<VerificationOutput> => {
-    const scores:Array<VerificationOutput> = await getOutputs(
-        {
-            tags: ["score",tapeId],
-        }, {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
-    );
-
-    if (scores.length === 0) throw new Error(`Verification output not found for tape ${tapeId}!`);
-    
-    return scores[0];
-}
 
 const getCartridgeData = async (cartridgeId:string):Promise<Uint8Array> => {
     const formatedCartridgeId = cartridgeId;
