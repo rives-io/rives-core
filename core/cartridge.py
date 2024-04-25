@@ -74,7 +74,7 @@ def insert_cartridge(payload: InserCartridgePayload) -> bool:
     
     LOGGER.info("Saving cartridge...")
     try:
-        cartridge_id = create_cartridge(payload.data,**get_metadata().dict())
+        cartridge_id = create_cartridge(payload.data,**metadata.dict())
     except Exception as e:
         msg = f"Couldn't insert cartridge: {e}"
         LOGGER.error(msg)
@@ -86,8 +86,8 @@ def insert_cartridge(payload: InserCartridgePayload) -> bool:
     #     user_address = metadata.msg_sender,
     #     timestamp = metadata.timestamp
     # )
-    # out_tags = ['cartridge','insert_cartridge',cartridge_id]
-    # add_output(payload.data,tags=out_tags)
+    out_tags = ['cartridge',cartridge_id]
+    index_input(tags=out_tags)
     # emit_event(cartridge_event,tags=out_tags)
     index_input(tags=['cartridge',cartridge_id])
 
@@ -99,7 +99,7 @@ def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
 
     LOGGER.info("Removing cartridge...")
     try:
-        delete_cartridge(payload.id.hex(),**get_metadata().dict())
+        delete_cartridge(payload.id.hex(),**metadata.dict())
     except Exception as e:
         msg = f"Couldn't remove cartridge: {e}"
         LOGGER.error(msg)
@@ -124,8 +124,8 @@ def cartridge(payload: CartridgePayload) -> bool:
 
     cartridge_data = b''
     if query.count() > 0:
-        cartridge_file = open(f"{get_cartridges_path()}/{payload.id}",'rb')
-        cartridge_data = cartridge_file.read()
+        with open(f"{get_cartridges_path()}/{payload.id}",'rb')as cartridge_file:
+            cartridge_data = cartridge_file.read()
 
     add_output(cartridge_data)
 

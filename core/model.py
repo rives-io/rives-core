@@ -94,7 +94,7 @@ class TapeHash:
     def add(cls, cartridge_id, tape_hash):
         cartridge_tapes = cls.get_cartridge_tapes()
         if cartridge_tapes.get(cartridge_id) is None: cartridge_tapes[cartridge_id] = {}
-        cartridge_tapes[cartridge_id][tape_hash] = None
+        cartridge_tapes[cartridge_id][tape_hash] = False
         cls.store_cartridge_tape(cartridge_tapes)
 
     @classmethod
@@ -103,95 +103,43 @@ class TapeHash:
         return cartridge_tapes.get(cartridge_id) is not None \
             and tape_hash in cartridge_tapes[cartridge_id]
 
+    @classmethod
+    def check_verified(cls, cartridge_id, tape_hash):
+        cartridge_tapes = cls.get_cartridge_tapes()
+        return cartridge_tapes.get(cartridge_id) is not None \
+            and tape_hash in cartridge_tapes[cartridge_id] \
+            and cartridge_tapes[cartridge_id][tape_hash]
+    
+    @classmethod
+    def set_verified(cls, cartridge_id, tape_hash):
+        cartridge_tapes = cls.get_cartridge_tapes()
+        if cartridge_tapes.get(cartridge_id) is None: cartridge_tapes[cartridge_id] = {}
+        cartridge_tapes[cartridge_id][tape_hash] = True
+        cls.store_cartridge_tape(cartridge_tapes)
 ###
 # Seeds
 
 @seed()
 def initialize_data():
-    if CoreSettings.insert_genesis_cartridges:
+    cartridge_ids = {}
+    cartridge_data = {}
+    for cartridge in CoreSettings.genesis_cartridges:
         try:
-            cartridge_example_file = open('misc/snake.sqfs','rb')
-            cartridge_example_data = cartridge_example_file.read()
-            cartridge_example_file.close()
-            snake_id = generate_cartridge_id(cartridge_example_data)
-            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-            if is_inside_cm(): os.remove('misc/snake.sqfs')
+            cartridge_path = f"misc/{cartridge}.sqfs"
+            with open(cartridge_path,'rb') as cartridge_example_file:
+                cartridge_example_data = cartridge_example_file.read()
+                cartridge_ids[cartridge] = generate_cartridge_id(cartridge_example_data)
+                cartridge_data[cartridge] = cartridge_example_data
+                create_cartridge(cartridge_example_data,msg_sender=CoreSettings.operator_address)
+                if is_inside_cm(): os.remove(cartridge_path)
         except Exception as e:
             LOGGER.warning(e)
 
-        try:
-            cartridge_example_file = open('misc/freedoom.sqfs','rb')
-            cartridge_example_data = cartridge_example_file.read()
-            cartridge_example_file.close()
-            freedoom_id = generate_cartridge_id(cartridge_example_data)
-            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-            if is_inside_cm(): os.remove('misc/freedoom.sqfs')
-        except Exception as e:
-            LOGGER.warning(e)
-
-        try:
-            cartridge_example_file = open('misc/antcopter.sqfs','rb')
-            cartridge_example_data = cartridge_example_file.read()
-            cartridge_example_file.close()
-            antcopter_id = generate_cartridge_id(cartridge_example_data)
-            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-            if is_inside_cm(): os.remove('misc/antcopter.sqfs')
-        except Exception as e:
-            LOGGER.warning(e)
-
-        try:
-            cartridge_example_file = open('misc/monky.sqfs','rb')
-            cartridge_example_data = cartridge_example_file.read()
-            cartridge_example_file.close()
-            monky_id = generate_cartridge_id(cartridge_example_data)
-            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-            if is_inside_cm(): os.remove('misc/monky.sqfs')
-        except Exception as e:
-            LOGGER.warning(e)
-
-        # try:
-        #     cartridge_example_file = open('misc/breakout.sqfs','rb')
-        #     cartridge_example_data = cartridge_example_file.read()
-        #     cartridge_example_file.close()
-        #     breakout_id = generate_cartridge_id(cartridge_example_data)
-        #     create_cartridge(cartridge_example_data,msg_sender="0xd33Dfbfb0D0961284656e0225CFfB561090762D3")
-        #     if is_inside_cm(): os.remove('misc/breakout.sqfs')
-        # except Exception as e:
-        #     LOGGER.warning(e)
-
-        # try:
-        #     cartridge_example_file = open('misc/2048.sqfs','rb')
-        #     cartridge_example_data = cartridge_example_file.read()
-        #     cartridge_example_file.close()
-        #     id_2048 = generate_cartridge_id(cartridge_example_data)
-        #     create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-        #     if is_inside_cm(): os.remove('misc/2048.sqfs')
-        # except Exception as e:
-        #     LOGGER.warning(e)
-
-        try:
-            cartridge_example_file = open('misc/tetrix.sqfs','rb')
-            cartridge_example_data = cartridge_example_file.read()
-            cartridge_example_file.close()
-            tetrix_id = generate_cartridge_id(cartridge_example_data)
-            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-            if is_inside_cm(): os.remove('misc/tetrix.sqfs')
-        except Exception as e:
-            LOGGER.warning(e)
-
-        try:
-            cartridge_example_file = open('misc/particles.sqfs','rb')
-            cartridge_example_data = cartridge_example_file.read()
-            cartridge_example_file.close()
-            particles_id = generate_cartridge_id(cartridge_example_data)
-            create_cartridge(cartridge_example_data,msg_sender="0xAf1577F6A113da0bc671a59D247528811501cF94")
-            if is_inside_cm(): os.remove('misc/particles.sqfs')
-        except Exception as e:
-            LOGGER.warning(e)
-
+    genesis_rule_cartridge = "antcopter"
+    if cartridge_ids.get(genesis_rule_cartridge) is not None:
         try:
             rule_conf_dict = {
-                "cartridge_id":hex2bytes(antcopter_id),
+                "cartridge_id":hex2bytes(cartridge_ids[genesis_rule_cartridge]),
                 "name":"Only 5 to beat",
                 "description":"You'll have only 5 lives to beat the game. Each new level and each apple earn you points, but you loose point with time. Be fast and efficient! ",
                 "args":"5",
@@ -206,8 +154,8 @@ def initialize_data():
             test_replay = test_replay_file.read()
             test_replay_file.close()
 
-            verification_output = verify_log(antcopter_id,test_replay,rule_conf_dict["args"],rule_conf_dict["in_card"])
-            insert_rule(rule_conf,verification_output.get("outcard"),msg_sender="0xCB76129e0eD325E1E5c17F3f363BC2e93a227eCF")
+            verification_output = verify_log(cartridge_data[genesis_rule_cartridge],test_replay,rule_conf_dict["args"],rule_conf_dict["in_card"])
+            insert_rule(rule_conf,verification_output.get("outcard"),msg_sender=CoreSettings.operator_address)
         except Exception as e:
             LOGGER.warning(e)
             
@@ -242,7 +190,7 @@ def insert_rule(rule_conf,outcard_raw,**metadata):
         raise Exception(f"Rule already exists")
     # process outcard
     function_log = "no function"
-    if rule_conf.score_function is not None and rule_conf.score_function != "":
+    if rule_conf.score_function is not None and len(rule_conf.score_function) > 0:
         outcard_format = outcard_raw[:4]
         if outcard_format != b"JSON":
             raise Exception(f"Outcard format is not json")
@@ -308,7 +256,7 @@ def create_cartridge(cartridge_data,**metadata):
     test_replay = test_replay_file.read()
     test_replay_file.close()
 
-    verification_output = verify_log(data_hash,test_replay,'',b'',get_screenshot=True)
+    verification_output = verify_log(cartridge_data,test_replay,'',b'',get_screenshot=True)
     screenshot = verification_output.get("screenshot")
 
     cartridge_cover = riv_get_cover(data_hash)

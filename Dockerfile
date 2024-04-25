@@ -8,6 +8,9 @@ ARG RIV_VERSION=0.3-rc7
 ARG ROLLUPS_NODE_VERSION=1.4.0
 ARG CM_CALLER_VERSION=0.1.0
 ARG NONODO_VERSION=0.0.1
+ARG RIVES_VERSION=0
+ARG DAGSTER_VERSION=1.7.2
+ARG SUNODO_DEVNET_VERSION=1.4.0
 
 FROM sunodo/sdk:${SUNODO_SDK_VERSION} as sunodo-riv-sdk
 
@@ -35,6 +38,90 @@ RUN curl -s -L https://github.com/lynoferraz/cm-caller/releases/download/v${CM_C
 
 
 FROM --platform=linux/riscv64 riv/toolchain:devel as riv-toolchain
+
+FROM debian:11-slim as base-files
+
+COPY core core
+
+COPY misc/snake.sqfs misc/snake.sqfs
+# COPY misc/2048.sqfs misc/2048.sqfs
+COPY misc/freedoom.sqfs misc/freedoom.sqfs
+COPY misc/antcopter.sqfs misc/antcopter.sqfs
+COPY misc/monky.sqfs misc/monky.sqfs
+# COPY misc/breakout.sqfs misc/breakout.sqfs
+COPY misc/particles.sqfs misc/particles.sqfs
+COPY misc/tetrix.sqfs misc/tetrix.sqfs
+COPY misc/test.rivlog misc/test.rivlog
+
+
+WORKDIR /opt/cartesi/dapp
+
+# inputbox contract
+FROM sunodo/devnet:${SUNODO_DEVNET_VERSION} as contracts
+
+WORKDIR /opt/cartesi/build
+
+RUN cat /usr/share/sunodo/localhost.json | jq '.contracts.InputBox' > InputBox.json
+
+
+# external verification services
+FROM python:3.10-slim as external-verifier-cloud
+
+ARG DAGSTER_VERSION
+
+# Install dependencies
+ENV VIRTUAL_ENV=/usr/local
+RUN pip install -U uv
+RUN uv pip install \
+    dagster==${DAGSTER_VERSION} \
+    dagster-postgres \
+    dagster-aws \
+    dagster-k8s \
+    dagster-celery[flower,redis,kubernetes] \
+    dagster-celery-k8s
+
+RUN <<EOF
+apt-get update && \
+apt-get install -y --no-install-recommends git wget && \
+rm -rf /var/lib/apt/lists/* /var/log/* /var/cache/*
+EOF
+
+WORKDIR /opt/cartesi/dapp_external_verifier
+
+COPY external_verifier/requirements.txt .
+RUN uv pip install -r requirements.txt --no-cache && rm requirements.txt
+
+ARG RIV_VERSION
+RUN wget -q https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(dpkg --print-architecture) -O rivemu \
+    && chmod +x rivemu
+
+RUN apt remove -y git wget && apt -y autoremove
+RUN find /usr/local/lib -type d -name __pycache__ -exec rm -r {} + \
+    && find /var/log \( -name '*.log' -o -name '*.log.*' \) -exec truncate -s 0 {} \;
+
+COPY --from=base-files misc misc
+COPY --from=base-files core core
+
+COPY external_verifier/__init__.py external_verifier/__init__.py
+COPY external_verifier/common.py external_verifier/common.py
+COPY external_verifier/services.py external_verifier/services.py
+
+RUN <<EOF
+echo '[tool.dagster]
+module_name = "external_verifier"
+' > pyproject.toml
+EOF
+
+COPY --from=contracts /opt/cartesi/build/InputBox.json external_verifier/InputBox.json
+
+ENV TEST_TAPE_PATH=../misc/test.rivlog
+ENV GENESIS_CARTRIDGES_PATH=../misc
+ENV RIVEMU_PATH=../rivemu
+ENV INPUT_BOX_ABI_FILE=InputBox.json
+
+ARG RIVES_VERSION
+ENV RIVES_VERSION=${RIVES_VERSION}
+
 
 FROM --platform=linux/riscv64 cartesi/python:3.10-slim-jammy as base
 
@@ -90,20 +177,11 @@ RUN rm requirements.txt \
     && find /var/log \( -name '*.log' -o -name '*.log.*' \) -exec truncate -s 0 {} \;
 
 
-    # install dapp
+# install dapp
 WORKDIR /opt/cartesi/dapp
 
-COPY core core
-
-COPY misc/snake.sqfs misc/snake.sqfs
-# COPY misc/2048.sqfs misc/2048.sqfs
-COPY misc/freedoom.sqfs misc/freedoom.sqfs
-COPY misc/antcopter.sqfs misc/antcopter.sqfs
-COPY misc/monky.sqfs misc/monky.sqfs
-# COPY misc/breakout.sqfs misc/breakout.sqfs
-COPY misc/particles.sqfs misc/particles.sqfs
-COPY misc/tetrix.sqfs misc/tetrix.sqfs
-COPY misc/test.rivlog misc/test.rivlog
+COPY --from=base-files misc misc
+COPY --from=base-files core core
 
 ARG OPERATOR_ADDRESS
 ENV OPERATOR_ADDRESS=${OPERATOR_ADDRESS}

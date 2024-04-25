@@ -7,6 +7,7 @@ import { Tab } from '@headlessui/react'
 import { Canvas } from '@react-three/fiber';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
+import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import CachedIcon from '@mui/icons-material/Cached';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
@@ -16,11 +17,12 @@ import Image from "next/image";
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
 import Loader from "../components/Loader";
-import { VerificationOutput, getOutputs, verify, VerifyPayload as VerifyPayloadInput } from '../backend-libs/core/lib';
+import { VerificationOutput, getOutputs, VerifyPayload as VerifyPayloadInput, registerExternalVerification } from '../backend-libs/core/lib';
 import { VerifyPayload } from '../backend-libs/core/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
+import CartridgeTapes from './CartridgeTapes';
 import { envClient } from "../utils/clientEnv";
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from "@mui/icons-material/Close";
@@ -196,7 +198,7 @@ function CartridgeInfo() {
                 tape: ethers.utils.hexlify(selectedCartridge.gameplayLog),
                 claimed_score: selectedCartridge.score || 0
             }
-            receipt = await verify(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+            receipt = await registerExternalVerification(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
 
             if (receipt == undefined || receipt.events == undefined)
                 throw new Error("Couldn't send transaction");
@@ -259,10 +261,15 @@ function CartridgeInfo() {
             if (replayLogs.length > 0) {
 
                 const tapePayload:VerifyPayloadInput = replayLogs[0];
-                if (ethers.utils.isHexString(tapePayload.tape) && ethers.utils.isHexString(tapePayload.rule_id))
-                    setReplay(tapePayload.rule_id.slice(2), ethers.utils.arrayify(tapePayload.tape), tapePayload._msgSender);
+                prepareTape(tapePayload);
             }
         }
+    }
+
+    function prepareTape(tapePayload: VerifyPayloadInput) {
+        if (ethers.utils.isHexString(tapePayload.tape) && ethers.utils.isHexString(tapePayload.rule_id))
+            setReplay(tapePayload.rule_id.slice(2), ethers.utils.arrayify(tapePayload.tape), tapePayload._msgSender);
+
     }
 
 
@@ -399,10 +406,18 @@ function CartridgeInfo() {
                             >
                                 <span className='game-tabs-option-text'>
                                     <LeaderboardIcon/>
-                                    <span>Scoreboard</span>
+                                    <span>Leaderboard</span>
                                 </span>
                         </Tab>
 
+                        <Tab
+                            className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+                            >
+                                <span className='game-tabs-option-text'>
+                                    <OndemandVideoIcon/>
+                                    <span>Tapes</span>
+                                </span>
+                        </Tab>
                         {/* <Tab
                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
                             >
@@ -433,6 +448,14 @@ function CartridgeInfo() {
                                 <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
                             </div>
                             <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} rule={selectedCartridge.rule} replay_function={prepareReplay}/>
+
+                        </Tab.Panel>
+
+                        <Tab.Panel className="game-tab-content">
+                            <div className="w-full flex">
+                                <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
+                            </div>
+                            <CartridgeTapes cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} rule={selectedCartridge.rule} replay_function={prepareTape}/>
 
                         </Tab.Panel>
 
