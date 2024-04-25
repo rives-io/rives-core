@@ -80,7 +80,7 @@ function calculateTapeId(log: Uint8Array): string {
 
 
 function GameplaySubmitter() {
-    const {gameplay, gifParameters, clear} = useContext(gameplayContext);
+    const {gameplay, getGifParameters, clearGifFrames} = useContext(gameplayContext);
     const [{ wallet }, connect] = useConnectWallet();
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
@@ -105,6 +105,7 @@ function GameplaySubmitter() {
     }, [gameplay])
 
     async function prepareSubmission() {
+        const gifParameters = getGifParameters();
         if (gifParameters) {
             const gif = await generateGif(gifParameters.frames, gifParameters.width, gifParameters.height);
             setGifImg(gif);
@@ -148,7 +149,7 @@ function GameplaySubmitter() {
         }
         
         setModalState(MODAL_STATE.SUBMITED);
-        clear(); // clears gameplay and gif informations
+        clearGifFrames();
     }
 
 
@@ -209,10 +210,10 @@ function GameplaySubmitter() {
                         title={'Check out my gameplay on '}
                         hashtags={SOCIAL_MEDIA_HASHTAGS}
                         >
-                            <button className="p-3 bg-[#eeeeee] text-[black] border border-[#eeeeee] hover:bg-black hover:text-[#eeeeee] flex space-x-2 items-center">
+                            <div className="p-3 bg-[#eeeeee] text-[black] border border-[#eeeeee] hover:bg-black hover:text-[#eeeeee] flex space-x-2 items-center">
                             {/* <button className="p-3 bg-[#eeeeee] text-[black] border border-[#eeeeee] hover:bg-transparent hover:text-[#eeeeee] flex space-x-2 items-center"> */}
                                 <span>Share on</span> <TwitterIcon size={32} round />
-                            </button>
+                            </div>
                             
                         </TwitterShareButton>
 

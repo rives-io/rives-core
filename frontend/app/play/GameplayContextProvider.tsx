@@ -8,12 +8,12 @@ import { createContext, useState } from 'react';
 
 export const gameplayContext = createContext<{
     gameplay: Gameplay|null, setGameplayLog(gameplay:Gameplay):void,
-    gifParameters: GifParameters|null, setGifResolution(width:number, height:number):void,
-    setGifFrames(frames:Array<string>):void, addGifFrame(frame:string):void, clear():void
+    getGifParameters():GifParameters, setGifResolution(width:number, height:number):void,
+    setGifFrames(frames:Array<string>):void, addGifFrame(frame:string):void, clearGifFrames():void
 }>({gameplay: null, setGameplayLog: () => null, 
-    gifParameters:null, setGifResolution: () => null, 
+    getGifParameters: () => {return {width:0, height:0, frames:[]}}, setGifResolution: () => null, 
     setGifFrames: () => null, addGifFrame: () => null,
-    clear: () => null});
+    clearGifFrames: () => null});
 
 export interface Outcard {
     value: Uint8Array,
@@ -39,37 +39,44 @@ export const GIF_FRAME_FREQ = 4;
 
 export function GameplayProvider({ children }:{ children: React.ReactNode }) {
     const [gameplay, setGameplay] = useState<Gameplay|null>(null);
-    const [gifParameters, setGifParameters] = useState<GifParameters>({width: 0, height: 0, frames: []});
+    const [gifRes, setGifRes] = useState<{width:number, height:number}|null>(null);
+    const [gifFrameArray, setGifFrameArray] = useState<Array<string>>([]);
 
     const setGameplayLog = (gameplay:Gameplay) => {
         setGameplay(gameplay);
     }
 
     const setGifResolution = (width:number, height:number) => {
-        setGifParameters({...gifParameters, width:width, height:height});
+        setGifRes({width:width, height:height});
     }
 
     const setGifFrames = (frames:Array<string>) => {
         const startAt = frames.length > GIF_SIZE? frames.length - GIF_SIZE: 0;
-        setGifParameters({...gifParameters, frames: frames.slice(startAt)});
+        setGifFrameArray(frames.slice(startAt));
     }
 
     const addGifFrame = (frame:string) => {
-        if (gifParameters.frames.length + 1 <= GIF_SIZE) {
-            setGifParameters({...gifParameters, frames: [...gifParameters.frames, frame]})
+        if (gifFrameArray.length + 1 <= GIF_SIZE) {
+            setGifFrameArray([...gifFrameArray, frame])
         } else {
             // throw away the oldest frame
-            setGifParameters({...gifParameters, frames: [...gifParameters.frames.slice(1), frame]})
+            setGifFrameArray([...gifFrameArray.slice(1), frame])
         }
     }
 
-    const clear = () => {
-        setGameplay(null);
-        setGifParameters({width: 0, height: 0, frames: []});
+    const getGifParameters = ():GifParameters => {
+        if (!gifRes) throw new Error("Undefined GIF Resolution!");
+        if (gifFrameArray.length == 0) throw new Error("No GIF frames found!");
+
+        return {width: gifRes.width, height: gifRes.height, frames: gifFrameArray}
+    }
+
+    const clearGifFrames = () => {
+        setGifFrames([]);
     }
 
     return (
-        <gameplayContext.Provider value={ {gameplay, setGameplayLog, gifParameters, setGifResolution, setGifFrames, addGifFrame, clear} }>
+        <gameplayContext.Provider value={ {gameplay, setGameplayLog, setGifResolution, setGifFrames, addGifFrame, clearGifFrames, getGifParameters} }>
             { children }
         </gameplayContext.Provider>
     );
