@@ -93,7 +93,7 @@ function RivemuPlayer(
         let incardBuf = Module._malloc(inCard.length);
         // @ts-ignore:next-line
         Module.HEAPU8.set(inCard, incardBuf);
-        const params = "";
+        const params = args || "";
         // entropy
         let entropy = "";
         if (signerAddress) {

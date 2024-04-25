@@ -11,7 +11,7 @@ import { sha256 } from "js-sha256";
 import { ContractReceipt, ethers } from "ethers";
 import { VerifyPayload } from "../backend-libs/core/ifaces";
 import { envClient } from "../utils/clientEnv";
-import { verify } from "../backend-libs/core/lib";
+import { registerExternalVerification } from "../backend-libs/core/lib";
 import { Dialog, Transition } from '@headlessui/react'
 import Image from "next/image";
 import { TwitterShareButton, TwitterIcon } from 'next-share';
@@ -136,7 +136,7 @@ function GameplaySubmitter() {
         }
         
         setModalState(MODAL_STATE.SUBMITTING);
-        const receipt:ContractReceipt = await verify(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+        const receipt:ContractReceipt = await registerExternalVerification(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
 
         const gameplay_id = calculateTapeId(gameplay.log);
         if (gifImg.length > 0) {
