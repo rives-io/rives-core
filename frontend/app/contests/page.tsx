@@ -3,6 +3,7 @@ import { Contest } from "../contest/[contest_id]/page";
 import { CartridgeInfo, RuleInfo } from "../backend-libs/core/ifaces";
 import { cartridgeInfo, rules } from "../backend-libs/core/lib";
 import Link from "next/link";
+import { formatDate } from "../utils/util";
 
 interface RuleWithMetadata extends RuleInfo, Contest {}
 
@@ -62,7 +63,11 @@ export default async function Contests() {
     
                   <div className="flex flex-col">
                     <span className="text-2xl">{contest.name}</span>
-                    <span className="text-[10px] opacity-60">{new Date(contest.created_at*1000).toLocaleString()} until {new Date((contest.end*1000)).toLocaleString()}</span>
+                    <div className="flex flex-col text-[10px] opacity-60 w-fit">
+                      <span>{formatDate(new Date(contest.created_at*1000))}</span>
+                      <span className="place-self-center">until</span>
+                      <span>{formatDate(new Date((contest.end*1000)))}</span>
+                    </div>
                   </div>
 
                   <div className="flex flex-col">

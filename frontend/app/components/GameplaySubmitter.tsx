@@ -15,6 +15,7 @@ import { registerExternalVerification } from "../backend-libs/core/lib";
 import { Dialog, Transition } from '@headlessui/react'
 import Image from "next/image";
 import { TwitterShareButton, TwitterIcon } from 'next-share';
+import ReportIcon from '@mui/icons-material/Report';
 
 // @ts-ignore
 import GIFEncoder from "gif-encoder-2";
@@ -23,7 +24,7 @@ import GIFEncoder from "gif-encoder-2";
 enum MODAL_STATE {
     SUBMIT,
     SUBMITTING,
-    SUBMITED
+    SUBMITTED
 }
 
 const SOCIAL_MEDIA_HASHTAGS = ["rives"];
@@ -98,6 +99,11 @@ function GameplaySubmitter() {
     }
 
     useEffect(() => {
+        // show warning message if user is not connected
+        if (!wallet) openModal();
+    }, [])
+
+    useEffect(() => {
         if (!gameplay) return;
 
         //submitLog();
@@ -148,7 +154,7 @@ function GameplaySubmitter() {
             setTapeURL(`${window.location.origin}/tapes/${gameplay_id}`);
         }
         
-        setModalState(MODAL_STATE.SUBMITED);
+        setModalState(MODAL_STATE.SUBMITTED);
         clearGifFrames();
     }
 
@@ -234,6 +240,56 @@ function GameplaySubmitter() {
         )
     }
 
+    if (!wallet) {
+        return (
+            <>    
+                <Transition appear show={modalIsOpen} as={Fragment}>
+                    <Dialog as="div" className="relative z-10" onClose={closeModal}>
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0"
+                            enterTo="opacity-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                        >
+                            <div className="fixed inset-0 bg-black/25" />
+                        </Transition.Child>
+                
+                        <div className="fixed inset-0 overflow-y-auto">
+                            <div className="flex min-h-full items-center justify-center p-4 text-center">
+                                <Transition.Child
+                                    as={Fragment}
+                                    enter="ease-out duration-300"
+                                    enterFrom="opacity-0 scale-95"
+                                    enterTo="opacity-100 scale-100"
+                                    leave="ease-in duration-200"
+                                    leaveFrom="opacity-100 scale-100"
+                                    leaveTo="opacity-0 scale-95"
+                                >
+                                    <Dialog.Panel className="w-full max-w-md transform overflow-hidden bg-gray-500 p-4 shadow-xl transition-all flex flex-col items-center text-white">
+                                        <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                                            <ReportIcon className='text-yellow-500 text-5xl' />
+                                        </Dialog.Title>
+                                        <div className='flex w-96 flex-wrap justify-center'>
+                                            <span> You need to be connect for your gameplay to be saved!</span>
+                                        </div>
+
+                                        <button className="mt-4 bg-yellow-500 text-white p-3 border border-yellow-500 hover:text-yellow-500 hover:bg-transparent"
+                                        onClick={closeModal}
+                                        >
+                                            OK
+                                        </button>
+                                    </Dialog.Panel>
+                                </Transition.Child>
+                            </div>
+                        </div>
+                    </Dialog>
+                </Transition>
+            </>
+        )
+    }
 
     return (
         <>    

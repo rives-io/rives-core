@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { sha256 } from "js-sha256";
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import { useConnectWallet } from '@web3-onboard/react';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -87,6 +88,10 @@ function RuleLeaderboard({cartridge_id, rule}:{
     const [pageToLoad, setPageToLoad] = useState(1);
     const [atEnd, setAtEnd] = useState(false);
 
+    // user
+    const [{ wallet }] = useConnectWallet();
+    const userAddress = wallet? wallet.accounts[0].address.toLocaleLowerCase(): null;
+
 
     const reloadScores = async () => {
         if (!rule) return [];
@@ -108,7 +113,7 @@ function RuleLeaderboard({cartridge_id, rule}:{
         reloadScores().then((scores) => {
             if (scores.length == 0) {
                 setAtEnd(true);
-                setTapePayloads(currTapes);
+                setTapePayloads(currTapes || []);
                 return;
             } else if (scores.length < DEFAULT_PAGE_SIZE) {
                 setAtEnd(true);
@@ -121,6 +126,14 @@ function RuleLeaderboard({cartridge_id, rule}:{
 
     if (!tapePayloads) {
         return tapesBoardFallback();
+    }
+
+    if (tapePayloads.length == 0) {
+        return (
+            <div className='relative text-center'>
+                <span>No gameplays submitted yet!</span>
+            </div>
+        )
     }
 
     function getTapeId(tapeHex: string): String {
@@ -144,16 +157,17 @@ function RuleLeaderboard({cartridge_id, rule}:{
                     {
                         tapePayloads.map((tape, index) => {
                             const tapeDate = new Date(Number(tape._timestamp)*1000);
+                            const userTape = userAddress == tape._msgSender?.toLocaleLowerCase();
                             return (
                                 <tr key={index} onClick={() => window.open(`/tapes/${getTapeId(tape.tape)}`, "_blank", "noopener,noreferrer")}
-                                className='games-list-item'
-                                style={{cursor: "pointer", textAlign: "left"}}
+                                className={`p-4 hover:games-list-selected-item ${userTape? "bg-gray-500":""}`}
+                                style={{cursor: "pointer"}}
                                 >
                                     <td title={tape._msgSender?.toLowerCase()} scope="row" className="px-2 py-2 break-all">
                                         {tape._msgSender?.substring(0,6)+"..."+tape._msgSender?.substring(tape._msgSender?.length-4,tape._msgSender?.length)}
                                     </td>
                                     <td title={tapeDate.toLocaleString()} className="px-2 py-2">
-                                        {tapeDate.toLocaleDateString()}
+                                        {tapeDate.toLocaleDateString()} {tapeDate.toLocaleTimeString()}
                                     </td>
                                 </tr>
                             );

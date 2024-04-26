@@ -6,6 +6,10 @@ import Script from "next/script"
 import { useContext, useState, useEffect } from "react";
 import { useConnectWallet } from '@web3-onboard/react';
 
+import CloseIcon from '@mui/icons-material/Close';
+import RestartIcon from '@mui/icons-material/RestartAlt';
+import StopIcon from '@mui/icons-material/Stop';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { GIF_FRAME_FREQ, gameplayContext } from "../play/GameplayContextProvider";
@@ -208,6 +212,13 @@ function RivemuPlayer(
         rivemuHalt();
     }
 
+    function rivemuFullscreen() {
+        const canvas: any = document.getElementById("canvas");
+        if (canvas) {
+            canvas.requestFullscreen();
+        }
+    }
+
     if (typeof window !== "undefined") {
         let decoder = new TextDecoder("utf-8");
         let parser = new Parser();
@@ -280,14 +291,14 @@ function RivemuPlayer(
     }
     // END: rivemu
 
-    function playTape() {
+    async function playTape() {
+        await rivemuReplay();
         setPlaying({...playing, isPlaying: true});
-        rivemuReplay();
     }
 
-    function playGame() {
+    async function playGame() {
+        await rivemuStart();
         setPlaying({...playing, isPlaying: true});
-        rivemuStart();
     }
 
     return (
@@ -295,7 +306,29 @@ function RivemuPlayer(
             <section className="grid grid-cols-1 gap-4 place-items-center">
                 <div>
                 <div className='relative bg-gray-500 p-2 text-center'>
+                    <button className="bg-gray-700 text-white absolute top-1 start-2.5 border border-gray-700 hover:border-black"
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={() => {isTape? playTape():playGame()}}>
+                        <RestartIcon/>
+                    </button>
+
                     { !rule_id ? <></> : currScore == undefined ? <span>no score</span> : <span>Score: {currScore}</span>}
+
+                    <button className="bg-gray-700 text-white absolute top-1 end-10 border border-gray-700 hover:border-black"
+                    hidden={!playing.isPlaying}
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={rivemuFullscreen}
+                    >
+                        <FullscreenIcon/>
+                    </button>
+
+                    <button className="bg-red-500 text-white absolute top-1 end-2.5 border border-gray-700 hover:border-black"
+                    hidden={!playing.isPlaying}
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={rivemuStop}
+                    >
+                        <StopIcon/>
+                    </button>
                 </div>
                     <div className="relative">
                     { !playing.isPlaying?

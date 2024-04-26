@@ -4,6 +4,7 @@ import ContestInfo from "@/app/components/ContestInfo";
 import { envClient } from "@/app/utils/clientEnv";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { formatDate } from "@/app/utils/util";
 
 
 export interface Contest {
@@ -66,7 +67,11 @@ export default async function Contest({ params }: { params: { contest_id: string
             
             <div className="flex flex-col">
               <span className="text-2xl">{contest.name}</span>
-              <span className="text-[10px] opacity-60">{new Date(contest.created_at*1000).toLocaleString()} until {new Date((contestMetadata.end*1000)).toLocaleString()}</span>
+              <div className="flex flex-col text-[10px] opacity-60 w-fit">
+                <span>{formatDate(new Date(contest.created_at*1000))}</span>
+                <span className="place-self-center">until</span>
+                <span>{formatDate(new Date((contestMetadata.end*1000)))}</span>
+              </div>
             </div>
 
             <div className="flex flex-col">
