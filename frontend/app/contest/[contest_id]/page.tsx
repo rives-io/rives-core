@@ -4,24 +4,14 @@ import ContestInfo from "@/app/components/ContestInfo";
 import { envClient } from "@/app/utils/clientEnv";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Contest as ContestClass, ConstestStatus, getContestStatus } from "../../utils/common";
 
-
-export interface Contest {
-  rule_id:string,
-  start:number,
-  end:number,
-  prize:string,
-  winner?:string
-}
 
 const getContest = (rule_id:string) => {
-  const contestList = envClient.CONTESTS as Array<Contest>;
+  const contests = envClient.CONTESTS as Record<string,ContestClass>;
 
-  for (let i = 0; i < contestList.length; i++) {
-    const contest = contestList[i];
-    if (contest.rule_id == rule_id) {
-      return contest;
-    }
+  if (rule_id in contests) {
+    return contests[rule_id];
   }
 
   return null;
@@ -56,7 +46,7 @@ export default async function Contest({ params }: { params: { contest_id: string
   }
 
   const currDate = new Date().getTime()/1000; // divide by 1000 to convert from miliseconds to seconds
-  const contestIsOpen = currDate >= contest.created_at && currDate < contestMetadata.end;
+  const contestIsOpen = !contest.start || !contest.end || (currDate >= contest.start && currDate < contest.end);
   const game = await getGameInfo(contest.cartridge_id);
 
   return (
@@ -64,14 +54,16 @@ export default async function Contest({ params }: { params: { contest_id: string
         <section className="py-16 my-8 w-full flex flex-col space-y-8 max-w-5xl h-2/3">
           <div className="bg-gray-400 flex flex-wrap justify-between p-4">
             
-            <div className="flex flex-col">
+            <div className="flex flex-col relative">
               <span className="text-2xl">{contest.name}</span>
-              <span className="text-[10px] opacity-60">{new Date(contest.created_at*1000).toLocaleString()} until {new Date((contestMetadata.end*1000)).toLocaleString()}</span>
+              {contest.start && contest.end ? <span className="text-[10px] opacity-60">{new Date(contest.start*1000).toLocaleString()} until {new Date((contest.end*1000)).toLocaleString()}</span> : <></>}
+              <span className={"absolute bottom-0 right-0 " }>{ConstestStatus[getContestStatus(contest)]}</span>
             </div>
 
             <div className="flex flex-col">
               <span>Game: {game.name}</span>
               <span>Prize: {contestMetadata.prize}</span>
+              <span>Tapes: {contest.n_tapes}</span>
               <span>Winner: {contestMetadata.winner? contestMetadata.winner: "TBA"}</span>
             </div>
 

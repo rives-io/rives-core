@@ -51,7 +51,10 @@ run-cloud-services-%: --load-env-% --check-envs rivemu InputBox.json ; $(value s
 
 ${ENVFILE}:
 	@test ! -f $@ && echo "$(ENVFILE) not found. Creating with default values" 
-	echo ROLLUP_HTTP_SERVER_URL=http://localhost:8080/rollup >> $(ENVFILE)
+	echo RIVEMU_PATH=../rivemu >> $(ENVFILE)
+	echo CRAPP_ADDRESS=0xab7528bb862fb57e8a2bcd567a2e929a0be56a5e >> $(ENVFILE)
+	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
+	echo PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 >> $(ENVFILE)
 
 --load-env-%: ${ENVFILE}.%
 	@$(eval include include $^)

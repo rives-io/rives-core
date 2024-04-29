@@ -1,24 +1,31 @@
 import os
 from pydantic import BaseModel
 import logging
-from typing import Optional, List
+from typing import Optional, List, Annotated
 import json
 from py_expression_eval import Parser
 import pickle
 
-from cartesi.abi import String, Bytes, Bytes32
+from cartesi.abi import String, Bytes, Bytes32, UInt, ABIType
 
 from cartesapp.storage import Entity, helpers, Storage, seed
 from cartesapp.utils import hex2bytes, str2bytes, bytes2str
 
 from .riv import riv_get_cartridge_info, riv_get_cover, verify_log
-from .core_settings import CoreSettings, generate_cartridge_id, get_cartridges_path, is_inside_cm, get_cartridge_tapes_filename, generate_rule_id
+from .core_settings import CoreSettings, generate_cartridge_id, get_cartridges_path, is_inside_cm, \
+    get_cartridge_tapes_filename, generate_rule_id, generate_rule_parameters_tag
 
 LOGGER = logging.getLogger(__name__)
 
 
 ###
 # Model
+
+UInt256List = Annotated[List[int], ABIType('uint256[]')]
+Int256List = Annotated[List[int], ABIType('int256[]')]
+Bytes32List = Annotated[List[bytes], ABIType('bytes32[]')]
+StringList = Annotated[List[str], ABIType('string[]')]
+AddressList = Annotated[List[str], ABIType('address[]')]
 
 # TODO: TypeError: unhashable type: 'ABIType' allow python cartesi types
 class Cartridge(Entity):
@@ -36,11 +43,20 @@ class Rule(Entity):
     description     = helpers.Optional(str, index=True)
     cartridge_id    = helpers.Required(str, 64, index=True)
     created_by      = helpers.Required(str, 42)
-    created_at      = helpers.Required(int, unsigned=True) # -1 means not created by an input (created in genesis or default rule)
-    input_index     = helpers.Required(int, lazy=True)
+    created_at      = helpers.Required(int, unsigned=True)
+    input_index     = helpers.Required(int, lazy=True) # -1 means not created by an input (created in genesis or default rule)
     args            = helpers.Optional(str)
     in_card         = helpers.Optional(bytes)
     score_function  = helpers.Optional(str)
+    start           = helpers.Optional(int, unsigned=True)
+    end             = helpers.Optional(int, unsigned=True)
+    tags            = helpers.Set("RuleTag")
+
+class RuleTag(Entity):
+    rules           = helpers.Set(Rule)
+    cartridge_id    = helpers.Required(str, 64, index=True)
+    name            = helpers.Required(str, index=True)
+    helpers.PrimaryKey(cartridge_id, name)
 
 class RuleData(BaseModel):
     cartridge_id:       Bytes32
@@ -49,6 +65,9 @@ class RuleData(BaseModel):
     args:               String
     in_card:            Bytes
     score_function:     String
+    start:              UInt
+    end:                UInt
+    tags:               StringList
 
 class Author(BaseModel):
     name:           str
@@ -66,13 +85,13 @@ class CartridgeInfo(BaseModel):
 
 
 class TapeHash:
-    cartridge_tapes = {}
+    cartridge_tapes = {"rules":{}}
     def __new__(cls):
         return cls
 
     @classmethod
     def get_cartridge_tapes(cls):
-        cartridge_tapes = {}
+        cartridge_tapes = {"rules":{}}
         if Storage.STORAGE_PATH is not None:
             if os.path.exists(get_cartridge_tapes_filename()):
                 f = open(get_cartridge_tapes_filename(), 'rb')
@@ -91,10 +110,12 @@ class TapeHash:
             cls.cartridge_tapes = cartridge_tapes
 
     @classmethod
-    def add(cls, cartridge_id, tape_hash):
+    def add(cls, cartridge_id, rule_id, tape_hash):
         cartridge_tapes = cls.get_cartridge_tapes()
         if cartridge_tapes.get(cartridge_id) is None: cartridge_tapes[cartridge_id] = {}
+        if cartridge_tapes["rules"].get(rule_id) is None: cartridge_tapes["rules"][rule_id] = {"all":{},"verified":{}}
         cartridge_tapes[cartridge_id][tape_hash] = False
+        cartridge_tapes["rules"][rule_id]["all"][tape_hash] = None
         cls.store_cartridge_tape(cartridge_tapes)
 
     @classmethod
@@ -111,11 +132,23 @@ class TapeHash:
             and cartridge_tapes[cartridge_id][tape_hash]
     
     @classmethod
-    def set_verified(cls, cartridge_id, tape_hash):
+    def set_verified(cls, cartridge_id, rule_id, tape_hash):
         cartridge_tapes = cls.get_cartridge_tapes()
         if cartridge_tapes.get(cartridge_id) is None: cartridge_tapes[cartridge_id] = {}
+        if cartridge_tapes["rules"].get(rule_id) is None: cartridge_tapes["rules"][rule_id] = {"all":{},"verified":{}}
         cartridge_tapes[cartridge_id][tape_hash] = True
+        cartridge_tapes["rules"][rule_id]["all"][tape_hash] = None
+        cartridge_tapes["rules"][rule_id]["verified"][tape_hash] = None
         cls.store_cartridge_tape(cartridge_tapes)
+
+    @classmethod
+    def get_rule_tapes_summary(cls, rule_id):
+        cartridge_tapes = cls.get_cartridge_tapes()
+        print("==== DEBUG ====",cartridge_tapes)
+        if cartridge_tapes["rules"].get(rule_id) is None:
+            return {"all":0,"verified":0}
+        return {"all":len(cartridge_tapes["rules"][rule_id]["all"]),"verified":len(cartridge_tapes["rules"][rule_id]["verified"])}
+
 ###
 # Seeds
 
@@ -144,7 +177,10 @@ def initialize_data():
                 "description":"You'll have only 5 lives to beat the game. Each new level and each apple earn you points, but you loose point with time. Be fast and efficient! ",
                 "args":"5",
                 "in_card":b"",
-                "score_function":"score"
+                "score_function":"score",
+                "start":1711940400,
+                "end":  1717210800,
+                "tags":["5 lifes"]
             }
             rule_conf = RuleData.parse_obj(rule_conf_dict)
             rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))
@@ -170,7 +206,10 @@ def create_default_rule(cartridge_id,outcard_raw,**metadata):
         "description":"",
         "args":"",
         "in_card":b"",
-        "score_function":""
+        "score_function":"",
+        "start":0,
+        "end":0,
+        "tags":[]
     }
     if outcard_raw[:4] == b"JSON":
         try:
@@ -182,12 +221,15 @@ def create_default_rule(cartridge_id,outcard_raw,**metadata):
     rule_conf = RuleData.parse_obj(rule_conf_dict)
     return insert_rule(rule_conf,outcard_raw,**metadata)
     
-def insert_rule(rule_conf,outcard_raw,**metadata):
+def insert_rule(rule_conf: RuleData,outcard_raw: bytes,**metadata):
     # str2bytes(metadata.msg_sender) + metadata.timestamp.to_bytes(32, byteorder='big')
     rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))
 
     if helpers.count(r for r in Rule if r.id == rule_id) > 0:
         raise Exception(f"Rule already exists")
+    
+    if rule_conf.start > 0 and rule_conf.end > 0 and rule_conf.start > rule_conf.end:
+        raise Exception(f"Inconsistent start and end time")
     # process outcard
     function_log = "no function"
     if rule_conf.score_function is not None and len(rule_conf.score_function) > 0:
@@ -225,8 +267,18 @@ def insert_rule(rule_conf,outcard_raw,**metadata):
         input_index = metadata.get('input_index') or -1, # not created by an input (genesis or default rule)
         args = rule_conf.args,
         in_card = rule_conf.in_card,
-        score_function = rule_conf.score_function
+        score_function = rule_conf.score_function,
+        start = rule_conf.start if rule_conf.start > 0 else None,
+        end = rule_conf.end if rule_conf.end > 0 else None
     )
+
+    tags = list(rule_conf.tags)
+    tags.append(generate_rule_parameters_tag(rule_conf.args,rule_conf.in_card,rule_conf.score_function))
+    for tag in tags:
+        rule_tag = RuleTag.get(lambda r: r.name == tag and r.cartridge_id == rule_conf.cartridge_id.hex())
+        if rule_tag is None:
+            rule_tag = RuleTag(name = tag, cartridge_id = rule_conf.cartridge_id.hex())
+        rule_tag.rules.add(new_rule)
 
     # LOGGER.info(f"{new_rule=}")
 

@@ -115,7 +115,8 @@ function CartridgeTapes({cartridge_id, rule, reload, replay_function}:{
                         tapePayloads.map((tape, index) => {
                             const tapeDate = new Date(Number(tape._timestamp)*1000);
                             return (
-                                <tr key={index}>
+                                <tr key={index} onClick={() => window.open(`/tapes/${getTapeId(tape.tape)}`, "_blank", "noopener,noreferrer")}
+                                        className='games-list-item' style={{cursor: "pointer", textAlign: "left"}}>
                                     <td title={tape._msgSender?.toLowerCase()} scope="row" className="px-2 py-2 break-all">
                                         {tape._msgSender?.substring(0,6)+"..."+tape._msgSender?.substring(tape._msgSender?.length-4,tape._msgSender?.length)}
                                     </td>
@@ -123,8 +124,7 @@ function CartridgeTapes({cartridge_id, rule, reload, replay_function}:{
                                         {tapeDate.toLocaleDateString()}
                                     </td>
                                     <td className="py-2">
-                                        <button title='Tape' className='scoreboard-btn' onClick={() => replay_function(tape)}><span><OndemandVideoIcon/></span></button>
-                                        <button title='Tape' className='scoreboard-btn' onClick={() => window.open(`/tapes/${getTapeId(tape.tape)}`, "_blank", "noopener,noreferrer")}><span><OndemandVideoIcon/></span></button>
+                                        <button title='Peek tape' className='scoreboard-btn' onClick={(e) => {e.stopPropagation();replay_function(tape);}}><span><OndemandVideoIcon/></span></button>
                                     </td>
                                 </tr>
                             );

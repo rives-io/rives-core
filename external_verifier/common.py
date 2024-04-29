@@ -85,6 +85,8 @@ class Rule(BaseModel):
     in_card:            bytes
     score_function:     str
     sender:             Optional[str]
+    start:              int
+    end:                int
 
 class ExtendedVerifyPayload(VerifyPayload):
     rule_id:        abi.Bytes32
@@ -331,6 +333,18 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
         return None
+    
+    if rule.start > 0 and rule.start > timestamp:
+        msg = f"Timestamp earlier than rule start"
+        LOGGER.error(msg)
+        Storage.add_error(input_index,msg)
+        return None
+
+    if rule.end > 0 and rule.end < timestamp:
+        msg = f"Timestamp later than rule end"
+        LOGGER.error(msg)
+        Storage.add_error(input_index,msg)
+        return None
 
     entropy = generate_entropy(sender, payload.rule_id.hex())
 
@@ -534,7 +548,7 @@ class InputFinder:
                         yield InputData(type=InputType.verification,data=extended_payload,last_input_block=last_input_block)
                     elif header == self.rule_selector:
                         # LOGGER.info(f"rule entry")
-                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=RulePayload)
+                        payload: RulePayload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=RulePayload)
                         
                         rule_id = generate_rule_id(payload.cartridge_id,str2bytes(payload.name))
 
@@ -544,7 +558,9 @@ class InputFinder:
                             "args":payload.args,
                             "in_card":payload.in_card,
                             "score_function":payload.score_function,
-                            "sender":tx_event['args']['sender'].lower()
+                            "sender":tx_event['args']['sender'].lower(),
+                            "start":payload.start,
+                            "end":payload.end
                         }
                         rule = Rule.parse_obj(rule_dict)
                         yield InputData(type=InputType.rule,data=rule,last_input_block=last_input_block)
@@ -575,7 +591,7 @@ def set_envs():
     if GENESIS_CARTRIDGES is not None: os.environ["GENESIS_CARTRIDGES"] = GENESIS_CARTRIDGES
     setup_settings()
 
-def initialize_redis_with_genesis_data():
+def initialize_storage_with_genesis_data():
     cartridge_ids = {}
     for cartridge_name in CoreSettings.genesis_cartridges:
         try:
@@ -601,6 +617,8 @@ def initialize_redis_with_genesis_data():
                 "args":"5",
                 "in_card":b"",
                 "score_function":"score",
+                "start":1711940400,
+                "end":  1717210800,
                 "sender":OPERATOR_ADDRESS
             }
             rule = Rule.parse_obj(rule_conf_dict)
@@ -653,6 +671,8 @@ def add_cartridge(cartridge_id: str,cartridge_data: bytes):
             "args":args,
             "in_card":in_card,
             "score_function":score_function,
+            "start":0,
+            "end":  0,
         }
         rule = Rule.parse_obj(rule_dict)
         Storage.add_rule(rule.id,rule.json())
@@ -669,6 +689,9 @@ def add_rule(rule: Rule):
         return
     if Storage.get_rule(rule.id) is not None:
         LOGGER.warning(f"Rule already exists")
+        return
+    if rule.start > 0 and rule.end > 0 and rule.start > rule.end:
+        LOGGER.warning(f"Inconsistent start and end time")
         return
     out = rule_verification(cartridge_data,rule)
     if out is not None:

@@ -51,6 +51,7 @@ function Rivemu() {
 
     const [cancelled, setCancelled] = useState(false);
 
+    const [runtimeInitialized, setRuntimeInitialized] = useState(false);
     const [playedOnce, setPlayedOnce] = useState(false);
     const [freshOpen, setFreshOpen] = useState(true);
     const [rivemuState, setRivemuState] = useState(RIVEMU_STATE.WAITING);
@@ -187,12 +188,13 @@ function Rivemu() {
         //     // @ts-ignore:next-line
         //     Module._main();
         // }
+        await rivemuInitialize();
         await rivemuHalt();
         setRivemuState(RIVEMU_STATE.PLAYING);
         setOverallScore(undefined);
         lastFrames.splice(0,lastFrames.length);
         setLastFrames(lastFrames);
-        setLastFrameIndex(0);
+        setLastFrameIndex(undefined);
 
         if (selectedCartridge.scoreFunction) {
             setOverallScore(0);
@@ -249,12 +251,13 @@ function Rivemu() {
         //     // @ts-ignore:next-line
         //     Module._main();
         // }
+        await rivemuInitialize();
         await rivemuHalt();
         setRivemuState(RIVEMU_STATE.REPLAYING);
         setOverallScore(undefined);
         lastFrames.splice(0,lastFrames.length);
         setLastFrames(lastFrames);
-        setLastFrameIndex(0);
+        setLastFrameIndex(undefined);
 
         if (selectedCartridge.scoreFunction) {
             setOverallScore(0);
@@ -303,6 +306,15 @@ function Rivemu() {
         Module._free(rivlogBuf);
         // @ts-ignore:next-line
         Module._free(incardBuf);
+    }
+
+    async function rivemuInitialize() {
+        if (!runtimeInitialized) {
+            // @ts-ignore:next-line
+            if (typeof Module == "undefined" || typeof Module._rivemu_stop == "undefined")
+                await waitEvent("rivemu_on_runtime_initialized");
+            setRuntimeInitialized(true);
+        }
     }
 
     async function rivemuHalt() {
@@ -471,6 +483,7 @@ function Rivemu() {
                 {wallet ? <></> : <span>Free play (no wallet connected)</span> }
             </div>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
+            <Script src="/initializeRivemu.js?" strategy="lazyOnload" />
         </section>
         <div className="opacity-60 absolute inset-0 z-0 bg-black" onClick={() => close()}></div>
         </div>

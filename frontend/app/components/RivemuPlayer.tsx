@@ -36,6 +36,7 @@ function RivemuPlayer(
     const isTape = tape? true:false;
 
     // rivemu state
+    const [runtimeInitialized, setRuntimeInitialized] = useState(false);
     const [currScore, setCurrScore] = useState<number>();
     const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
     const [currProgress, setCurrProgress] = useState<number>();
@@ -78,11 +79,13 @@ function RivemuPlayer(
         //     // @ts-ignore:next-line
         //     Module._main();
         // }
+        await rivemuInitialize();
         await rivemuHalt();
         setCurrScore(undefined);
         if (scoreFunction) {
             setCurrScore(0);
         }
+        setLastFrameIndex(undefined);
 
         // @ts-ignore:next-line
         let cartridgeBuf = Module._malloc(cartridgeData.length);
@@ -135,12 +138,14 @@ function RivemuPlayer(
         //     // @ts-ignore:next-line
         //     Module._main();
         // }
+        await rivemuInitialize();
         await rivemuHalt();
         setCurrScore(undefined);
         if (scoreFunction) {
             setCurrScore(0);
         }
         setCurrProgress(0);
+        setLastFrameIndex(undefined);
 
         // @ts-ignore:next-line
         const cartridgeBuf = Module._malloc(cartridgeData.length);
@@ -184,6 +189,16 @@ function RivemuPlayer(
         Module._free(rivlogBuf);
         // @ts-ignore:next-line
         Module._free(incardBuf);
+    }
+
+
+    async function rivemuInitialize() {
+        if (!runtimeInitialized) {
+            // @ts-ignore:next-line
+            if (typeof Module == "undefined" || typeof Module._rivemu_stop == "undefined")
+                await waitEvent("rivemu_on_runtime_initialized");
+            setRuntimeInitialized(true);
+        }
     }
 
     async function rivemuHalt() {
@@ -255,6 +270,8 @@ function RivemuPlayer(
         ) {
             rivemuStop();
             console.log("rivemu_on_finish")
+            if (isTape && totalFrames && totalFrames != 0)
+                setCurrProgress(100);
             if (!isTape && rule_id && signerAddress) {
                 let score: number | undefined = undefined;
                 if (scoreFunctionEvaluator && decoder.decode(outcard.slice(0,4)) == 'JSON') {
@@ -275,7 +292,7 @@ function RivemuPlayer(
                     }
                 );
             }
-            setPlaying({isPlaying: false, playCounter: playing.playCounter+1})
+            setPlaying({isPlaying: false, playCounter: playing.playCounter+1});
         };
     }
     // END: rivemu
@@ -328,6 +345,7 @@ function RivemuPlayer(
                 : <></>}
             </section>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
+            <Script src="/initializeRivemu.js?" strategy="lazyOnload" />
         </main>
     )
 }

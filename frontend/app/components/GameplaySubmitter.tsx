@@ -15,6 +15,7 @@ import { registerExternalVerification } from "../backend-libs/core/lib";
 import { Dialog, Transition } from '@headlessui/react'
 import Image from "next/image";
 import { TwitterShareButton, TwitterIcon } from 'next-share';
+import { SOCIAL_MEDIA_HASHTAGS } from "../utils/common";
 
 // @ts-ignore
 import GIFEncoder from "gif-encoder-2";
@@ -25,8 +26,6 @@ enum MODAL_STATE {
     SUBMITTING,
     SUBMITED
 }
-
-const SOCIAL_MEDIA_HASHTAGS = ["rives"];
 
 function generateGif(frames: string[], width:number, height:number): Promise<string> {
 
@@ -90,11 +89,13 @@ function GameplaySubmitter() {
     const [modalState, setModalState] = useState(MODAL_STATE.SUBMIT);
 
     function closeModal() {
-      setModalIsOpen(false)
+
+        setGifImg(""); // clear gif image
+        setModalIsOpen(false)
     }
   
     function openModal() {
-      setModalIsOpen(true)
+        setModalIsOpen(true)
     }
 
     useEffect(() => {
@@ -105,10 +106,14 @@ function GameplaySubmitter() {
     }, [gameplay])
 
     async function prepareSubmission() {
-        const gifParameters = getGifParameters();
-        if (gifParameters) {
-            const gif = await generateGif(gifParameters.frames, gifParameters.width, gifParameters.height);
-            setGifImg(gif);
+        try {
+            const gifParameters = getGifParameters();
+            if (gifParameters) {
+                const gif = await generateGif(gifParameters.frames, gifParameters.width, gifParameters.height);
+                setGifImg(gif);
+            }
+        } catch (error) {
+            console.log("Error getting gif parameters", error)
         }
         
         setModalState(MODAL_STATE.SUBMIT);
@@ -134,14 +139,19 @@ function GameplaySubmitter() {
             tape: ethers.utils.hexlify(gameplay.log),
             claimed_score: gameplay.score || 0
         }
-        
-        setModalState(MODAL_STATE.SUBMITTING);
-        const receipt:ContractReceipt = await registerExternalVerification(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+        try {
+            setModalState(MODAL_STATE.SUBMITTING);
+            const receipt:ContractReceipt = await registerExternalVerification(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
+
+        } catch (error) {
+            console.log(error)
+            setModalState(MODAL_STATE.SUBMIT);
+            throw error;
+        }
 
         const gameplay_id = calculateTapeId(gameplay.log);
         if (gifImg.length > 0) {
             await insertTapeGif(gameplay_id, gifImg);
-            setGifImg(""); // clear gif image
         }
 
         if (typeof window !== "undefined") {
@@ -150,6 +160,7 @@ function GameplaySubmitter() {
         
         setModalState(MODAL_STATE.SUBMITED);
         clearGifFrames();
+
     }
 
 
@@ -204,6 +215,11 @@ function GameplaySubmitter() {
                         Gameplay Submitted!
                     </Dialog.Title>
 
+                    <div className="mt-4 text-center">
+                        <button className="place-self-center" title='Tape' onClick={() => window.open(`${tapeURL}`, "_blank", "noopener,noreferrer")}>
+                            <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+gifImg} alt={"Not found"}/>
+                        </button>
+                    </div>
                     <div className="mt-4 flex flex-col space-y-2">
                         <TwitterShareButton
                         url={tapeURL}

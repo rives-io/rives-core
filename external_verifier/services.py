@@ -13,7 +13,7 @@ from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
-    tape_verification, add_cartridge, add_rule, set_envs, initialize_redis_with_genesis_data, generate_cartridge_id
+    tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id
 
 
 ###
@@ -35,6 +35,8 @@ class RuleConfig(Config):
     in_card:            str
     score_function:     str
     sender:             str
+    start:              int
+    end:                int
 
 class CartridgeConfig(Config):
     id:                 str
@@ -54,7 +56,7 @@ class ExternalVerificationOutputList(BaseModel):
 def initialize_storage_op(context: OpExecutionContext):
     context.log.info(f"initializing storage")
     set_envs()
-    initialize_redis_with_genesis_data()
+    initialize_storage_with_genesis_data()
 
 @job
 def initialize_storage_job():

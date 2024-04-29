@@ -1,9 +1,11 @@
 "use client"
 
 
+import {  ethers } from "ethers";
 import { useEffect, useState } from "react";
-import { CartridgeInfo, VerificationOutput } from "../backend-libs/core/ifaces";
-import { cartridgeInfo, getOutputs } from "../backend-libs/core/lib";
+import { sha256 } from "js-sha256";
+import { CartridgeInfo, RuleInfo } from "../backend-libs/core/ifaces";
+import { cartridgeInfo, getOutputs, RuleData, rules, RulesOutput, VerifyPayload } from "../backend-libs/core/lib";
 import { envClient } from "../utils/clientEnv";
 import { getTapesGifs } from "../utils/util";
 import Image from "next/image";
@@ -18,11 +20,15 @@ interface TapesRequest {
   cartridge?:string // can be used to filter by cartridge
 }
 
+function getTapeId(tapeHex: string): string {
+  return sha256(ethers.utils.arrayify(tapeHex));
+}
 
 async function getTapes(options:TapesRequest) {
-  const verificationOutputs:Array<VerificationOutput> = await getOutputs(
+  const verificationINputs:Array<VerifyPayload> = await getOutputs(
     {
-        tags: ["score"],
+        tags: ["tape"],
+        type: 'input',
         page: options.currentPage,
         page_size: options.pageSize,
         order_by: "timestamp",
@@ -31,7 +37,12 @@ async function getTapes(options:TapesRequest) {
     {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
   );
 
-  return verificationOutputs;
+  return verificationINputs;
+}
+
+async function getRuleInfo(rule_id:string) {
+  const rulesOutput: RulesOutput = (await rules({id:rule_id}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true,cache:"force-cache"}));
+  return rulesOutput.data[0];
 }
 
 async function getGameInfo(cartridge_id:string) {
@@ -50,9 +61,10 @@ function hideTapeInfo(id:string) {
 
 
 export default function Tapes() {
-  const [verificationOutputs, setVerificationOutputs] = useState<Array<VerificationOutput>>([]);
+  const [verificationInputs, setVerificationInputs] = useState<Array<VerifyPayload>>([]);
   const [gifs, setGifs] = useState<Array<string>>([]);
   const [cartridgeInfoMap, setCartridgeInfoMap] = useState<Record<string, CartridgeInfo>>({});
+  const [ruleInfoMap, setRuleInfoMap] = useState<Record<string, RuleInfo>>({});
   const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: 12, atEnd: false})
   const [fetching, setFetching] = useState(true);
 
@@ -76,28 +88,32 @@ export default function Tapes() {
 
   async function nextPage() {
     if (tapesRequestOptions.atEnd) return;
-    const tapesOutputs = await getTapes(tapesRequestOptions);
+    const tapesInputs = await getTapes(tapesRequestOptions);
     
     // no more tapes to get
-    if (tapesOutputs.length == 0) {
+    if (tapesInputs.length == 0) {
       setTapesRequestOptions({...tapesRequestOptions, atEnd: true});
       return;
     }
 
-    setVerificationOutputs([...verificationOutputs, ...tapesOutputs]);
+    setVerificationInputs([...verificationInputs, ...tapesInputs]);
     let tapes:Set<string> = new Set();
     let idToInfoMap:Record<string, CartridgeInfo> = {};
+    let idToRuleInfoMap:Record<string, RuleInfo> = {};
 
-    for (let i = 0; i < tapesOutputs.length; i++) {
-      const tapeOutput = tapesOutputs[i];
+    for (let i = 0; i < tapesInputs.length; i++) {
+      const tapeInput: VerifyPayload = tapesInputs[i];
 
-      tapes.add(tapeOutput.tape_hash.slice(2));
-      if (! (cartridgeInfoMap[tapeOutput.cartridge_id] || idToInfoMap[tapeOutput.cartridge_id])) {
-        idToInfoMap[tapeOutput.cartridge_id] = await getGameInfo(tapeOutput.cartridge_id.slice(2));
+      tapes.add(getTapeId(tapeInput.tape));
+      if (! (cartridgeInfoMap[tapeInput.rule_id] || idToInfoMap[tapeInput.rule_id] || idToRuleInfoMap[tapeInput.rule_id]) ) {
+
+        idToRuleInfoMap[tapeInput.rule_id] = await getRuleInfo(tapeInput.rule_id.slice(2));
+        idToInfoMap[tapeInput.rule_id] = await getGameInfo(idToRuleInfoMap[tapeInput.rule_id].cartridge_id);
       }
     }
 
     if (Object.keys(idToInfoMap).length > 0) setCartridgeInfoMap({...cartridgeInfoMap, ...idToInfoMap});
+    if (Object.keys(idToRuleInfoMap).length > 0) setRuleInfoMap({...ruleInfoMap, ...idToRuleInfoMap});
 
     const newGifs = await getTapesGifs(Array.from(tapes));
     setGifs([...gifs, ...newGifs]);
@@ -113,7 +129,7 @@ export default function Tapes() {
     )
   }
 
-  if (verificationOutputs.length == 0) {
+  if (verificationInputs.length == 0) {
     return (
       <main className="flex items-center justify-center h-lvh text-white">
         No Tapes Found
@@ -127,26 +143,31 @@ export default function Tapes() {
       <section className="py-16 my-8 w-full flex justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {
-            verificationOutputs.map((verificationOutput, index) => {
-              const cartridgeName = cartridgeInfoMap[verificationOutput.cartridge_id]?.name;
-              const user = verificationOutput.user_address;
+            verificationInputs.map((verificationInput, index) => {
+              const cartridgeName = cartridgeInfoMap[verificationInput.rule_id]?.name;
+              const ruleName = ruleInfoMap[verificationInput.rule_id]?.name;
+              const user = verificationInput._msgSender;
               const player = `${user.slice(0, 6)}...${user.substring(user.length-4,user.length)}`;
-              const timestamp = new Date(verificationOutput.timestamp*1000).toLocaleDateString();
+              const timestamp = new Date(verificationInput._timestamp*1000).toLocaleDateString();
+              const tapeId = getTapeId(verificationInput.tape);
               
               return (
-                <Link key={index} href={`/tapes/${verificationOutput.tape_hash.slice(2)}`}>
+                <Link key={index} href={`/tapes/${tapeId}`}>
                   <div 
-                    id={verificationOutput.tape_hash}
+                    id={tapeId}
                     className="absolute w-64 h-64 opacity-0 text-white"
-                    onMouseOver={() => showTapeInfo(verificationOutput.tape_hash)}
-                    onMouseOut={() => hideTapeInfo(verificationOutput.tape_hash)}
+                    onMouseOver={() => showTapeInfo(tapeId)}
+                    onMouseOut={() => hideTapeInfo(tapeId)}
                   >
                     <div className="text-center p-2 h-fit bg-black bg-opacity-50 flex flex-col">
                       <span className="text-sm">{cartridgeName}</span>
-                      <span className="text-xs">Score: {verificationOutput.score.toString()}</span>
+                      {/* <span className="text-xs">Score: {verificationOutput.score.toString()}</span> */}
                     </div>
 
-                    <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-50">{player} on {timestamp}</div>
+                    <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-50">
+                      <span>Rule: {ruleName}</span><br />
+                      <span>{player} on {timestamp}</span>
+                    </div>
                   </div>
                   <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+gifs[index]} alt={"Not found"}/>
                 </Link>

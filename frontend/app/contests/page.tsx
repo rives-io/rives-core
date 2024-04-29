@@ -1,19 +1,26 @@
 import { envClient } from "@/app/utils/clientEnv";
-import { Contest } from "../contest/[contest_id]/page";
-import { CartridgeInfo, RuleInfo } from "../backend-libs/core/ifaces";
+import { CartridgeInfo, GetRulesPayload, RuleInfo } from "../backend-libs/core/ifaces";
 import { cartridgeInfo, rules } from "../backend-libs/core/lib";
+import { Contest, ConstestStatus, getContestStatus } from "../utils/common";
 import Link from "next/link";
 
 interface RuleWithMetadata extends RuleInfo, Contest {}
 
-const getRules = async (contestList:Array<Contest>) => {
+const getRules = async (contests:Record<string,Contest>, onlyActive = false) => {
   const contestsRules:Array<RuleWithMetadata> = [];
-  
-  for (let i = 0; i < contestList.length; i++) {
-    const rule = (await rules({id: contestList[i].rule_id}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true})).data;
 
-    if (rule.length > 0) {
-      const ruleWithMetadata = {...contestList[i], ...rule[0]}
+  const inputPayload: GetRulesPayload = {
+    ids: Object.keys(contests)
+  };
+  if (onlyActive) {
+    inputPayload.active_ts = Math.floor((new Date()).valueOf()/1000);
+  }
+  
+  const activeRules = (await rules(inputPayload, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true})).data
+  for (let i = 0; i < activeRules.length; i++) {
+    const rule: RuleInfo = activeRules[i];
+    if (rule.id in contests) {
+      const ruleWithMetadata = {...contests[rule.id], ...rule};
       contestsRules.push(ruleWithMetadata);
     }
   }
@@ -22,8 +29,8 @@ const getRules = async (contestList:Array<Contest>) => {
 }
 
 export default async function Contests() {
-  const contestsMetadataList = envClient.CONTESTS as Array<Contest>;
-  const contests = await getRules(contestsMetadataList);
+  const contestsMetadata = envClient.CONTESTS as Record<string,Contest>;
+  const contests = await getRules(contestsMetadata);
   let cartridgeInfoMap:Record<string, CartridgeInfo> = {};
   
   if (contests.length == 0) {
@@ -55,19 +62,23 @@ export default async function Contests() {
         <div className="flex flex-col space-y-8 w-full sm:max-w-xl lg:max-w-3xl xl:max-w-5xl">
           {
             contests.map((contest, index) => {
+              if (!contest.start || !contest.end) return <></>;
               return (
                 <Link key={index} href={`/contest/${contest.id}`}
                   className="bg-gray-400 flex flex-wrap justify-between p-4 border-2 border-transparent hover:border-white"
                 >
     
-                  <div className="flex flex-col">
+                  <div className="flex flex-col relative">
                     <span className="text-2xl">{contest.name}</span>
-                    <span className="text-[10px] opacity-60">{new Date(contest.created_at*1000).toLocaleString()} until {new Date((contest.end*1000)).toLocaleString()}</span>
+                    <span className="text-[10px] opacity-60">{new Date(contest.start*1000).toLocaleString()} until {new Date((contest.end*1000)).toLocaleString()}</span>
+                  
+                    <span className={"absolute bottom-0 right-0 " }>{ConstestStatus[getContestStatus(contest)]}</span>
                   </div>
 
                   <div className="flex flex-col">
                     <span>Game: {cartridgeInfoMap[contest.cartridge_id].name}</span>
                     <span>Prize: {contest.prize}</span>
+                    <span>Tapes: {contest.n_tapes}</span>
                     <span>Winner: {contest.winner? contest.winner: "TBA"}</span>
                   </div>
 

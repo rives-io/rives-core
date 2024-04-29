@@ -80,12 +80,13 @@ function tapesBoardFallback() {
 
 function RuleLeaderboard({cartridge_id, rule}:{
     cartridge_id:string, rule: string | undefined}) {
-    const [tapePayloads, setTapePayloads] = useState<VerifyPayloadInput[]|null>(null);
+    const [tapePayloads, setTapePayloads] = useState<VerifyPayloadInput[]|null>([]);
 
     // pageination state
     const [currPage, setCurrPage] = useState(1);
     const [pageToLoad, setPageToLoad] = useState(1);
     const [atEnd, setAtEnd] = useState(false);
+    const [oldRule, setOldRule] = useState<string>();
 
 
     const reloadScores = async () => {
@@ -102,11 +103,17 @@ function RuleLeaderboard({cartridge_id, rule}:{
     }
 
     useEffect(() => {
+        let newRule = false;
+        if (rule != oldRule) {
+            setTapePayloads([]);
+            setOldRule(rule);
+            newRule = true;
+        }
         const currTapes = tapePayloads;
         if (tapePayloads) setTapePayloads(null) // set to null to trigger the loading effect
 
         reloadScores().then((scores) => {
-            if (scores.length == 0) {
+            if (scores.length == 0 && !newRule) {
                 setAtEnd(true);
                 setTapePayloads(currTapes);
                 return;
@@ -117,7 +124,11 @@ function RuleLeaderboard({cartridge_id, rule}:{
             setTapePayloads(scores);
             setCurrPage(pageToLoad);
         });
-    }, [pageToLoad])
+    }, [pageToLoad,rule])
+
+    useEffect(() => {
+        setTapePayloads([]);
+    }, [cartridge_id])
 
     if (!tapePayloads) {
         return tapesBoardFallback();

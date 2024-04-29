@@ -4,7 +4,7 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
-RIV_VERSION := 0.3-rc7
+RIV_VERSION := 0.3-rc11
 
 RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
 
@@ -58,6 +58,12 @@ run-dev: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ri
 run-reader: ; $(value setup_venv)
 	cartesapp node --mode reader $(ARGS)
 
+run-frontend-dev:
+	make -C frontend run-dev
+
+build-frontend:
+	make -C frontend build
+
 # Aux env targets
 --load-env: ${ENVFILE}
 	$(eval include include $(PWD)/${ENVFILE})
@@ -91,13 +97,18 @@ sunodo-sdk-riv: sunodo-sdk
 sunodo-sdk:
 	docker build --tag sunodo/sdk:0.4.0-riv --target sunodo-riv-sdk .
 
-rivemu: #rivemu/rivemu
+rivemu:
 	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(shell dpkg --print-architecture) -o rivemu
 	chmod +x rivemu
-# rivemu/rivemu: rivemu/kernel/linux.bin rivemu/rivos/rivos.ext2
-# 	mkdir -p rivemu
-# 	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(shell dpkg --print-architecture) -o rivemu/rivemu
-# 	chmod +x rivemu/rivemu
+
+--remove-rivemu:
+	rm -rf rivemu
+
+update-rivemu: --remove-rivemu rivemu
+
+update-frontend-rivemu:
+	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.js -o frontend/public/rivemu.js
+	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.wasm -o frontend/public/rivemu.wasm
 
 build-release:
 	docker build -f Dockerfile --target node .sunodo/ -t ghcr.io/rives/rives-core:$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
