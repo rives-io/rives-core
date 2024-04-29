@@ -53,12 +53,12 @@ function PlayModes() {
                                     <MilitaryTechIcon className='text-[#ffd700]'/>
                                 </Link>
                                 : <></>}
-                                Status: {ContestStatus[status]}
+                                {status == ContestStatus.IN_PROGRESS ? "Status: Open" : "" }
                                 </span> : <></>}
                         </div>
 
                         <Link href={`/play/rule/${ruleInfo.id}`} className="btn items-center flex flex-col basis-1/4"
-                            onClick={(e) => e.stopPropagation()}>
+                            onClick={(e) => e.stopPropagation()} style={{height:"50px",pointerEvents: status == ContestStatus.IN_PROGRESS || status == ContestStatus.INVALID ? "auto":"none",}}>
                             PLAY
                         </Link>
 

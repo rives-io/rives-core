@@ -46,16 +46,15 @@ export default async function Contest({ params }: { params: { contest_id: string
     notFound();
   }
 
-  const currDate = new Date().getTime()/1000; // divide by 1000 to convert from miliseconds to seconds
-  const contestIsOpen = !contest.start || !contest.end || (currDate >= contest.start && currDate < contest.end);
+  const contestIsOpen = getContestStatus(contest) == ContestStatus.IN_PROGRESS;
   const game = await getGameInfo(contest.cartridge_id);
 
   return (
       <main className="flex justify-center h-svh">
         <section className="py-16 my-8 w-full flex flex-col space-y-8 max-w-5xl h-2/3">
-          <div className="bg-gray-400 flex flex-wrap justify-between p-4">
+          <div className="bg-gray-400 flex justify-between p-4 space-x-2">
             
-            <div className="flex flex-col">
+            <div className="flex flex-col justify-center">
               <Image alt={"Cover " + game.name}
                 id="canvas-cover"
                 width={120}
@@ -78,7 +77,7 @@ export default async function Contest({ params }: { params: { contest_id: string
               <span>Prize: {contestMetadata.prize}</span>
               <span>Tapes: {contest.n_tapes}</span>
               <span>Winner: {contestMetadata.winner? contestMetadata.winner: "TBA"}</span>
-              <span>{getContestStatus(contest) == ContestStatus.IN_PROGRESS ? "Status: Open" : "" }</span>
+              <span>{contestIsOpen ? "Status: Open" : "" }</span>
             </div>
 
             <div className="flex flex-col justify-center">

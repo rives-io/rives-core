@@ -168,19 +168,46 @@ def initialize_data():
         except Exception as e:
             LOGGER.warning(e)
 
-    genesis_rule_cartridge = "antcopter"
+    # genesis_rule_cartridge = "antcopter"
+    # if cartridge_ids.get(genesis_rule_cartridge) is not None:
+    #     try:
+    #         rule_conf_dict = {
+    #             "cartridge_id":hex2bytes(cartridge_ids[genesis_rule_cartridge]),
+    #             "name":"Only 5 to beat",
+    #             "description":"You'll have only 5 lives to beat the game. Each new level and each apple earn you points, but you loose point with time. Be fast and efficient! ",
+    #             "args":"5",
+    #             "in_card":b"",
+    #             "score_function":"score",
+    #             "start":1711940400,
+    #             "end":  1717210800,
+    #             "tags":["5 lifes"]
+    #         }
+    #         rule_conf = RuleData.parse_obj(rule_conf_dict)
+    #         rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))
+    #         if helpers.count(r for r in Rule if r.id == rule_id) > 0:
+    #             raise Exception(f"Rule already exists")
+    #         test_replay_file = open(CoreSettings.test_tape_path,'rb')
+    #         test_replay = test_replay_file.read()
+    #         test_replay_file.close()
+
+    #         verification_output = verify_log(cartridge_data[genesis_rule_cartridge],test_replay,rule_conf_dict["args"],rule_conf_dict["in_card"])
+    #         insert_rule(rule_conf,verification_output.get("outcard"),msg_sender=CoreSettings.operator_address)
+    #     except Exception as e:
+    #         LOGGER.warning(e)
+            
+    genesis_rule_cartridge = "freedoom"
     if cartridge_ids.get(genesis_rule_cartridge) is not None:
         try:
             rule_conf_dict = {
                 "cartridge_id":hex2bytes(cartridge_ids[genesis_rule_cartridge]),
-                "name":"Only 5 to beat",
-                "description":"You'll have only 5 lives to beat the game. Each new level and each apple earn you points, but you loose point with time. Be fast and efficient! ",
-                "args":"5",
+                "name":"Welcome to the vanguard",
+                "description":"Welcome to the first RIVES online playtest. You'll directly fall in the 2nd Map and you can play up to the 4th Map. Secrets, kills and items counts!",
+                "args":"-skill 3 -warp 1 2 -levelquit 4 -deathquit -autoquit -nomenu",
                 "in_card":b"",
                 "score_function":"score",
-                "start":1711940400,
-                "end":  1717210800,
-                "tags":["5 lifes"]
+                "start":1714446000,
+                "end":  1714964400,
+                "tags":[]
             }
             rule_conf = RuleData.parse_obj(rule_conf_dict)
             rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))

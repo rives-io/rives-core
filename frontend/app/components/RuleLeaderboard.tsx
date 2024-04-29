@@ -142,7 +142,7 @@ function RuleLeaderboard({cartridge_id, rule}:{
     if (tapePayloads.length == 0) {
         return (
             <div className='relative text-center'>
-                <span>No gameplays submitted yet!</span>
+                <span>No tapes!</span>
             </div>
         )
     }

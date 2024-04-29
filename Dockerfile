@@ -43,15 +43,15 @@ FROM debian:11-slim as base-files
 
 COPY core core
 
-COPY misc/snake.sqfs misc/snake.sqfs
+# COPY misc/snake.sqfs misc/snake.sqfs
 # COPY misc/2048.sqfs misc/2048.sqfs
 COPY misc/freedoom.sqfs misc/freedoom.sqfs
-COPY misc/antcopter.sqfs misc/antcopter.sqfs
-COPY misc/monky.sqfs misc/monky.sqfs
+# COPY misc/antcopter.sqfs misc/antcopter.sqfs
+# COPY misc/monky.sqfs misc/monky.sqfs
 # COPY misc/breakout.sqfs misc/breakout.sqfs
-COPY misc/particles.sqfs misc/particles.sqfs
-COPY misc/tetrix.sqfs misc/tetrix.sqfs
-COPY misc/test.rivlog misc/test.rivlog
+# COPY misc/particles.sqfs misc/particles.sqfs
+# COPY misc/tetrix.sqfs misc/tetrix.sqfs
+# COPY misc/test.rivlog misc/test.rivlog
 
 
 WORKDIR /opt/cartesi/dapp

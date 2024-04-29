@@ -15,7 +15,7 @@ class CoreSettings:
     version = '0'
     rivemu_path = os.getenv('RIVEMU_PATH')
     operator_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    genesis_cartridges = ['snake','freedoom','antcopter','monky','tetrix','particles']
+    genesis_cartridges = ['freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
 
 @setup()
 def setup_settings():

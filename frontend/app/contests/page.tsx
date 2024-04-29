@@ -3,11 +3,7 @@ import { CartridgeInfo, GetRulesPayload, RuleInfo } from "../backend-libs/core/i
 import { cartridgeInfo, rules } from "../backend-libs/core/lib";
 import { Contest, ContestStatus, getContestStatus } from "../utils/common";
 import Link from "next/link";
-<<<<<<< HEAD
 import Image from "next/image";
-=======
-import { formatDate } from "../utils/util";
->>>>>>> fix/playtest-improvements
 
 interface RuleWithMetadata extends RuleInfo, Contest {}
 
@@ -73,7 +69,7 @@ export default async function Contests() {
                   className="bg-gray-400 flex flex-wrap justify-between p-4 border-2 border-transparent hover:border-white"
                 >
     
-                  <div className="flex flex-col">
+                  <div className="flex flex-col justify-center">
                     <Image alt={"Cover " + cartridgeInfoMap[contest.cartridge_id].name}
                       id="canvas-cover"
                       width={120}
