@@ -65,3 +65,37 @@ export async function insertTapeGif(gameplay_id:string, gifImage:string) {
         }
     )
 }
+
+export async function useCode(payload:string) {
+    const response = await fetch(
+        `${envClient.GIF_SERVER_URL}/useCode`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                "codeSession": payload
+            })
+        }
+    )
+
+    return await response.json();
+}
+
+export async function validateCode(payload:string) {
+    const response = await fetch(
+        `${envClient.GIF_SERVER_URL}/validateCode`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                "codeSession": payload
+            })
+        }
+    )
+
+    return await response.json();
+}
