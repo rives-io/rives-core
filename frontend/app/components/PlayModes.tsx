@@ -7,7 +7,7 @@ import { envClient } from '../utils/clientEnv';
 import React, { useContext, useEffect, useState } from 'react';
 import { sha256 } from "js-sha256";
 import { GetRulesPayload, RuleInfo } from '../backend-libs/core/ifaces';
-import { ConstestStatus, Contest, getContestStatus } from '../utils/common';
+import { ContestStatus, Contest, getContestStatus } from '../utils/common';
 import Link from 'next/link';
 import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvider';
 import RuleLeaderboard from './RuleLeaderboard';
@@ -53,7 +53,7 @@ function PlayModes() {
                                     <MilitaryTechIcon className='text-[#ffd700]'/>
                                 </Link>
                                 : <></>}
-                                Status: {ConstestStatus[status]}
+                                Status: {ContestStatus[status]}
                                 </span> : <></>}
                         </div>
 

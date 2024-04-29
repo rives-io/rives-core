@@ -11,7 +11,7 @@ export interface Contest {
   winner?:string
 }
 
-export enum ConstestStatus {
+export enum ContestStatus {
   INVALID,
   NOT_INITIATED,
   IN_PROGRESS,
@@ -19,11 +19,11 @@ export enum ConstestStatus {
   VALIDATED
 }
 
-export const getContestStatus = (rule: RuleInfo): ConstestStatus => {
-  if (rule.start == undefined || rule.end == undefined) return ConstestStatus.INVALID;
+export const getContestStatus = (rule: RuleInfo): ContestStatus => {
+  if (rule.start == undefined || rule.end == undefined) return ContestStatus.INVALID;
   const currentTs = Math.floor((new Date()).valueOf()/1000);
-  if (currentTs < rule.start) return ConstestStatus.NOT_INITIATED;
-  if (currentTs < rule.end) return ConstestStatus.IN_PROGRESS;
-  if (rule.n_tapes == rule.n_verified) return ConstestStatus.VALIDATED;
-  return ConstestStatus.FINISHED
+  if (currentTs < rule.start) return ContestStatus.NOT_INITIATED;
+  if (currentTs < rule.end) return ContestStatus.IN_PROGRESS;
+  if (rule.n_tapes == rule.n_verified) return ContestStatus.VALIDATED;
+  return ContestStatus.FINISHED
 }

@@ -1,8 +1,9 @@
 import { envClient } from "@/app/utils/clientEnv";
 import { CartridgeInfo, GetRulesPayload, RuleInfo } from "../backend-libs/core/ifaces";
 import { cartridgeInfo, rules } from "../backend-libs/core/lib";
-import { Contest, ConstestStatus, getContestStatus } from "../utils/common";
+import { Contest, ContestStatus, getContestStatus } from "../utils/common";
 import Link from "next/link";
+import Image from "next/image";
 
 interface RuleWithMetadata extends RuleInfo, Contest {}
 
@@ -68,18 +69,31 @@ export default async function Contests() {
                   className="bg-gray-400 flex flex-wrap justify-between p-4 border-2 border-transparent hover:border-white"
                 >
     
-                  <div className="flex flex-col relative">
-                    <span className="text-2xl">{contest.name}</span>
-                    <span className="text-[10px] opacity-60">{new Date(contest.start*1000).toLocaleString()} until {new Date((contest.end*1000)).toLocaleString()}</span>
-                  
-                    <span className={"absolute bottom-0 right-0 " }>{ConstestStatus[getContestStatus(contest)]}</span>
+                  <div className="flex flex-col">
+                    <Image alt={"Cover " + cartridgeInfoMap[contest.cartridge_id].name}
+                      id="canvas-cover"
+                      width={120}
+                      height={120}
+                      objectFit='contain'
+                      style={{
+                          imageRendering: "pixelated",
+                      }}
+                      src={cartridgeInfoMap[contest.cartridge_id].cover? `data:image/png;base64,${cartridgeInfoMap[contest.cartridge_id].cover}`:"/logo.png"}
+                      />
                   </div>
 
-                  <div className="flex flex-col">
-                    <span>Game: {cartridgeInfoMap[contest.cartridge_id].name}</span>
+                  <div className="flex flex-col relative justify-center">
+                    <span className="text-2xl">{contest.name}</span>
+                    {/* <span className="text-[10px] opacity-60">{new Date(contest.start*1000).toLocaleString()} until {new Date((contest.end*1000)).toLocaleString()}</span> */}
+                  
+                    {/* <span className={"absolute bottom-0 right-0 " }>{ConstestStatus[getContestStatus(contest)]}</span> */}
+                  </div>
+
+                  <div className="flex flex-col justify-center">
                     <span>Prize: {contest.prize}</span>
-                    <span>Tapes: {contest.n_tapes}</span>
+                    {/* <span>Tapes: {contest.n_tapes}</span> */}
                     <span>Winner: {contest.winner? contest.winner: "TBA"}</span>
+                    <span>{getContestStatus(contest) == ContestStatus.IN_PROGRESS ? "Status: Open" : "" }</span>
                   </div>
 
                   {/* <Link href={`/play/rule/${contest.id}`} className="btn flex items-center"

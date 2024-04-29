@@ -9,7 +9,7 @@ import { envClient } from "../utils/clientEnv";
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from './RivemuPlayer';
 import GameplaySubmitter from "./GameplaySubmitter";
-import { Contest, ConstestStatus, getContestStatus } from "../utils/common";
+import { Contest, ContestStatus, getContestStatus } from "../utils/common";
 
 
 const getRule = async (ruleId:string):Promise<RuleInfo> => {
@@ -103,9 +103,9 @@ export default async function PlayPage({cartridge_id, rule_id}:{cartridge_id?: s
             <div className="grid grid-cols-1 gap-4 place-items-center ">
                 <span style={{color: 'white'}}>{rule ? "Rule: " + rule?.name : "No rules"}</span>
                 <RivemuPlayer cartridge_id={cartridge_id} rule_id={rule_id} cartridgeData={cartridgeData} args={args} in_card={in_card} scoreFunction={score_function} />
-                {status ? <span style={{color: 'white'}}>Contest Status: {ConstestStatus[status]}</span> : <></>}
+                {status ? <span style={{color: 'white'}}>Contest Status: {ContestStatus[status]}</span> : <></>}
             </div>
-            {!status || status == ConstestStatus.IN_PROGRESS ? <GameplaySubmitter /> : <></>}
+            {!status || status == ContestStatus.IN_PROGRESS ? <GameplaySubmitter /> : <></>}
         </main>
     )
 }

@@ -416,14 +416,14 @@ function CartridgeInfo() {
                                 </span>
                         </Tab> */}
 
-                        <Tab
+                        {/* <Tab
                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
                             >
                                 <span className='game-tabs-option-text'>
                                     <OndemandVideoIcon/>
                                     <span>Tapes</span>
                                 </span>
-                        </Tab>
+                        </Tab> */}
                         {/* <Tab
                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
                             >
@@ -466,13 +466,13 @@ function CartridgeInfo() {
 
                         </Tab.Panel> */}
 
-                        <Tab.Panel className="game-tab-content">
+                        {/* <Tab.Panel className="game-tab-content">
                             <div className="w-full flex">
                                 <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
                             </div>
                             <CartridgeTapes cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} rule={selectedCartridge.rule} replay_function={prepareTape}/>
 
-                        </Tab.Panel>
+                        </Tab.Panel> */}
 
                         {/* <Tab.Panel className="game-tab-content">
                             Coming Soon!
@@ -501,7 +501,7 @@ function CartridgeInfo() {
                         </button>
                     :
                         <button className="btn w-full mt-2" onClick={() => {playCartridge()}}>
-                            PRACTICE
+                            PLAY (default mode)
                         </button>
 
                 }
