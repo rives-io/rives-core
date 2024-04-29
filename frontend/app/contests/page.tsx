@@ -3,7 +3,11 @@ import { CartridgeInfo, GetRulesPayload, RuleInfo } from "../backend-libs/core/i
 import { cartridgeInfo, rules } from "../backend-libs/core/lib";
 import { Contest, ContestStatus, getContestStatus } from "../utils/common";
 import Link from "next/link";
+<<<<<<< HEAD
 import Image from "next/image";
+=======
+import { formatDate } from "../utils/util";
+>>>>>>> fix/playtest-improvements
 
 interface RuleWithMetadata extends RuleInfo, Contest {}
 
