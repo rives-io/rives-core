@@ -12,7 +12,7 @@ from dagster import sensor, op, job, define_asset_job, asset, run_status_sensor,
 from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
-from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
+from .common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
     tape_verification, add_cartridge, add_rule, set_envs, initialize_redis_with_genesis_data, generate_cartridge_id
 
 
