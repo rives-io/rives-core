@@ -12,7 +12,7 @@ from dagster import sensor, op, job, define_asset_job, asset, run_status_sensor,
 from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
-from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
+from .common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
     tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id
 
 
@@ -123,7 +123,7 @@ def submit_verification_op(context: OpExecutionContext, config: ExternalVerifica
     context.log.info(f"submit verifications")
 
     outputs = ExternalVerificationOutputList.parse_raw(config.outputs)
-    
+
     sender = VerificationSender()
 
     sender.submit_external_outputs(outputs.output_list)
@@ -135,14 +135,14 @@ def submit_verification_job():
 
 
 # input_asset_job = define_asset_job(
-#     name="input_asset_job", 
-#     selection=AssetSelection.assets(verification_output_asset,add_rule_asset,add_cartridge_asset), 
+#     name="input_asset_job",
+#     selection=AssetSelection.assets(verification_output_asset,add_rule_asset,add_cartridge_asset),
 #     partitions_def=inputs_partition
 # )
 
 verify_asset_job = define_asset_job(
-    name="verify_asset_job", 
-    selection=AssetSelection.assets(verification_output_asset), 
+    name="verify_asset_job",
+    selection=AssetSelection.assets(verification_output_asset),
     partitions_def=inputs_partition
 )
 
@@ -239,7 +239,7 @@ def inputs_sensor(context: SensorEvaluationContext):
     if len(run_requests) == 0:
         yield SkipReason("No inputs")
         return
-    
+
     return SensorResult(
         run_requests=run_requests,
         dynamic_partitions_requests=[
@@ -269,7 +269,7 @@ def submit_verification_sensor(context: MultiAssetSensorEvaluationContext):
         return SkipReason(
             f"Nothing to do"
         )
-    
+
     partition_keys.sort()
     last_key = partition_keys[-1]
     context.log.info(f"Found {len(output_list)} new outputs, last output {last_key}")

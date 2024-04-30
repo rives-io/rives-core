@@ -9,3 +9,4 @@ data
 rivemu
 .machine_config.json
 InputBox.json
+.*.tag

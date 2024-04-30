@@ -8,7 +8,7 @@ RUN apk add --no-cache libc6-compat git
 # Clone and build cartesi-client
 WORKDIR /opt/cartesi-client
 RUN \
-  git clone -b feature/types-and-standardizations --depth 1 https://github.com/prototyp3-dev/cartesi-client.git && \
+  git clone --depth 1 https://github.com/prototyp3-dev/cartesi-client.git && \
   cd cartesi-client && \
   npm clean-install && \
   npm run build && \
