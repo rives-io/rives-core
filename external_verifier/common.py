@@ -48,7 +48,7 @@ RPC_URL = os.getenv('RPC_URL') or "http://localhost:8545"
 
 # check likely
 INPUT_BOX_ADDRESS = os.getenv('INPUTBOX_ADDRESS') or "0x59b22D57D4f067708AB0c00552767405926dc768"
-INPUT_BOX_ABI_FILE = 'InputBox.json'
+INPUT_BOX_ABI_FILE = os.getenv('INPUT_BOX_ABI_FILE') or 'InputBox.json'
 TEST_TAPE_PATH = os.getenv('TEST_TAPE_PATH') or '../misc/test.rivlog'
 GENESIS_CARTRIDGES_PATH = os.getenv('GENESIS_CARTRIDGES_PATH') or '../misc'
 GENESIS_CARTRIDGES = os.getenv('GENESIS_CARTRIDGES')
