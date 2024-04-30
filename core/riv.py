@@ -166,7 +166,7 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
     if entropy is not None:
         run_args.append(f"-entropy={entropy}")
     if riv_args is not None and len(riv_args) > 0:
-        run_args.append(f"-args='{riv_args}'")
+        run_args.append(f"-args={riv_args}")
 
     result = subprocess.run(run_args)
     if result.returncode != 0:
