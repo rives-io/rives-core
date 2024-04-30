@@ -5,7 +5,7 @@ import {  ethers } from "ethers";
 import { useEffect, useState } from "react";
 import { sha256 } from "js-sha256";
 import { CartridgeInfo, RuleInfo } from "../backend-libs/core/ifaces";
-import { cartridgeInfo, getOutputs, RuleData, rules, RulesOutput, VerifyPayload } from "../backend-libs/core/lib";
+import { cartridgeInfo, getOutputs, rules, RulesOutput, VerifyPayload } from "../backend-libs/core/lib";
 import { envClient } from "../utils/clientEnv";
 import { getTapesGifs } from "../utils/util";
 import Image from "next/image";
@@ -16,6 +16,7 @@ interface TapesRequest {
   currentPage:number,
   pageSize:number,
   atEnd:boolean,
+  fetching:boolean,
   orderBy?:string,  
   cartridge?:string // can be used to filter by cartridge
 }
@@ -59,19 +60,31 @@ function hideTapeInfo(id:string) {
   document.getElementById(id)?.classList.add("opacity-0");
 }
 
+function loadingFallback() {
+  return (
+    <>
+      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
+      </div>
+      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
+      </div>
+      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
+      </div>
+      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
+      </div>
+    </>
+  )
+}
 
 export default function Tapes() {
-  const [verificationInputs, setVerificationInputs] = useState<Array<VerifyPayload>>([]);
+  const [verificationInputs, setVerificationInputs] = useState<Array<VerifyPayload>|null>(null);
   const [gifs, setGifs] = useState<Array<string>>([]);
   const [cartridgeInfoMap, setCartridgeInfoMap] = useState<Record<string, CartridgeInfo>>({});
   const [ruleInfoMap, setRuleInfoMap] = useState<Record<string, RuleInfo>>({});
-  const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: 12, atEnd: false})
-  const [fetching, setFetching] = useState(true);
+  const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: 12, atEnd: false, fetching: false})
 
   useEffect(() => {
     const getFirstPage = async () => {
       await nextPage();
-      setFetching(false);
     }
 
     getFirstPage();
@@ -87,16 +100,22 @@ export default function Tapes() {
   }
 
   async function nextPage() {
-    if (tapesRequestOptions.atEnd) return;
+    if (tapesRequestOptions.fetching || tapesRequestOptions.atEnd) return;
+
+    setTapesRequestOptions({...tapesRequestOptions, fetching: true});
     const tapesInputs = await getTapes(tapesRequestOptions);
     
     // no more tapes to get
     if (tapesInputs.length == 0) {
-      setTapesRequestOptions({...tapesRequestOptions, atEnd: true});
+      setTapesRequestOptions({...tapesRequestOptions, atEnd: true, fetching: false});
       return;
     }
 
-    setVerificationInputs([...verificationInputs, ...tapesInputs]);
+    if (!verificationInputs) {
+      setVerificationInputs(tapesInputs);
+    } else {
+      setVerificationInputs([...verificationInputs, ...tapesInputs]);
+    }
     let tapes:Set<string> = new Set();
     let idToInfoMap:Record<string, CartridgeInfo> = {};
     let idToRuleInfoMap:Record<string, RuleInfo> = {};
@@ -118,18 +137,15 @@ export default function Tapes() {
     const newGifs = await getTapesGifs(Array.from(tapes));
     setGifs([...gifs, ...newGifs]);
 
-    setTapesRequestOptions({...tapesRequestOptions, currentPage: tapesRequestOptions.currentPage+1})
+    setTapesRequestOptions({...tapesRequestOptions, 
+      currentPage: tapesRequestOptions.currentPage+1, 
+      fetching: false,
+      atEnd: tapesInputs.length < tapesRequestOptions.pageSize
+    });
   }
 
-  if (fetching && tapesRequestOptions.currentPage == 0) {
-    return (
-      <main className="flex items-center justify-center h-lvh text-white">
-        Fetching Tapes
-      </main>
-    )
-  }
 
-  if (verificationInputs.length == 0) {
+  if (verificationInputs?.length == 0) {
     return (
       <main className="flex items-center justify-center h-lvh text-white">
         No Tapes Found
@@ -143,7 +159,10 @@ export default function Tapes() {
       <section className="py-16 my-8 w-full flex justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {
-            verificationInputs.map((verificationInput, index) => {
+            verificationInputs?.map((verificationInput, index) => {
+              // only display tape after gif is loaded
+              if (gifs[index] === undefined) return <></>
+
               const cartridgeName = cartridgeInfoMap[verificationInput.rule_id]?.name;
               const ruleName = ruleInfoMap[verificationInput.rule_id]?.name;
               const user = verificationInput._msgSender;
@@ -177,6 +196,12 @@ export default function Tapes() {
               )
                
             })
+          }
+          {
+            tapesRequestOptions.fetching?
+              loadingFallback()
+            :
+              <></>
           }
         </div >
       </section>
