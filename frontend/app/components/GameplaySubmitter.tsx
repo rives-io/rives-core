@@ -17,7 +17,8 @@ import Image from "next/image";
 import { TwitterShareButton, TwitterIcon } from 'next-share';
 import { SOCIAL_MEDIA_HASHTAGS } from "../utils/common";
 import ReportIcon from '@mui/icons-material/Report';
-
+import { cartridgeInfo } from '../backend-libs/core/lib';
+import { CartridgeInfo as Cartridge } from "../backend-libs/core/ifaces";
 
 // @ts-ignore
 import GIFEncoder from "gif-encoder-2";
@@ -85,6 +86,7 @@ function GameplaySubmitter() {
     const [{ wallet }, connect] = useConnectWallet();
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
+    const [gameInfo, setGameInfo] = useState<Cartridge>();
 
     // modal state variables
     const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -137,6 +139,10 @@ function GameplaySubmitter() {
             alert("Connect first to upload a gameplay log.");
             await connect();
         }
+
+        // get cartridgeInfo asynchronously
+        cartridgeInfo({id:gameplay.cartridge_id},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"})
+        .then(setGameInfo);
 
         // submit the gameplay
         const signer = new ethers.providers.Web3Provider(wallet!.provider, 'any').getSigner();
@@ -230,7 +236,12 @@ function GameplaySubmitter() {
                     <div className="mt-4 flex flex-col space-y-2">
                         <TwitterShareButton
                         url={tapeURL}
-                        title={'Check out my gameplay on '}
+                        title={
+                            gameInfo?.id == gameplay?.cartridge_id?
+                                `Check out my ${gameInfo?.name} tape on @rives_io, the onchain fantasy console`
+                            :
+                                "Check out my tape on @rives_io, the onchain fantasy console"
+                        }
                         hashtags={SOCIAL_MEDIA_HASHTAGS}
                         >
                             <div className="p-3 bg-[#eeeeee] text-[black] border border-[#eeeeee] hover:bg-black hover:text-[#eeeeee] flex space-x-2 items-center">
