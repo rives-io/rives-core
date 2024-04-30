@@ -51,7 +51,7 @@ COPY misc/freedoom.sqfs misc/freedoom.sqfs
 # COPY misc/breakout.sqfs misc/breakout.sqfs
 # COPY misc/particles.sqfs misc/particles.sqfs
 # COPY misc/tetrix.sqfs misc/tetrix.sqfs
-# COPY misc/test.rivlog misc/test.rivlog
+COPY misc/test.rivlog misc/test.rivlog
 
 
 WORKDIR /opt/cartesi/dapp
