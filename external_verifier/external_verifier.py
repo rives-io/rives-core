@@ -8,7 +8,7 @@ import math
 import traceback
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, \
-    set_envs, initialize_redis_with_genesis_data, add_cartridge, add_rule,  push_verification, verify_payload, \
+    set_envs, initialize_storage_with_genesis_data, add_cartridge, add_rule,  push_verification, verify_payload, \
     deserialize_verification, deserialize_output, generate_cartridge_id
 
 
@@ -164,7 +164,7 @@ disable_enqueuer: Optional[bool] = False, disable_verifier: Optional[bool] = Fal
     Storage(db)
     # os.chdir('..')
     set_envs()
-    initialize_redis_with_genesis_data()
+    initialize_storage_with_genesis_data()
 
     if log_level is not None:
         logging.basicConfig(level=getattr(logging,log_level.upper()))

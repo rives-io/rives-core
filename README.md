@@ -68,7 +68,17 @@ Run the DApp environment with (this command runs `sunodo run`):
 ```shell
 make run
 ```
-Finally, run the frontend
+
+Then run the externa
+
+Run the frontend
+
+```shell
+cd frontend
+yarn dev
+```
+
+Finally, you should also run the gif server
 
 ```shell
 cd frontend

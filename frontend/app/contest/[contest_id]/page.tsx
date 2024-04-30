@@ -4,24 +4,15 @@ import ContestInfo from "@/app/components/ContestInfo";
 import { envClient } from "@/app/utils/clientEnv";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Contest as ContestClass, ContestStatus, getContestStatus } from "../../utils/common";
+import Image from "next/image";
 
-
-export interface Contest {
-  rule_id:string,
-  start:number,
-  end:number,
-  prize:string,
-  winner?:string
-}
 
 const getContest = (rule_id:string) => {
-  const contestList = envClient.CONTESTS as Array<Contest>;
+  const contests = envClient.CONTESTS as Record<string,ContestClass>;
 
-  for (let i = 0; i < contestList.length; i++) {
-    const contest = contestList[i];
-    if (contest.rule_id == rule_id) {
-      return contest;
-    }
+  if (rule_id in contests) {
+    return contests[rule_id];
   }
 
   return null;
@@ -55,32 +46,49 @@ export default async function Contest({ params }: { params: { contest_id: string
     notFound();
   }
 
-  const currDate = new Date().getTime()/1000; // divide by 1000 to convert from miliseconds to seconds
-  const contestIsOpen = currDate >= contest.created_at && currDate < contestMetadata.end;
+  const contestIsOpen = getContestStatus(contest) == ContestStatus.IN_PROGRESS;
   const game = await getGameInfo(contest.cartridge_id);
 
   return (
       <main className="flex justify-center h-svh">
         <section className="py-16 my-8 w-full flex flex-col space-y-8 max-w-5xl h-2/3">
-          <div className="bg-gray-400 flex flex-wrap justify-between p-4">
+          <div className="bg-gray-400 flex justify-between p-4 space-x-2">
             
-            <div className="flex flex-col">
+            <div className="flex flex-col justify-center">
+              <Image alt={"Cover " + game.name}
+                id="canvas-cover"
+                width={120}
+                height={120}
+                objectFit='contain'
+                style={{
+                    imageRendering: "pixelated",
+                }}
+                src={game.cover? `data:image/png;base64,${game.cover}`:"/logo.png"}
+                />
+            </div>
+            <div className="flex flex-col relative justify-center">
               <span className="text-2xl">{contest.name}</span>
-              <span className="text-[10px] opacity-60">{new Date(contest.created_at*1000).toLocaleString()} until {new Date((contestMetadata.end*1000)).toLocaleString()}</span>
+              {contest.start && contest.end ? <span title={new Date(contest.start*1000).toLocaleString() + " until " + new Date((contest.end*1000)).toLocaleString()} className="text-[10px] opacity-60">ends {new Date((contest.end*1000)).toLocaleDateString()}</span> : <></>}
+              {/* <span className={"absolute bottom-0 right-0 " }>{ContestStatus[getContestStatus(contest)]}</span> */}
             </div>
 
-            <div className="flex flex-col">
-              <span>Game: {game.name}</span>
+            <div className="flex flex-col justify-center">
+              {/* <span>Game: {game.name}</span> */}
               <span>Prize: {contestMetadata.prize}</span>
+              <span>Tapes: {contest.n_tapes}</span>
               <span>Winner: {contestMetadata.winner? contestMetadata.winner: "TBA"}</span>
+              <span>{contestIsOpen ? "Status: Open" : "" }</span>
             </div>
 
-            <Link href={`/play/rule/${contest.id}`} className="btn flex items-center"
-              style={{
-                pointerEvents: contestIsOpen ? "auto":"none",
-              }}>
-              PLAY
-            </Link>
+            <div className="flex flex-col justify-center">
+              <Link href={`/play/rule/${contest.id}`} className="btn"
+                style={{
+                  pointerEvents: contestIsOpen ? "auto":"none",
+                  height:"50px"
+                }}>
+                PLAY
+              </Link>
+            </div>
 
           </div>
 

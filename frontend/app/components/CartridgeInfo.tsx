@@ -6,13 +6,12 @@ import { selectedCartridgeContext } from '../cartridges/selectedCartridgeProvide
 import { Tab } from '@headlessui/react'
 import { Canvas } from '@react-three/fiber';
 import DescriptionIcon from '@mui/icons-material/Description';
-import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import CachedIcon from '@mui/icons-material/Cached';
 import useDownloader from "react-use-downloader";
 import { useConnectWallet } from "@web3-onboard/react";
-import QRCode from "react-qr-code";
 import Image from "next/image";
+import { TwitterShareButton, TwitterIcon } from 'next-share';
 
 import Cartridge from "../models/cartridge";
 import {SciFiPedestal} from "../models/scifi_pedestal";
@@ -22,14 +21,17 @@ import { VerifyPayload } from '../backend-libs/core/ifaces';
 import CartridgeDescription from './CartridgeDescription';
 import Link from 'next/link';
 import CartridgeScoreboard from './CartridgeScoreboard';
+import PlayModes from './PlayModes';
 import CartridgeTapes from './CartridgeTapes';
 import { envClient } from "../utils/clientEnv";
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from "@mui/icons-material/Close";
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { sha256 } from "js-sha256";
 // @ts-ignore
 import GIFEncoder from "gif-encoder-2";
 import { insertTapeGif } from "../utils/util";
+import { SOCIAL_MEDIA_HASHTAGS } from "../utils/common";
 
 enum STATUS {
     WAITING,
@@ -187,8 +189,8 @@ function CartridgeInfo() {
         }
         console.log("Replay Outcard hash",selectedCartridge.outhash)
 
-
         // setSubmitLogStatus({status: STATUS.SUBMIT});
+        const gameplay_id = getTapeId(selectedCartridge.gameplayLog);
         try {
             setSubmitLogStatus({status: STATUS.SUBMITING});
             let receipt: ContractReceipt;
@@ -205,14 +207,18 @@ function CartridgeInfo() {
 
             const gameplay_id = getTapeId(selectedCartridge.gameplayLog);
             
-            await insertTapeGif(gameplay_id, gifImage);
-
             setTapeUrl(`/tapes/${gameplay_id}`);
             // setShowNftLinkModal(true);
             setSubmitLogStatus({status: STATUS.FINISHED});
 
         } catch (error) {
             setSubmitLogStatus({...submitLogStatus, error: (error as Error).message});
+        }
+
+        try {
+            await insertTapeGif(gameplay_id, gifImage);
+        } catch (error) {
+            console.log(`Error saving gif: ${(error as Error).message}}`)
         }
     }
 
@@ -401,23 +407,23 @@ function CartridgeInfo() {
                                 </span>
                         </Tab>
 
-                        <Tab
+                        {/* <Tab
                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
                             >
                                 <span className='game-tabs-option-text'>
                                     <LeaderboardIcon/>
                                     <span>Leaderboard</span>
                                 </span>
-                        </Tab>
+                        </Tab> */}
 
-                        <Tab
+                        {/* <Tab
                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
                             >
                                 <span className='game-tabs-option-text'>
                                     <OndemandVideoIcon/>
                                     <span>Tapes</span>
                                 </span>
-                        </Tab>
+                        </Tab> */}
                         {/* <Tab
                             className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
                             >
@@ -435,6 +441,15 @@ function CartridgeInfo() {
                                     <span>Mods</span>
                                 </span>
                         </Tab> */}
+
+                        <Tab
+                            className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
+                            >
+                                <span className='game-tabs-option-text'>
+                                    <PlayArrowIcon/>
+                                    <span>Play Modes</span>
+                                </span>
+                        </Tab>
                     </Tab.List>
 
                     <Tab.Panels className="mt-2 overflow-auto custom-scrollbar">
@@ -443,21 +458,21 @@ function CartridgeInfo() {
                         </Tab.Panel>
 
                         {/* lg: width is equal to the max-w-3xl */}
-                        <Tab.Panel className="game-tab-content">
+                        {/* <Tab.Panel className="game-tab-content">
                             <div className="w-full flex">
                                 <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
                             </div>
                             <CartridgeScoreboard cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} rule={selectedCartridge.rule} replay_function={prepareReplay}/>
 
-                        </Tab.Panel>
+                        </Tab.Panel> */}
 
-                        <Tab.Panel className="game-tab-content">
+                        {/* <Tab.Panel className="game-tab-content">
                             <div className="w-full flex">
                                 <button title="Reload Scores (cached for 3 mins)" className="ms-auto scoreboard-btn" onClick={() => setReloadScoreboardCount(reloadScoreboardCount+1)}><span><CachedIcon/></span></button>
                             </div>
                             <CartridgeTapes cartridge_id={selectedCartridge.id} reload={reloadScoreboardCount} rule={selectedCartridge.rule} replay_function={prepareTape}/>
 
-                        </Tab.Panel>
+                        </Tab.Panel> */}
 
                         {/* <Tab.Panel className="game-tab-content">
                             Coming Soon!
@@ -466,6 +481,12 @@ function CartridgeInfo() {
                         <Tab.Panel className="game-tab-content">
                             Coming Soon!
                         </Tab.Panel> */}
+
+                        <Tab.Panel className="game-tab-content">
+                            <PlayModes/>
+
+                        </Tab.Panel>
+
                     </Tab.Panels>
                 </Tab.Group>
 
@@ -480,7 +501,7 @@ function CartridgeInfo() {
                         </button>
                     :
                         <button className="btn w-full mt-2" onClick={() => {playCartridge()}}>
-                            PLAY
+                            PLAY (default mode)
                         </button>
 
                 }
@@ -506,24 +527,28 @@ function CartridgeInfo() {
 }
 
 
-function FinishedSubmissionModal({url,gifImage}:{url:String,gifImage:string}) {
+function FinishedSubmissionModal({url,gifImage}:{url:string,gifImage:string}) {
     return (
         <div>
             {/*body*/}
-            <div className="relative p-4 flex justify-center items-center">
-                <div className={`relative my-6 px-6 flex-auto h-full`}>
-                    <Image className="border border-black" width={200} height={200}  src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
-                </div>
+            <div className="relative p-4 flex grid ">
                 <button className="place-self-center" title='Tape' onClick={() => window.open(`${url}`, "_blank", "noopener,noreferrer")}>
-                    <div style={{ height: "auto", margin: "0 auto", maxWidth: 200, width: "100%" }} >
-                        <QRCode
-                        size={200}
-                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                        value={`${window.location.origin}${url}`}
-                        viewBox={`0 0 200 200`}
-                        />
+                    <div className={`relative my-6 px-6 flex-auto h-full`}>
+                        <Image className="border border-black" width={200} height={200} src={"data:image/gif;base64,"+gifImage} alt={"Rendering"}/>
                     </div>
                 </button>
+                <TwitterShareButton
+                url={url}
+                title={'Check out my gameplay on '}
+                hashtags={SOCIAL_MEDIA_HASHTAGS}
+                >
+                    <div className="p-3 bg-[#eeeeee] text-[black] border border-[#eeeeee] hover:bg-black hover:text-[#eeeeee] flex space-x-2 items-center">
+                    {/* <button className="p-3 bg-[#eeeeee] text-[black] border border-[#eeeeee] hover:bg-transparent hover:text-[#eeeeee] flex space-x-2 items-center"> */}
+                        <span>Share on</span> <TwitterIcon size={32} round />
+                    </div>
+                    
+                </TwitterShareButton>
+
             </div>
         </div>
     );

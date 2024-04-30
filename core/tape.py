@@ -1,10 +1,10 @@
 from pydantic import BaseModel
 import logging
-from typing import Optional, List, Annotated
+from typing import Optional, List
 import json
 from py_expression_eval import Parser
 
-from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address, ABIType
+from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address
 
 from cartesapp.storage import helpers
 from cartesapp.context import get_metadata
@@ -12,7 +12,7 @@ from cartesapp.input import mutation, query
 from cartesapp.output import output, add_output, event, emit_event, index_input
 from cartesapp.utils import hex2bytes, bytes2str
 
-from .model import insert_rule, Rule, RuleData, Cartridge, TapeHash
+from .model import insert_rule, Rule, RuleTag, RuleData, Cartridge, TapeHash, AddressList, Bytes32List, UInt256List, Int256List
 from .riv import verify_log
 from .core_settings import CoreSettings, generate_tape_id, get_version, generate_entropy, get_cartridges_path
 
@@ -31,15 +31,11 @@ class VerifyPayload(BaseModel):
 class GetRulesPayload(BaseModel):
     cartridge_id:   Optional[str]
     id:             Optional[str]
+    ids:            Optional[List[str]]
+    active_ts:      Optional[int]
     name:           Optional[str]
     page:           Optional[int]
     page_size:      Optional[int]
-
-UInt256List = Annotated[List[int], ABIType('uint256[]')]
-Int256List = Annotated[List[int], ABIType('int256[]')]
-Bytes32List = Annotated[List[bytes], ABIType('bytes32[]')]
-StringList = Annotated[List[str], ABIType('string[]')]
-AddressList = Annotated[List[str], ABIType('address[]')]
 
 class ExternalVerificationPayload(BaseModel):
     user_addresses:     AddressList
@@ -48,6 +44,9 @@ class ExternalVerificationPayload(BaseModel):
     tape_input_indexes: UInt256List
     tape_timestamps:    UInt256List
     scores:             Int256List
+
+class GetRuleTagsPayload(BaseModel):
+    cartridge_id:   Optional[str]
 
 # Outputs
 
@@ -71,21 +70,31 @@ class VerificationOutput(BaseModel):
     tape_input_index:       Int
 
 class RuleInfo(BaseModel):
-    id: String
-    name: String
-    description: String
-    cartridge_id: String
-    created_by: String
-    created_at: UInt
-    args: String
-    in_card: Bytes
-    score_function: String
+    id: str
+    name: str
+    description: str
+    cartridge_id: str
+    created_by: str
+    created_at: int
+    args: str
+    in_card: bytes
+    score_function: str
+    n_tapes: int
+    n_verified: int
+    start: Optional[int]
+    end: Optional[int]
+    tags: List[str]
     
 @output()
 class RulesOutput(BaseModel):
     data:   List[RuleInfo]
-    total:  UInt
-    page:   UInt
+    total:  int
+    page:   int
+
+@output()
+class RuleTagsOutput(BaseModel):
+    tags:   List[str]
+
 
 
 ###
@@ -133,7 +142,9 @@ def create_rule(payload: RulePayload) -> bool:
     #     created_at = metadata.timestamp
     # )
     # emit_event(create_rule_event,tags=['rule','create_rule',rule_id.hex()])
-    index_input(tags=['rule',rule_id,payload.cartridge_id.hex()])
+    tags = ['rule',rule_id,payload.cartridge_id.hex()]
+    tags.extend(payload.tags)
+    index_input(tags=tags)
 
     return True
 
@@ -145,6 +156,18 @@ def verify(payload: VerifyPayload) -> bool:
     rule = Rule.get(lambda r: r.id == payload.rule_id.hex())
     if rule is None:
         msg = f"rule {payload.rule_id.hex()} doesn't exist"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    if rule.start is not None and rule.start > 0 and rule.start > metadata.timestamp:
+        msg = f"timestamp earlier than rule start"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    if rule.end is not None and rule.end > 0 and rule.end < metadata.timestamp:
+        msg = f"timestamp later than rule end"
         LOGGER.error(msg)
         add_output(msg)
         return False
@@ -250,12 +273,17 @@ def verify(payload: VerifyPayload) -> bool:
         tape_hash = hex2bytes(tape_id),
         tape_input_index = metadata.input_index
     )
-
-    index_input(tags=['tape',rule.cartridge_id,payload.rule_id.hex(),tape_id],value=metadata.timestamp)
-    emit_event(out_ev,tags=['score',rule.cartridge_id,payload.rule_id.hex(),tape_id],value=score)
+    common_tags = [rule.cartridge_id,payload.rule_id.hex(),tape_id]
+    common_tags.extend(list(rule.tags.name.distinct().keys()))
+    index_tags = ["tape"]
+    index_tags.extend(common_tags)
+    index_input(tags=index_tags,value=metadata.timestamp)
+    event_tags = ["score"]
+    event_tags.extend(common_tags)
+    emit_event(out_ev,tags=event_tags,value=score)
     # add_output(screenshot,tags=['screenshot',rule.cartridge_id,payload.rule_id.hex(),tape_hash.hexdigest()])
 
-    TapeHash.set_verified(rule.cartridge_id,tape_id)
+    TapeHash.set_verified(rule.cartridge_id,rule.id,tape_id)
 
     return True
 
@@ -266,6 +294,18 @@ def register_external_verification(payload: VerifyPayload) -> bool:
     rule = Rule.get(lambda r: r.id == payload.rule_id.hex())
     if rule is None:
         msg = f"rule {payload.rule_id.hex()} doesn't exist"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    if rule.start is not None and rule.start > 0 and rule.start > metadata.timestamp:
+        msg = f"timestamp earlier than rule start"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    if rule.end is not None and rule.end > 0 and rule.end < metadata.timestamp:
+        msg = f"timestamp later than rule end"
         LOGGER.error(msg)
         add_output(msg)
         return False
@@ -287,8 +327,10 @@ def register_external_verification(payload: VerifyPayload) -> bool:
         return False
 
     LOGGER.info(f"Received new tape")
-    index_input(tags=['tape',rule.cartridge_id,payload.rule_id.hex(),tape_id],value=metadata.timestamp)
-    TapeHash.add(rule.cartridge_id,tape_id)
+    tags = ["tape",rule.cartridge_id,payload.rule_id.hex(),tape_id]
+    tags.extend(list(rule.tags.name.distinct().keys()))
+    index_input(tags=tags,value=metadata.timestamp)
+    TapeHash.add(rule.cartridge_id,rule.id,tape_id)
 
     return True
 
@@ -362,8 +404,11 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
         )
 
         LOGGER.info(f"Sending tape verification output")
-        emit_event(out_ev,tags=['score',rule.cartridge_id,payload.rule_ids[ind].hex(),tape_id.hex()],value=payload.scores[ind])
-        TapeHash.set_verified(rule.cartridge_id,tape_id.hex())
+
+        tags = ['score',rule.cartridge_id,payload.rule_ids[ind].hex(),tape_id.hex()]
+        tags.extend(list(rule.tags.name.distinct().keys()))
+        emit_event(out_ev,tags=tags,value=payload.scores[ind])
+        TapeHash.set_verified(rule.cartridge_id,rule.id,tape_id.hex())
 
     return True
 
@@ -376,10 +421,14 @@ def rules(payload: GetRulesPayload) -> bool:
     
     if payload.id is not None:
         rules_query = rules_query.filter(lambda r: payload.id == r.id)
+    if payload.ids is not None:
+        rules_query = rules_query.filter(lambda r: r.id in payload.ids)
     if payload.cartridge_id is not None:
         rules_query = rules_query.filter(lambda r: r.cartridge_id == payload.cartridge_id)
     if payload.name is not None:
         rules_query = rules_query.filter(lambda r: payload.name in r.name)
+    if payload.active_ts is not None:
+        rules_query = rules_query.filter(lambda r: r.start is not None and r.end is not None and payload.active_ts >= r.start and payload.active_ts <= r.end)
 
     total = rules_query.count()
 
@@ -393,13 +442,31 @@ def rules(payload: GetRulesPayload) -> bool:
     else:
         rules = rules_query.fetch()
     
-
-    dict_list_result = [s.to_dict() for s in rules]
+    dict_list_result = []
+    for r in rules:
+        dict_rule = r.to_dict()
+        summary = TapeHash.get_rule_tapes_summary(r.id)
+        dict_rule["n_tapes"] = summary["all"]
+        dict_rule["n_verified"] = summary["verified"]
+        dict_rule["tags"] = list(r.tags.name.distinct().keys())
+        dict_list_result.append(dict_rule)
 
     LOGGER.info(f"Returning {len(dict_list_result)} of {total} rules")
     
     out = RulesOutput.parse_obj({'data':dict_list_result,'total':total,'page':page})
     
+    add_output(out)
+
+    return True
+
+@query()
+def rule_tags(payload: GetRuleTagsPayload) -> bool:
+    tags_query = RuleTag.select()
+    if payload.cartridge_id is not None:
+        tags_query = tags_query.filter(lambda r: r.cartridge_id == payload.cartridge_id)
+
+    tag_names = helpers.select(r.name for r in tags_query).fetch()
+    out = RuleTagsOutput.parse_obj({"tags":tag_names})
     add_output(out)
 
     return True

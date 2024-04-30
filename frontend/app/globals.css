@@ -26,8 +26,18 @@ body {
     rgb(var(--background-start-rgb));
 } */
 
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&family=Work+Sans:wght@100;200;300;400;500;600;700;800;900&display=swap");
-
+@font-face {
+  font-family: 'monogram';
+  src: url("https://menez.io/css/font/monogram-extended.ttf") format('truetype');
+  font-style: normal;
+  size-adjust: 125%;
+}
+@font-face {
+  font-family: 'monogram';
+  src: url("https://menez.io/css/font/monogram-extended-italic.ttf") format('truetype');
+  font-style: italic;
+  size-adjust: 125%;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -48,6 +58,10 @@ body {
     --highlight-text-end-rgba4: rgba(139, 92, 246, 0.05);
   }
 }
+
+/* * {
+  font-family: "monogram";
+} */
 
 html {
   position: relative;

@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { sha256 } from "js-sha256";
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import { useConnectWallet } from '@web3-onboard/react';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -80,12 +81,17 @@ function tapesBoardFallback() {
 
 function RuleLeaderboard({cartridge_id, rule}:{
     cartridge_id:string, rule: string | undefined}) {
-    const [tapePayloads, setTapePayloads] = useState<VerifyPayloadInput[]|null>(null);
+    const [tapePayloads, setTapePayloads] = useState<VerifyPayloadInput[]|null>([]);
 
     // pageination state
     const [currPage, setCurrPage] = useState(1);
     const [pageToLoad, setPageToLoad] = useState(1);
     const [atEnd, setAtEnd] = useState(false);
+    const [oldRule, setOldRule] = useState<string>();
+
+    // user
+    const [{ wallet }] = useConnectWallet();
+    const userAddress = wallet? wallet.accounts[0].address.toLocaleLowerCase(): null;
 
 
     const reloadScores = async () => {
@@ -102,13 +108,19 @@ function RuleLeaderboard({cartridge_id, rule}:{
     }
 
     useEffect(() => {
+        let newRule = false;
+        if (rule != oldRule) {
+            setTapePayloads([]);
+            setOldRule(rule);
+            newRule = true;
+        }
         const currTapes = tapePayloads;
         if (tapePayloads) setTapePayloads(null) // set to null to trigger the loading effect
 
         reloadScores().then((scores) => {
-            if (scores.length == 0) {
+            if (scores.length == 0 && !newRule) {
                 setAtEnd(true);
-                setTapePayloads(currTapes);
+                setTapePayloads(currTapes || []);
                 return;
             } else if (scores.length < DEFAULT_PAGE_SIZE) {
                 setAtEnd(true);
@@ -117,10 +129,22 @@ function RuleLeaderboard({cartridge_id, rule}:{
             setTapePayloads(scores);
             setCurrPage(pageToLoad);
         });
-    }, [pageToLoad])
+    }, [pageToLoad,rule])
+
+    useEffect(() => {
+        setTapePayloads([]);
+    }, [cartridge_id])
 
     if (!tapePayloads) {
         return tapesBoardFallback();
+    }
+
+    if (tapePayloads.length == 0) {
+        return (
+            <div className='relative text-center'>
+                <span>No tapes!</span>
+            </div>
+        )
     }
 
     function getTapeId(tapeHex: string): String {
@@ -144,16 +168,17 @@ function RuleLeaderboard({cartridge_id, rule}:{
                     {
                         tapePayloads.map((tape, index) => {
                             const tapeDate = new Date(Number(tape._timestamp)*1000);
+                            const userTape = userAddress == tape._msgSender?.toLocaleLowerCase();
                             return (
                                 <tr key={index} onClick={() => window.open(`/tapes/${getTapeId(tape.tape)}`, "_blank", "noopener,noreferrer")}
-                                className='games-list-item'
-                                style={{cursor: "pointer", textAlign: "left"}}
+                                className={`p-4 hover:games-list-selected-item ${userTape? "bg-gray-500":""}`}
+                                style={{cursor: "pointer"}}
                                 >
                                     <td title={tape._msgSender?.toLowerCase()} scope="row" className="px-2 py-2 break-all">
                                         {tape._msgSender?.substring(0,6)+"..."+tape._msgSender?.substring(tape._msgSender?.length-4,tape._msgSender?.length)}
                                     </td>
                                     <td title={tapeDate.toLocaleString()} className="px-2 py-2">
-                                        {tapeDate.toLocaleDateString()}
+                                        {tapeDate.toLocaleDateString()} {tapeDate.toLocaleTimeString()}
                                     </td>
                                 </tr>
                             );

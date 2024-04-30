@@ -15,7 +15,7 @@ class CoreSettings:
     version = '0'
     rivemu_path = os.getenv('RIVEMU_PATH')
     operator_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    genesis_cartridges = ['snake','freedoom','antcopter','monky','tetrix','particles']
+    genesis_cartridges = ['freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
 
 @setup()
 def setup_settings():
@@ -23,7 +23,7 @@ def setup_settings():
     CoreSettings.rivemu_path = os.getenv('RIVEMU_PATH') or CoreSettings.rivemu_path
     CoreSettings.operator_address = os.getenv('OPERATOR_ADDRESS') or CoreSettings.operator_address
     CoreSettings.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split())) \
-        if os.getenv('GENESIS_CARTRIDGES') else CoreSettings.genesis_cartridges
+        if os.getenv('GENESIS_CARTRIDGES') is not None else CoreSettings.genesis_cartridges
 
 ###
 # Helpers
@@ -54,3 +54,6 @@ def generate_rule_id(cartridge_id: bytes,bytes_name: bytes) -> str:
 
 def generate_entropy(user_address: str, rule_id: str) -> str:
     return sha256(hex2bytes(user_address) + hex2bytes(rule_id)).hexdigest()
+
+def generate_rule_parameters_tag(args: str, in_card: bytes, score_function: str) -> str:
+    return sha256(hex2bytes(args) + in_card + hex2bytes(score_function)).hexdigest()

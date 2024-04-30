@@ -89,7 +89,6 @@ def insert_cartridge(payload: InserCartridgePayload) -> bool:
     out_tags = ['cartridge',cartridge_id]
     index_input(tags=out_tags)
     # emit_event(cartridge_event,tags=out_tags)
-    index_input(tags=['cartridge',cartridge_id])
 
     return True
 

@@ -64,7 +64,7 @@ def dapp_client() -> TestClient:
     # set required environment 
     os.environ["OPERATOR_ADDRESS"] = USER2_ADDRESS
     # os.environ.get["RIVEMU_PATH"]
-    os.environ["INSERT_GENESIS_CARTRIDGES"] = '0'
+    os.environ["GENESIS_CARTRIDGES"] = ''
 
     # Mimics the run command to set up the manager
     m = Manager()
@@ -514,11 +514,13 @@ def test_should_pass_verify_cartridge2(
 # TODO: test rule creation wrong operator wallet
 # TODO: test rule creation wrong formula
 # TODO: test rule creation wrong args
+# TODO: test rule creation invalid dates
 # TODO: test rule creation
 # TODO: test rule creation duplicate
 # TODO: test rule creation duplicate name different game
 # TODO: test list rules
 # TODO: test tape verification non-standard rule correct
+# TODO: test tape verification out of dates
 
 
 # @pytest.fixture()

@@ -6,6 +6,10 @@ import Script from "next/script"
 import { useContext, useState, useEffect } from "react";
 import { useConnectWallet } from '@web3-onboard/react';
 
+import CloseIcon from '@mui/icons-material/Close';
+import RestartIcon from '@mui/icons-material/RestartAlt';
+import StopIcon from '@mui/icons-material/Stop';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { GIF_FRAME_FREQ, gameplayContext } from "../play/GameplayContextProvider";
@@ -36,6 +40,7 @@ function RivemuPlayer(
     const isTape = tape? true:false;
 
     // rivemu state
+    const [runtimeInitialized, setRuntimeInitialized] = useState(false);
     const [currScore, setCurrScore] = useState<number>();
     const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
     const [currProgress, setCurrProgress] = useState<number>();
@@ -78,11 +83,13 @@ function RivemuPlayer(
         //     // @ts-ignore:next-line
         //     Module._main();
         // }
+        await rivemuInitialize();
         await rivemuHalt();
         setCurrScore(undefined);
         if (scoreFunction) {
             setCurrScore(0);
         }
+        setLastFrameIndex(undefined);
 
         // @ts-ignore:next-line
         let cartridgeBuf = Module._malloc(cartridgeData.length);
@@ -135,12 +142,14 @@ function RivemuPlayer(
         //     // @ts-ignore:next-line
         //     Module._main();
         // }
+        await rivemuInitialize();
         await rivemuHalt();
         setCurrScore(undefined);
         if (scoreFunction) {
             setCurrScore(0);
         }
         setCurrProgress(0);
+        setLastFrameIndex(undefined);
 
         // @ts-ignore:next-line
         const cartridgeBuf = Module._malloc(cartridgeData.length);
@@ -186,6 +195,16 @@ function RivemuPlayer(
         Module._free(incardBuf);
     }
 
+
+    async function rivemuInitialize() {
+        if (!runtimeInitialized) {
+            // @ts-ignore:next-line
+            if (typeof Module == "undefined" || typeof Module._rivemu_stop == "undefined")
+                await waitEvent("rivemu_on_runtime_initialized");
+            setRuntimeInitialized(true);
+        }
+    }
+
     async function rivemuHalt() {
         // @ts-ignore:next-line
         if (Module.ccall('rivemu_stop')) {
@@ -206,6 +225,13 @@ function RivemuPlayer(
     async function rivemuStop() {
         console.log("rivemuStop");
         rivemuHalt();
+    }
+
+    function rivemuFullscreen() {
+        const canvas: any = document.getElementById("canvas");
+        if (canvas) {
+            canvas.requestFullscreen();
+        }
     }
 
     if (typeof window !== "undefined") {
@@ -255,6 +281,8 @@ function RivemuPlayer(
         ) {
             rivemuStop();
             console.log("rivemu_on_finish")
+            if (isTape && totalFrames && totalFrames != 0)
+                setCurrProgress(100);
             if (!isTape && rule_id && signerAddress) {
                 let score: number | undefined = undefined;
                 if (scoreFunctionEvaluator && decoder.decode(outcard.slice(0,4)) == 'JSON') {
@@ -275,19 +303,19 @@ function RivemuPlayer(
                     }
                 );
             }
-            setPlaying({isPlaying: false, playCounter: playing.playCounter+1})
+            setPlaying({isPlaying: false, playCounter: playing.playCounter+1});
         };
     }
     // END: rivemu
 
-    function playTape() {
+    async function playTape() {
+        await rivemuReplay();
         setPlaying({...playing, isPlaying: true});
-        rivemuReplay();
     }
 
-    function playGame() {
+    async function playGame() {
+        await rivemuStart();
         setPlaying({...playing, isPlaying: true});
-        rivemuStart();
     }
 
     return (
@@ -295,7 +323,29 @@ function RivemuPlayer(
             <section className="grid grid-cols-1 gap-4 place-items-center">
                 <div>
                 <div className='relative bg-gray-500 p-2 text-center'>
+                    <button className="bg-gray-700 text-white absolute top-1 start-2.5 border border-gray-700 hover:border-black"
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={() => {isTape? playTape():playGame()}}>
+                        <RestartIcon/>
+                    </button>
+
                     { !rule_id ? <></> : currScore == undefined ? <span>no score</span> : <span>Score: {currScore}</span>}
+
+                    <button className="bg-gray-700 text-white absolute top-1 end-10 border border-gray-700 hover:border-black"
+                    hidden={!playing.isPlaying}
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={rivemuFullscreen}
+                    >
+                        <FullscreenIcon/>
+                    </button>
+
+                    <button className="bg-red-500 text-white absolute top-1 end-2.5 border border-gray-700 hover:border-black"
+                    hidden={!playing.isPlaying}
+                    onKeyDown={() => null} onKeyUp={() => null}
+                    onClick={rivemuStop}
+                    >
+                        <StopIcon/>
+                    </button>
                 </div>
                     <div className="relative">
                     { !playing.isPlaying?
@@ -328,6 +378,7 @@ function RivemuPlayer(
                 : <></>}
             </section>
             <Script src="/rivemu.js?" strategy="lazyOnload" />
+            <Script src="/initializeRivemu.js?" strategy="lazyOnload" />
         </main>
     )
 }
