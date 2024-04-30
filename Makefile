@@ -101,8 +101,10 @@ rivemu: #rivemu/rivemu
 
 build-release:
 	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
+	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
+	echo $$IMAGE_TAG > .rives-core.tag
 	docker build -f Dockerfile --target node .sunodo/ \
-		-t ghcr.io/rives-io/rives-core:$$IMAGE_VERSION \
+		-t $$IMAGE_TAG \
 		--label "org.opencontainers.image.title=rives-core" \
 		--label "org.opencontainers.image.description=RIVES Core Node" \
 		--label "org.opencontainers.image.source=https://github.com/rives-io/rives-core" \
@@ -124,4 +126,16 @@ run-external-verifier-cloud-services:
 	make -C external_verifier run-cloud-services ARGS='$(ARGS)'
 
 build-external-verifier-cloud:
-	docker build --target external-verifier-cloud . -t ghcr.io/rives/exteral-verifier:$(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
+	IMAGE_TAG=ghcr.io/rives-io/rives-exteral-verifier:$$IMAGE_VERSION
+	echo $$IMAGE_TAG > .external-verifier-cloud.tag
+	docker build --target external-verifier-cloud . \
+		-t $$IMAGE_TAG \
+		--label "org.opencontainers.image.title=rives-external-verifier" \
+		--label "org.opencontainers.image.description=RIVES External Verifier" \
+		--label "org.opencontainers.image.source=https://github.com/rives-io/rives-core" \
+		--label "org.opencontainers.image.revision=$$(git rev-parse HEAD)" \
+		--label "org.opencontainers.image.created=$$(date -Iseconds --utc)" \
+		--label "org.opencontainers.image.licenses=Apache-2.0" \
+		--label "org.opencontainers.image.url=https://rives.io" \
+		--label "org.opencontainers.image.version=$$IMAGE_VERSION"
