@@ -169,7 +169,10 @@ export default function Tapes() {
                       <span>{player} on {timestamp}</span>
                     </div>
                   </div>
-                  <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+gifs[index]} alt={"Not found"}/>
+
+                  <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black">
+                    <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+gifs[index]} alt={"Not found"}/>
+                  </div>
                 </Link>
               )
                
