@@ -1,4 +1,4 @@
-name: build-frontend
+name: build-frontend-vanguard
 run-name: Building Frontend Image for Vanguard Deploy
 on:
   workflow_dispatch:
