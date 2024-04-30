@@ -6,13 +6,13 @@ from pydantic import BaseModel
 from dagster import sensor, op, job, define_asset_job, asset, run_status_sensor, asset_sensor, multi_asset_sensor,\
     RunRequest, Config, RunConfig, SensorEvaluationContext, SkipReason, OpExecutionContext, AssetExecutionContext, \
     Definitions, DagsterRunStatus, Output, DynamicPartitionsDefinition, SensorResult, AssetSelection, SensorEvaluationContext, \
-    AssetKey, MultiAssetSensorEvaluationContext, PathMetadataValue
+    AssetKey, MultiAssetSensorEvaluationContext, PathMetadataValue, Failure
 
 
 from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
-from .common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
+from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
     tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id
 
 
@@ -76,6 +76,11 @@ def verification_output_asset(context: AssetExecutionContext, config: TapeVerifi
     )
     extended_verification: ExtendedVerifyPayload = ExtendedVerifyPayload.parse_obj(extended_verification_dict)
     out = tape_verification(extended_verification)
+
+    if out is None:
+        msg = f"Error verifying tape"
+        context.log.error(msg)
+        raise Failure(description="Error verifying tape")
 
     context.log.info(f"verified tape {out.tape_hash=} with {out.score=}")
 
@@ -169,10 +174,11 @@ def inputs_sensor(context: SensorEvaluationContext):
 
     input_finder = InputFinder(timeout=0,poll_interval=1)
     next_input = input_finder.get_input(cursor)
-    context.log.info(f"looking for new entries in input box")
+    context.log.info(f"looking for new entries in input box from cursor {cursor}")
     new_input = next(next_input)
     run_requests = []
     partition_keys = []
+    blocks = []
     while new_input is not None:
         if new_input.type == InputType.error:
             context.log.error(new_input.data.msg)
@@ -196,7 +202,6 @@ def inputs_sensor(context: SensorEvaluationContext):
                     ops={"add_cartridge":CartridgeConfig(**{"data":bytes2hex(cartridge_data),"cartridge_id":cartridge_id}),}
                 )
             ))
-            context.update_cursor(str(new_input.last_input_block + 1))
         elif new_input.type == InputType.rule:
             context.log.info(f"new rule entry")
             rule: Rule = new_input.data
@@ -212,7 +217,6 @@ def inputs_sensor(context: SensorEvaluationContext):
                     ops={"add_rule":RuleConfig(**rule_dict)}
                 )
             ))
-            context.update_cursor(str(new_input.last_input_block + 1))
         elif new_input.type == InputType.verification:
             context.log.info(f"new verification entry")
             extended_verification: ExtendedVerifyPayload = new_input.data
@@ -231,15 +235,18 @@ def inputs_sensor(context: SensorEvaluationContext):
                     ops={"verify_input":TapeVerificationConfig(**extended_verification_dict)}
                 )
             ))
-            context.update_cursor(str(new_input.last_input_block + 1))
         else:
             context.log.warning(f"unrecognized input type")
+
+        blocks.append(new_input.last_input_block)
         new_input = next(next_input)
+    
     context.log.info(f"Got {len(run_requests)} run requests ({partition_keys=})")
     if len(run_requests) == 0:
         yield SkipReason("No inputs")
         return
 
+    context.update_cursor(str(max(blocks) + 1))
     return SensorResult(
         run_requests=run_requests,
         dynamic_partitions_requests=[
