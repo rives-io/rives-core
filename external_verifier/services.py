@@ -189,6 +189,7 @@ def inputs_sensor(context: SensorEvaluationContext):
         elif new_input.type == InputType.unknown:
             context.log.info(f"new non-processable entry")
         elif new_input.type == InputType.none:
+            blocks.append(new_input.last_input_block)
             break
         elif new_input.type == InputType.cartridge:
             context.log.info(f"new cartridge entry")
@@ -243,12 +244,12 @@ def inputs_sensor(context: SensorEvaluationContext):
         blocks.append(new_input.last_input_block)
         new_input = next(next_input)
     
-    context.log.info(f"Got {len(run_requests)} run requests ({partition_keys=})")
+    context.log.info(f"Got {len(run_requests)} run requests until block {max(blocks)} ({partition_keys=})")
+    context.update_cursor(str(max(blocks) + 1))
     if len(run_requests) == 0:
         yield SkipReason("No inputs")
         return
 
-    context.update_cursor(str(max(blocks) + 1))
     return SensorResult(
         run_requests=run_requests,
         dynamic_partitions_requests=[

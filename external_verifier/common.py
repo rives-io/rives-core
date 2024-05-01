@@ -64,7 +64,7 @@ REDIS_VERIFY_OUTPUT_QUEUE_KEY = f"rives_verify_output_queue_{RIVES_VERSION}"
 REDIS_VERIFY_OUTPUT_TEMP_QUEUE_KEY = f"rives_verify_output_temp_queue_{RIVES_VERSION}"
 REDIS_ERROR_VERIFICATION_KEY = f"rives_error_verification_{RIVES_VERSION}"
 REDIS_BLOCK_KEY = f"rives_processed_block_{RIVES_VERSION}"
-MAX_BLOCK_RANGE = 5000
+MAX_BLOCK_RANGE = 50000
 
 ###
 # Model
@@ -583,7 +583,7 @@ class InputFinder:
                         # LOGGER.info(f"non processed entry")
                         yield InputData(type=InputType.unknown,data=None,last_input_block=last_input_block)
 
-                yield InputData(type=InputType.none,data=None,last_input_block=last_input_block)
+                yield InputData(type=InputType.none,data=None,last_input_block=input_added_filter.filter_params.get('toBlock') or self.w3.eth.block_number)
             except Exception as e:
                 LOGGER.error(e)
                 traceback.print_exc()
