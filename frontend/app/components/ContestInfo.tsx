@@ -5,6 +5,7 @@
 import { Tab } from '@headlessui/react'
 import { RuleInfo } from '../backend-libs/core/ifaces'
 import RuleLeaderboard from './RuleLeaderboard'
+import { ContestStatus, getContestStatus } from '../utils/common'
 
 function ContestInfo({contest}:{contest:RuleInfo}) {
 
@@ -36,7 +37,9 @@ function ContestInfo({contest}:{contest:RuleInfo}) {
                     </Tab.Panel>
 
                     <Tab.Panel className="game-tab-content">
-                        <RuleLeaderboard cartridge_id={contest.cartridge_id} rule={contest.id} />
+                        <RuleLeaderboard cartridge_id={contest.cartridge_id} rule={contest.id} 
+                            get_verification_outputs={contest != undefined && [ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(getContestStatus(contest)) > -1 } 
+                        />
                     </Tab.Panel>
 
                 </Tab.Panels>

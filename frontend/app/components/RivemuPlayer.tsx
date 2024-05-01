@@ -14,6 +14,27 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { GIF_FRAME_FREQ, gameplayContext } from "../play/GameplayContextProvider";
 import { sha256 } from "js-sha256";
+import { envClient } from "../utils/clientEnv";
+import { cartridge } from "../backend-libs/core/lib";
+
+const getCartridgeData = async (cartridgeId:string) => {
+    const formatedCartridgeId = cartridgeId.substring(0, 2) === "0x"? cartridgeId.slice(2): cartridgeId;
+    const data = await cartridge(
+        {
+            id:formatedCartridgeId
+        },
+        {
+            decode:true,
+            decodeModel:"bytes",
+            cartesiNodeUrl: envClient.CARTESI_NODE_URL,
+            cache:"force-cache"
+        }
+    );
+    
+    if (data.length === 0) throw new Error(`Cartridge ${formatedCartridgeId} not found!`);
+    
+    return data;
+}
 
 function generateEntropy(userAddress?:String, ruleId?:String): string {
 
@@ -32,14 +53,15 @@ function generateEntropy(userAddress?:String, ruleId?:String): string {
 }
 
 function RivemuPlayer(
-        {cartridgeData, cartridge_id, rule_id, args, in_card, scoreFunction, userAddress, tape}:
-        {cartridgeData:Uint8Array, cartridge_id: string, rule_id?:string, args?:string, in_card?:Uint8Array, 
+        {cartridge_id, rule_id, args, in_card, scoreFunction, userAddress, tape}:
+        {cartridge_id: string, rule_id?:string, args?:string, in_card?:Uint8Array, 
             scoreFunction?:string, userAddress?:string, tape?:Uint8Array}) {
     const {setGameplayLog, setGifResolution, addGifFrame} = useContext(gameplayContext);
 
     const isTape = tape? true:false;
 
     // rivemu state
+    const [cartridgeData, setCartridgeData] = useState<Uint8Array>();
     const [runtimeInitialized, setRuntimeInitialized] = useState(false);
     const [currScore, setCurrScore] = useState<number>();
     const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
@@ -60,7 +82,18 @@ function RivemuPlayer(
         }
     },[wallet]);
 
+    useEffect(() => {
+        getCartridgeData(cartridge_id).then((data) => setCartridgeData(data));
+    }, []);
 
+    if (!cartridgeData) {
+        return (
+            <main className="flex items-center justify-center h-lvh text-white">
+                Getting Cartridge...
+            </main>
+        )
+    }
+  
     if (isTape && (!userAddress || userAddress.length != 42)) {
         return (
             <span className="flex items-center justify-center h-lvh text-white">
@@ -74,7 +107,7 @@ function RivemuPlayer(
     
     // BEGIN: rivemu
     async function rivemuStart() {
-        if (cartridgeData.length == 0) return;
+        if (!cartridgeData || cartridgeData.length == 0) return;
         console.log("rivemuStart");
 
         // // @ts-ignore:next-line
@@ -132,8 +165,7 @@ function RivemuPlayer(
 
 
     async function rivemuReplay() {
-        // TODO: fix rivemuReplay
-        if (!cartridgeData || !tape) return;
+        if (!cartridgeData || cartridgeData.length == 0 || !tape) return;
         console.log("rivemuReplay");
 
         // // @ts-ignore:next-line

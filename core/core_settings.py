@@ -22,7 +22,7 @@ def setup_settings():
     CoreSettings.version = os.getenv('RIVES_VERSION') or CoreSettings.version
     CoreSettings.rivemu_path = os.getenv('RIVEMU_PATH') or CoreSettings.rivemu_path
     CoreSettings.operator_address = os.getenv('OPERATOR_ADDRESS') or CoreSettings.operator_address
-    CoreSettings.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split())) \
+    CoreSettings.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
         if os.getenv('GENESIS_CARTRIDGES') is not None else CoreSettings.genesis_cartridges
 
 ###
