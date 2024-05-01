@@ -1,15 +1,13 @@
-import { notFound } from "next/navigation";
 import { ethers } from "ethers";
 import React from 'react'
 
 import { RuleInfo } from "../backend-libs/core/ifaces";
-import { delay } from "../utils/util";
-import { cartridge, rules } from "../backend-libs/core/lib";
+import { rules } from "../backend-libs/core/lib";
 import { envClient } from "../utils/clientEnv";
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from './RivemuPlayer';
 import GameplaySubmitter from "./GameplaySubmitter";
-import { Contest, ContestStatus, getContestStatus } from "../utils/common";
+import { ContestStatus, getContestStatus } from "../utils/common";
 
 
 const getRule = async (ruleId:string):Promise<RuleInfo> => {
