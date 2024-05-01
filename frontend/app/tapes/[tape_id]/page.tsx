@@ -1,30 +1,11 @@
 import { ethers } from "ethers";
 
-import { VerifyPayload, cartridge, getOutputs, rules } from '@/app/backend-libs/core/lib';
+import { VerifyPayload, getOutputs, rules } from '@/app/backend-libs/core/lib';
 import { RuleInfo } from '@/app/backend-libs/core/ifaces';
 import { envClient } from '@/app/utils/clientEnv';
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from '@/app/components/RivemuPlayer';
 import { getTapeGif } from "@/app/utils/util";
-
-const getCartridgeData = async (cartridgeId:string):Promise<Uint8Array> => {
-    const formatedCartridgeId = cartridgeId;
-    const data = await cartridge(
-        {
-            id:formatedCartridgeId
-        },
-        {
-            decode:true,
-            decodeModel:"bytes",
-            cartesiNodeUrl: envClient.CARTESI_NODE_URL,
-            cache:"force-cache"
-        }
-    );
-    
-    if (data.length === 0) throw new Error(`Cartridge ${formatedCartridgeId} not found!`);
-    
-    return data;
-}
 
 
 const getTapePayload = async (tapeId:string):Promise<VerifyPayload> => {
@@ -72,7 +53,6 @@ export async function generateMetadata({ params }: { params: { tape_id: string }
 
 export default async function Tape({ params }: { params: { tape_id: string } }) {
     let errorMsg:string|undefined = undefined;
-    let cartridgeData:Uint8Array|undefined = undefined;
     let tapePayload:VerifyPayload|undefined = undefined;
     let tape:Uint8Array|undefined = undefined;
     let inCard:Uint8Array|undefined = undefined;
@@ -87,8 +67,6 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
         
         rule = await getRule(tapePayload.rule_id.slice(2));
         
-        cartridgeData = await getCartridgeData(rule.cartridge_id);
-
         if (!rule)
             throw new Error("Can't find rule");
 
@@ -116,14 +94,6 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
         )
     }
 
-    if (!cartridgeData) {
-        return (
-            <main className="flex items-center justify-center h-lvh text-white">
-                Getting Cartridge...
-            </main>
-        )
-    }
-
     if (!tape || !tapePayload) {
         return (
             <main className="flex items-center justify-center h-lvh text-white">
@@ -142,7 +112,7 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
 
     return (
         <main className="flex items-center justify-center h-lvh">
-            <RivemuPlayer cartridge_id={rule.cartridge_id} rule_id={rule.id} cartridgeData={cartridgeData} args={rule.args} in_card={inCard} scoreFunction={rule.score_function} tape={tape} userAddress={tapePayload._msgSender} />
+            <RivemuPlayer cartridge_id={rule.cartridge_id} rule_id={rule.id} args={rule.args} in_card={inCard} scoreFunction={rule.score_function} tape={tape} userAddress={tapePayload._msgSender} />
         </main>
     )
 }

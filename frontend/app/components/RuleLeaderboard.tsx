@@ -1,6 +1,6 @@
 "use client"
 
-import { getOutputs, VerifyPayloadInput } from '../backend-libs/core/lib';
+import { getOutputs, VerificationOutput, VerifyPayloadInput } from '../backend-libs/core/lib';
 import {  ethers } from "ethers";
 import { envClient } from '../utils/clientEnv';
 import React, { useEffect, useState } from 'react';
@@ -12,9 +12,23 @@ import { useConnectWallet } from '@web3-onboard/react';
 const DEFAULT_PAGE_SIZE = 10;
 
 const getGeneralVerificationPayloads = async (
-cartridge_id:string, rule:string, page:number
-):Promise<Array<VerifyPayloadInput>> => {
+cartridge_id:string, rule:string, page:number, getVerificationOutputs: boolean
+):Promise<Array<VerifyPayloadInput>|Array<VerificationOutput>> => {
     
+    if (getVerificationOutputs) {
+        const tags = ["score",cartridge_id,rule];
+        const tapes:Array<VerificationOutput> = await getOutputs(
+            {
+                tags,
+                type: 'notice',
+                page,
+                page_size: DEFAULT_PAGE_SIZE,
+                order_by: "value",
+                order_dir: "desc"
+            },
+            {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
+        return tapes;
+    }
     const tags = ["tape",cartridge_id,rule];
     const tapes:Array<VerifyPayloadInput> = await getOutputs(
         {
@@ -43,7 +57,7 @@ function tapesBoardFallback() {
                         Timestamp
                     </th>
                     <th scope="col" className="px-2 py-3">
-
+                        Score
                     </th>
                 </tr>
             </thead>
@@ -79,9 +93,9 @@ function tapesBoardFallback() {
     )
 }
 
-function RuleLeaderboard({cartridge_id, rule}:{
-    cartridge_id:string, rule: string | undefined}) {
-    const [tapePayloads, setTapePayloads] = useState<VerifyPayloadInput[]|null>([]);
+function RuleLeaderboard({cartridge_id, rule, get_verification_outputs = false}:{
+    cartridge_id:string, rule: string | undefined, get_verification_outputs: boolean}) {
+    const [tapePayloads, setTapePayloads] = useState<VerifyPayloadInput[]|VerificationOutput[]|null>(null);
 
     // pageination state
     const [currPage, setCurrPage] = useState(1);
@@ -94,9 +108,9 @@ function RuleLeaderboard({cartridge_id, rule}:{
     const userAddress = wallet? wallet.accounts[0].address.toLocaleLowerCase(): null;
 
 
-    const reloadScores = async () => {
+    const reloadScores = async (page: number) => {
         if (!rule) return [];
-        return (await getGeneralVerificationPayloads(cartridge_id, rule, pageToLoad))
+        return (await getGeneralVerificationPayloads(cartridge_id, rule, page, get_verification_outputs))
     }
 
     const previousPage = () => {
@@ -110,30 +124,40 @@ function RuleLeaderboard({cartridge_id, rule}:{
     useEffect(() => {
         let newRule = false;
         if (rule != oldRule) {
-            setTapePayloads([]);
+            setTapePayloads(null);
             setOldRule(rule);
             newRule = true;
         }
         const currTapes = tapePayloads;
         if (tapePayloads) setTapePayloads(null) // set to null to trigger the loading effect
 
-        reloadScores().then((scores) => {
+        reloadScores(pageToLoad).then((scores) => {
             if (scores.length == 0 && !newRule) {
                 setAtEnd(true);
                 setTapePayloads(currTapes || []);
                 return;
             } else if (scores.length < DEFAULT_PAGE_SIZE) {
                 setAtEnd(true);
+            } else if (pageToLoad < currPage) {
+                setAtEnd(false);
             }
             
             setTapePayloads(scores);
             setCurrPage(pageToLoad);
         });
-    }, [pageToLoad,rule])
+    }, [pageToLoad,rule, get_verification_outputs])
 
     useEffect(() => {
-        setTapePayloads([]);
+        setTapePayloads(null);
     }, [cartridge_id])
+
+    if (!rule) {
+        return (
+            <div className='relative text-center'>
+                <span>No rule selected!</span>
+            </div>
+        )
+    }
 
     if (!tapePayloads) {
         return tapesBoardFallback();
@@ -162,24 +186,33 @@ function RuleLeaderboard({cartridge_id, rule}:{
                         <th scope="col" className="px-2 py-3">
                             Timestamp
                         </th>
+                        <th scope="col" className="px-2 py-3">
+                            Score
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     {
                         tapePayloads.map((tape, index) => {
-                            const tapeDate = new Date(Number(tape._timestamp)*1000);
-                            const userTape = userAddress == tape._msgSender?.toLocaleLowerCase();
+                            const verification_outputs = tape instanceof VerificationOutput;
+                            const tapets = verification_outputs ? tape.timestamp : tape._timestamp;
+                            const tapeDate = new Date(Number(tapets)*1000);
+                            const sender = verification_outputs ? tape.user_address : tape._msgSender;
+                            const tapeId = verification_outputs ? tape.tape_hash : getTapeId(tape.tape);
+                            const score = verification_outputs ? tape.score.toString() : "-";
+                            const userTape = userAddress == sender?.toLocaleLowerCase();
                             return (
-                                <tr key={index} onClick={() => window.open(`/tapes/${getTapeId(tape.tape)}`, "_blank", "noopener,noreferrer")}
+                                <tr key={index} onClick={() => window.open(`/tapes/${tapeId}`, "_blank", "noopener,noreferrer")}
                                 className={`p-4 hover:games-list-selected-item ${userTape? "bg-gray-500":""}`}
                                 style={{cursor: "pointer"}}
                                 >
-                                    <td title={tape._msgSender?.toLowerCase()} scope="row" className="px-2 py-2 break-all">
-                                        {tape._msgSender?.substring(0,6)+"..."+tape._msgSender?.substring(tape._msgSender?.length-4,tape._msgSender?.length)}
+                                    <td title={sender?.toLowerCase()} scope="row" className="px-2 py-2 break-all">
+                                        {sender?.substring(0,6)+"..."+sender?.substring(sender?.length-4,sender?.length)}
                                     </td>
                                     <td title={tapeDate.toLocaleString()} className="px-2 py-2">
                                         {tapeDate.toLocaleDateString()} {tapeDate.toLocaleTimeString()}
                                     </td>
+                                    <td>{score}</td>
                                 </tr>
                             );
                         })

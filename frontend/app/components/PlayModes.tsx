@@ -16,7 +16,7 @@ function PlayModes() {
     const {selectedCartridge} = useContext(selectedCartridgeContext);
 
     const [rulesInfo, setRulesInfo] = useState<RuleInfo[]>();
-    const [selectedRule, setSelectedRule] = useState<string>();
+    const [selectedRule, setSelectedRule] = useState<RuleInfo>();
 
     const contestsMetadata = envClient.CONTESTS as Record<string,Contest>;
     useEffect(() => {
@@ -40,9 +40,9 @@ function PlayModes() {
                     const status = ruleInfo ? getContestStatus(ruleInfo) : undefined;
                     return (
                         <div key={index}
-                        className={"flex flex-row border-2 hover:border-black p-2 " + (ruleInfo.id == selectedRule ? "border-black" : "border-transparent")}
+                        className={"flex flex-row border-2 hover:border-black p-2 " + (ruleInfo.id == selectedRule?.id ? "border-black" : "border-transparent")}
                         style={{cursor: "pointer"}}
-                        onClick={() => setSelectedRule(ruleInfo.id)}
+                        onClick={() => setSelectedRule(ruleInfo)}
                         >
             
                         <div className="flex flex-col basis-3/4">
@@ -68,7 +68,9 @@ function PlayModes() {
                 ) : <></>
             }
             </div>
-            <RuleLeaderboard cartridge_id={selectedCartridge.id} rule={selectedRule}/>
+            <RuleLeaderboard cartridge_id={selectedCartridge.id} rule={selectedRule?.id} 
+                get_verification_outputs={selectedRule != undefined && [ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(getContestStatus(selectedRule)) > -1 } 
+            />
         </div>
     )
 }

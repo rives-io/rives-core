@@ -39,12 +39,13 @@ CRAPP_ADDRESS = os.getenv('CRAPP_ADDRESS') or ""
 PRIVATE_KEY = os.getenv('PRIVATE_KEY') or ''
 
 # recommended
-CRAPP_DEPLOY_BLOCK = os.getenv('DAPP_DEPLOY_BLOCK') or 0
+CRAPP_DEPLOY_BLOCK = os.getenv('CRAPP_DEPLOY_BLOCK') or 0
 RIVES_VERSION = os.getenv('RIVES_VERSION') or '0'
 
 REDIS_HOST = os.getenv('REDIS_HOST') or "localhost"
 REDIS_PORT = os.getenv('REDIS_PORT') or 6379
 RPC_URL = os.getenv('RPC_URL') or "http://localhost:8545"
+WSS_URL = os.getenv('WSS_URL')
 
 # check likely
 INPUT_BOX_ADDRESS = os.getenv('INPUTBOX_ADDRESS') or "0x59b22D57D4f067708AB0c00552767405926dc768"
@@ -52,6 +53,7 @@ INPUT_BOX_ABI_FILE = os.getenv('INPUT_BOX_ABI_FILE') or 'InputBox.json'
 TEST_TAPE_PATH = os.getenv('TEST_TAPE_PATH') or '../misc/test.rivlog'
 GENESIS_CARTRIDGES_PATH = os.getenv('GENESIS_CARTRIDGES_PATH') or '../misc'
 GENESIS_CARTRIDGES = os.getenv('GENESIS_CARTRIDGES')
+VERIFICATIONS_BATCH_SIZE = os.getenv('VERIFICATIONS_BATCH_SIZE') or 10
 
 # consts
 REDIS_VERIFY_QUEUE_KEY = f"rives_verify_queue_{RIVES_VERSION}"
@@ -62,6 +64,7 @@ REDIS_VERIFY_OUTPUT_QUEUE_KEY = f"rives_verify_output_queue_{RIVES_VERSION}"
 REDIS_VERIFY_OUTPUT_TEMP_QUEUE_KEY = f"rives_verify_output_temp_queue_{RIVES_VERSION}"
 REDIS_ERROR_VERIFICATION_KEY = f"rives_error_verification_{RIVES_VERSION}"
 REDIS_BLOCK_KEY = f"rives_processed_block_{RIVES_VERSION}"
+MAX_BLOCK_RANGE = 50000
 
 ###
 # Model
@@ -425,7 +428,8 @@ class VerificationSender:
             if j.get('abi') is None:
                 raise Exception(f"Input box abi file doesn't have contract abi")
             self.input_box_abi = j['abi']
-        self.w3 = Web3(Web3.HTTPProvider(RPC_URL))
+        provider = Web3.WebsocketProvider(WSS_URL) if WSS_URL else Web3.HTTPProvider(RPC_URL)
+        self.w3 = Web3(provider)
         self.acct = self.w3.eth.account.from_key(PRIVATE_KEY)
         self.input_box_contract = self.w3.eth.contract(address=INPUT_BOX_ADDRESS, abi=json.dumps(self.input_box_abi))
 
@@ -486,7 +490,8 @@ class InputFinder:
             if j.get('abi') is None:
                 raise Exception(f"Input box abi file doesn't have contract abi")
             self.input_box_abi = j['abi']
-        self.w3 = Web3(Web3.HTTPProvider(RPC_URL))
+        provider = Web3.WebsocketProvider(WSS_URL) if WSS_URL else Web3.HTTPProvider(RPC_URL)
+        self.w3 = Web3(provider)
         self.input_box_contract = self.w3.eth.contract(address=INPUT_BOX_ADDRESS, abi=json.dumps(self.input_box_abi))
         self.starting_block = CRAPP_DEPLOY_BLOCK
 
@@ -519,14 +524,19 @@ class InputFinder:
         if block is None: block = self.starting_block
 
         input_added_filter = self.input_box_contract.events.InputAdded.create_filter(
-            fromBlock=block, argument_filters={'dapp':self.w3.to_checksum_address(CRAPP_ADDRESS)})
+            fromBlock=int(block), argument_filters={'dapp':self.w3.to_checksum_address(CRAPP_ADDRESS)})
 
+        last_input_block = int(block)
         while True:
-            last_input_block = block
             try:
                 # LOGGER.info(f"looking for new entries in input box")
                 t0 = time.time()
-                while not (new_entries := input_added_filter.get_new_entries()) and time.time() - t0 < self.timeout:
+                input_added_filter.filter_params['fromBlock'] = hex(int(last_input_block))
+                to_block = int(last_input_block)+MAX_BLOCK_RANGE-1
+                input_added_filter.filter_params['toBlock'] = to_block
+                if to_block >= self.w3.eth.block_number:
+                    del input_added_filter.filter_params['toBlock']
+                while not (new_entries := input_added_filter.get_all_entries()) and time.time() - t0 < self.timeout:
                     time.sleep(self.poll_interval)
 
                 # LOGGER.info(f"got {len(new_entries)} new entries")
@@ -573,7 +583,7 @@ class InputFinder:
                         # LOGGER.info(f"non processed entry")
                         yield InputData(type=InputType.unknown,data=None,last_input_block=last_input_block)
 
-                yield InputData(type=InputType.none,data=None,last_input_block=last_input_block)
+                yield InputData(type=InputType.none,data=None,last_input_block=input_added_filter.filter_params.get('toBlock') or self.w3.eth.block_number)
             except Exception as e:
                 LOGGER.error(e)
                 traceback.print_exc()

@@ -19,7 +19,7 @@ const getContest = (rule_id:string) => {
 }
 
 const getRule = async(rule_id:string):Promise<RuleInfo|null> => {
-  const rulesFound = (await rules({id: rule_id}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true})).data;
+  const rulesFound = (await rules({id: rule_id}, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true,cache:"reload"})).data;
 
   if (rulesFound.length == 0) return null;
 

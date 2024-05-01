@@ -1,15 +1,13 @@
-import { notFound } from "next/navigation";
 import { ethers } from "ethers";
 import React from 'react'
 
 import { RuleInfo } from "../backend-libs/core/ifaces";
-import { delay } from "../utils/util";
-import { cartridge, rules } from "../backend-libs/core/lib";
+import { rules } from "../backend-libs/core/lib";
 import { envClient } from "../utils/clientEnv";
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from './RivemuPlayer';
 import GameplaySubmitter from "./GameplaySubmitter";
-import { Contest, ContestStatus, getContestStatus } from "../utils/common";
+import { ContestStatus, getContestStatus } from "../utils/common";
 
 
 const getRule = async (ruleId:string):Promise<RuleInfo> => {
@@ -29,25 +27,6 @@ const getRule = async (ruleId:string):Promise<RuleInfo> => {
     if (data.total === 0 || data.data.length === 0) throw new Error(`Rule ${ruleId} not found!`);
     
     return data.data[0];
-}
-
-const getCartridgeData = async (cartridgeId:string) => {
-    const formatedCartridgeId = cartridgeId.substring(0, 2) === "0x"? cartridgeId.slice(2): cartridgeId;
-    const data = await cartridge(
-        {
-            id:formatedCartridgeId
-        },
-        {
-            decode:true,
-            decodeModel:"bytes",
-            cartesiNodeUrl: envClient.CARTESI_NODE_URL,
-            cache:"force-cache"
-        }
-    );
-    
-    if (data.length === 0) throw new Error(`Cartridge ${formatedCartridgeId} not found!`);
-    
-    return data;
 }
 
 export default async function PlayPage({cartridge_id, rule_id}:{cartridge_id?: string, rule_id?:string}) {
@@ -70,14 +49,6 @@ export default async function PlayPage({cartridge_id, rule_id}:{cartridge_id?: s
     const args = rule?.args || "";
     const in_card = rule?.in_card && rule.in_card.length > 0 ? ethers.utils.arrayify(rule.in_card) : new Uint8Array([]);
     const score_function = rule?.score_function || "";
-    let cartridgeData:Uint8Array|null = null;
-
-    try {
-        cartridgeData = await getCartridgeData(cartridge_id);
-    } catch (error) {
-        errorMsg = (error as Error).message;
-    }
-
 
     if (errorMsg) {
         return (
@@ -90,19 +61,11 @@ export default async function PlayPage({cartridge_id, rule_id}:{cartridge_id?: s
         )
     }
 
-    if (!cartridgeData) {
-        return (
-            <main className="flex items-center justify-center h-lvh">
-                Getting Cartridge...
-            </main>
-        )
-    }
-  
     return (
         <main className="flex h-lvh items-center justify-center">
             <div className="grid grid-cols-1 gap-4 place-items-center ">
                 <span style={{color: 'white'}}>{rule ? "Rule: " + rule?.name : "No rules"}</span>
-                <RivemuPlayer cartridge_id={cartridge_id} rule_id={rule_id} cartridgeData={cartridgeData} args={args} in_card={in_card} scoreFunction={score_function} />
+                <RivemuPlayer cartridge_id={cartridge_id} rule_id={rule_id} args={args} in_card={in_card} scoreFunction={score_function} />
                 {status ? <span style={{color: 'white'}}>Contest Status: {ContestStatus[status]}</span> : <></>}
             </div>
             {!status || status == ContestStatus.IN_PROGRESS ? <GameplaySubmitter /> : <></>}

@@ -13,7 +13,7 @@ from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
-    tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id
+    tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id, VERIFICATIONS_BATCH_SIZE
 
 
 ###
@@ -131,8 +131,10 @@ def submit_verification_op(context: OpExecutionContext, config: ExternalVerifica
 
     sender = VerificationSender()
 
-    sender.submit_external_outputs(outputs.output_list)
-    context.log.info(f"sent {len(outputs.output_list)} tape verifications")
+    context.log.info(f"detected {len(outputs.output_list)} new tape verifications")
+    for i in range(0,len(outputs.output_list),VERIFICATIONS_BATCH_SIZE):
+        sender.submit_external_outputs(outputs.output_list[i:i+VERIFICATIONS_BATCH_SIZE])
+        context.log.info(f"sent {len(outputs.output_list[i:i+VERIFICATIONS_BATCH_SIZE])} tape verifications")
 
 @job
 def submit_verification_job():
@@ -187,6 +189,7 @@ def inputs_sensor(context: SensorEvaluationContext):
         elif new_input.type == InputType.unknown:
             context.log.info(f"new non-processable entry")
         elif new_input.type == InputType.none:
+            blocks.append(new_input.last_input_block)
             break
         elif new_input.type == InputType.cartridge:
             context.log.info(f"new cartridge entry")
@@ -241,12 +244,12 @@ def inputs_sensor(context: SensorEvaluationContext):
         blocks.append(new_input.last_input_block)
         new_input = next(next_input)
     
-    context.log.info(f"Got {len(run_requests)} run requests ({partition_keys=})")
+    context.log.info(f"Got {len(run_requests)} run requests until block {max(blocks)} ({partition_keys=})")
+    context.update_cursor(str(max(blocks) + 1))
     if len(run_requests) == 0:
         yield SkipReason("No inputs")
         return
 
-    context.update_cursor(str(max(blocks) + 1))
     return SensorResult(
         run_requests=run_requests,
         dynamic_partitions_requests=[
