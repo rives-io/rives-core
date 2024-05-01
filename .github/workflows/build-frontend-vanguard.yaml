@@ -1,10 +1,10 @@
-name: build-frontend
-run-name: Building Frontend Image
+name: build-frontend-vanguard
+run-name: Building Frontend Image for Vanguard Deploy
 on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: world-arcade-front
+  IMAGE_NAME: rives-frontend
 
 jobs:
   build-frontend:
@@ -18,7 +18,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build image
-        run: docker build frontend/ --file frontend/Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}" --build-arg "NETWORK=sepolia"
+        run: >-
+          docker build frontend/ --file frontend/Dockerfile --tag $IMAGE_NAME
+          --label "runnumber=${GITHUB_RUN_ID}"
+          --label "org.opencontainers.image.title=$IMAGE_NAME"
+          --label "org.opencontainers.image.description=RIVES Core Frontend"
+          --label "org.opencontainers.image.source=https://github.com/rives-io/rives-core"
+          --build-arg "NETWORK=vanguard"
 
       - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
@@ -28,7 +34,7 @@ jobs:
           IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
-          VERSION=$(date -u +%Y%m%d.%H%M).$(echo $GITHUB_SHA | head -c 7)
+          VERSION=$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(git rev-parse --short HEAD)-vanguard
 
           echo Will push $IMAGE_ID:$VERSION
 
