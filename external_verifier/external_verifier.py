@@ -9,7 +9,7 @@ import traceback
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, \
     set_envs, initialize_storage_with_genesis_data, add_cartridge, add_rule,  push_verification, verify_payload, \
-    deserialize_verification, deserialize_output, generate_cartridge_id
+    deserialize_verification, deserialize_output, generate_cartridge_id, VERIFICATIONS_BATCH_SIZE
 
 
 LOGGER = logging.getLogger("external_verifier")
@@ -113,7 +113,7 @@ class Submitter(Process):
     sender = None
     cancel_event = None
 
-    def __init__(self, cancel_event = None, max_batch_size = 10,timeout = 300):
+    def __init__(self, cancel_event = None, max_batch_size = VERIFICATIONS_BATCH_SIZE,timeout = 300):
         super().__init__()
         self.max_batch_size = max_batch_size
         self.timeout = timeout

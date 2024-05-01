@@ -13,7 +13,7 @@ from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
-    tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id
+    tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id, VERIFICATIONS_BATCH_SIZE
 
 
 ###
@@ -131,8 +131,10 @@ def submit_verification_op(context: OpExecutionContext, config: ExternalVerifica
 
     sender = VerificationSender()
 
-    sender.submit_external_outputs(outputs.output_list)
-    context.log.info(f"sent {len(outputs.output_list)} tape verifications")
+    context.log.info(f"detected {len(outputs.output_list)} new tape verifications")
+    for i in range(0,len(outputs.output_list),VERIFICATIONS_BATCH_SIZE):
+        sender.submit_external_outputs(outputs.output_list[i:i+VERIFICATIONS_BATCH_SIZE])
+        context.log.info(f"sent {len(outputs.output_list[i:i+VERIFICATIONS_BATCH_SIZE])} tape verifications")
 
 @job
 def submit_verification_job():
