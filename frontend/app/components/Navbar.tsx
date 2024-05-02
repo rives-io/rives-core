@@ -10,7 +10,7 @@ function Navbar() {
     const pathname = usePathname();
     const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
     const [{ chains, connectedChain }, setChain] = useSetChain();
-    const [connectButtonTxt, setConnectButtonTxt] = useState("Connect");
+    const [connectButtonTxt, setConnectButtonTxt] = useState<React.JSX.Element>(<span>Connect</span>);
 
     useEffect(() => {
         if (!connectedChain) return;
@@ -26,11 +26,21 @@ function Navbar() {
 
     useEffect(() => {
         if (connecting) {
-            setConnectButtonTxt('Connecting');
+            setConnectButtonTxt(<span>Connecting</span>);
         } else if (wallet) {
-            setConnectButtonTxt('Disconnect');
+            const currAddress = wallet.accounts[0].address;
+
+            setConnectButtonTxt(
+                <>
+                    <span>Disconnect</span>
+                    <span className='text-[10px] opacity-50'>
+                        {currAddress.slice(0, 6)}...{currAddress.slice(currAddress.length-4)}
+                    </span>
+                </>
+                
+            );
         } else {
-            setConnectButtonTxt('Connect');
+            setConnectButtonTxt(<span>Connect</span>);
         }
     }, [connecting, wallet])
 
@@ -56,11 +66,14 @@ function Navbar() {
                 Upload Cartridge
             </Link>
 
-            <div className='flex-1 flex justify-end'>
+            <div className='flex-1 flex justify-end h-full'>
                 <button className='navbar-item' disabled={connecting}
                     onClick={() => (wallet ? disconnect(wallet) : connect())}
+                    title={wallet? wallet.accounts[0].address:""}
                 >
-                    {connectButtonTxt}
+                    <div className='flex flex-col justify-center h-full'>
+                        {connectButtonTxt}
+                    </div>
                 </button>
             </div>
         </header>

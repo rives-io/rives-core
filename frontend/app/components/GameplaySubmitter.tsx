@@ -82,7 +82,7 @@ function calculateTapeId(log: Uint8Array): string {
 
 
 function GameplaySubmitter() {
-    const {gameplay, getGifParameters, clearGifFrames} = useContext(gameplayContext);
+    const {player, gameplay, setGameplayLog, getGifParameters, clearGifFrames} = useContext(gameplayContext);
     const [{ wallet }, connect] = useConnectWallet();
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
@@ -105,7 +105,7 @@ function GameplaySubmitter() {
     useEffect(() => {
         // show warning message if user is not connected
         if (!wallet) openModal();
-    }, [])
+    }, [wallet])
 
     useEffect(() => {
         if (!gameplay) return;
@@ -155,7 +155,7 @@ function GameplaySubmitter() {
         try {
             setModalState(MODAL_STATE.SUBMITTING);
             const receipt:ContractReceipt = await registerExternalVerification(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
-
+            setGameplayLog(null) // clear gameplay log
         } catch (error) {
             console.log(error)
             setModalState(MODAL_STATE.SUBMIT);
@@ -177,7 +177,7 @@ function GameplaySubmitter() {
     }
 
 
-    function modalBody() {
+    function submitModalBody() {
         let modalBodyContent:JSX.Element;
 
         if (modalState == MODAL_STATE.SUBMIT) {
@@ -319,6 +319,51 @@ function GameplaySubmitter() {
         )
     }
 
+    if (player.length > 0 && (wallet.accounts[0].address.toLowerCase() != player)) {
+        return (
+            <>    
+                <Transition appear show={true} as={Fragment}>
+                    <Dialog as="div" className="relative z-10" onClose={() => null}>
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0"
+                            enterTo="opacity-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                        >
+                            <div className="fixed inset-0 bg-black/25" />
+                        </Transition.Child>
+                
+                        <div className="fixed inset-0 overflow-y-auto">
+                            <div className="flex min-h-full items-center justify-center p-4 text-center">
+                                <Transition.Child
+                                    as={Fragment}
+                                    enter="ease-out duration-300"
+                                    enterFrom="opacity-0 scale-95"
+                                    enterTo="opacity-100 scale-100"
+                                    leave="ease-in duration-200"
+                                    leaveFrom="opacity-100 scale-100"
+                                    leaveTo="opacity-0 scale-95"
+                                >
+                                    <Dialog.Panel className="w-full max-w-md transform overflow-hidden bg-gray-500 p-4 shadow-xl transition-all flex flex-col items-center text-white">
+                                        <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                                            <ReportIcon className='text-yellow-500 text-5xl' />
+                                        </Dialog.Title>
+                                        <div className='flex w-96 flex-wrap justify-center'>
+                                            <span> You need to send the gameplay using the same account used to play ({player.slice(0,6)}...{player.slice(player.length-4)})!</span>
+                                        </div>
+                                    </Dialog.Panel>
+                                </Transition.Child>
+                            </div>
+                        </div>
+                    </Dialog>
+                </Transition>
+            </>
+        )
+    }
+
     return (
         <>    
             <Transition appear show={modalIsOpen} as={Fragment}>
@@ -346,7 +391,7 @@ function GameplaySubmitter() {
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                {modalBody()}
+                                {submitModalBody()}
                             </Transition.Child>
                         </div>
                     </div>
