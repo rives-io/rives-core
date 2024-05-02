@@ -43,7 +43,7 @@ export function GameplayProvider({ children }:{ children: React.ReactNode }) {
     const [gifFrameArray, setGifFrameArray] = useState<Array<string>>([]);
 
     const setGameplayLog = (gameplay:Gameplay) => {
-        setGameplay(gameplay);
+        console.log("set gameplay", gameplay)
     }
 
     const setGifResolution = (width:number, height:number) => {

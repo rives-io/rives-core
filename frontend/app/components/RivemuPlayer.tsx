@@ -288,7 +288,8 @@ function RivemuPlayer(
             }
             if (isTape && totalFrames && totalFrames != 0){
                 setCurrProgress(Math.round(100 * frame/totalFrames));
-            } else if (lastFrameIndex == undefined || frame >= lastFrameIndex + fps/GIF_FRAME_FREQ) {
+            }
+            if (lastFrameIndex == undefined || frame >= lastFrameIndex + fps/GIF_FRAME_FREQ) {
                 const canvas = document.getElementById("canvas");
                 if (!canvas) return;
 
@@ -302,7 +303,8 @@ function RivemuPlayer(
         window.rivemu_on_begin = function (width: number, height: number, target_fps: number, total_frames: number) {
             console.log("rivemu_on_begin");
             if (isTape && total_frames) setTotalFrames(total_frames);
-            else setGifResolution(width, height);
+            // else 
+            setGifResolution(width, height);
         };
 
         // @ts-ignore:next-line
@@ -315,7 +317,7 @@ function RivemuPlayer(
             console.log("rivemu_on_finish")
             if (isTape && totalFrames && totalFrames != 0)
                 setCurrProgress(100);
-            if (!isTape && rule_id && signerAddress) {
+            if (rule_id) {
                 let score: number | undefined = undefined;
                 if (scoreFunctionEvaluator && decoder.decode(outcard.slice(0,4)) == 'JSON') {
                     const outcard_str = decoder.decode(outcard);

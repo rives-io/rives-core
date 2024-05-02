@@ -5,7 +5,10 @@ import { RuleInfo } from '@/app/backend-libs/core/ifaces';
 import { envClient } from '@/app/utils/clientEnv';
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from '@/app/components/RivemuPlayer';
+import GifSender from '@/app/components/GifSender';
 import { getTapeGif } from "@/app/utils/util";
+import { GameplayProvider } from "../../play/GameplayContextProvider"
+
 
 
 const getTapePayload = async (tapeId:string):Promise<VerifyPayload> => {
@@ -113,6 +116,7 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
     return (
         <main className="flex items-center justify-center h-lvh">
             <RivemuPlayer cartridge_id={rule.cartridge_id} rule_id={rule.id} args={rule.args} in_card={inCard} scoreFunction={rule.score_function} tape={tape} userAddress={tapePayload._msgSender} />
+            <GifSender />
         </main>
     )
 }
