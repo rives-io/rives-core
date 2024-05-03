@@ -21,6 +21,8 @@ interface TapesRequest {
   cartridge?:string // can be used to filter by cartridge
 }
 
+const DEFAULT_PAGE_SIZE = 12
+
 function getTapeId(tapeHex: string): string {
   return sha256(ethers.utils.arrayify(tapeHex));
 }
@@ -61,16 +63,16 @@ function hideTapeInfo(id:string) {
 }
 
 function loadingFallback() {
+  const arr = Array.from(Array(DEFAULT_PAGE_SIZE).keys());
   return (
     <>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
+      {
+        arr.map((val, index) => {
+          return (
+            <div key={index} className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse"></div>
+          )
+        })
+      }
     </>
   )
 }
@@ -80,7 +82,7 @@ export default function Tapes() {
   const [gifs, setGifs] = useState<Array<string>>([]);
   const [cartridgeInfoMap, setCartridgeInfoMap] = useState<Record<string, CartridgeInfo>>({});
   const [ruleInfoMap, setRuleInfoMap] = useState<Record<string, RuleInfo>>({});
-  const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: 12, atEnd: false, fetching: false})
+  const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: DEFAULT_PAGE_SIZE, atEnd: false, fetching: false})
 
   useEffect(() => {
     const getFirstPage = async () => {
@@ -155,7 +157,8 @@ export default function Tapes() {
 
 
   return (
-    <main>
+    // h-screen to allow scroll-down
+    <main className={!(tapesRequestOptions.atEnd || tapesRequestOptions.fetching)? "h-screen":""}> 
       <section className="py-16 my-8 w-full flex justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {
