@@ -7,10 +7,10 @@ import { createContext, useState } from 'react';
 
 
 export const gameplayContext = createContext<{
-    gameplay: Gameplay|null, setGameplayLog(gameplay:Gameplay|null):void,
+    player:string, gameplay: Gameplay|null, setGameplayLog(gameplay:Gameplay|null):void, setGameplayOwner(player:string):void
     getGifParameters():GifParameters, setGifResolution(width:number, height:number):void,
     setGifFrames(frames:Array<string>):void, addGifFrame(frame:string):void, clearGifFrames():void
-}>({gameplay: null, setGameplayLog: () => null, 
+}>({player: "", gameplay: null, setGameplayLog: () => null, setGameplayOwner: () => null,
     getGifParameters: () => {return {width:0, height:0, frames:[]}}, setGifResolution: () => null, 
     setGifFrames: () => null, addGifFrame: () => null,
     clearGifFrames: () => null});
@@ -41,9 +41,15 @@ export function GameplayProvider({ children }:{ children: React.ReactNode }) {
     const [gameplay, setGameplay] = useState<Gameplay|null>(null);
     const [gifRes, setGifRes] = useState<{width:number, height:number}|null>(null);
     const [gifFrameArray, setGifFrameArray] = useState<Array<string>>([]);
+    const [player, setPlayer] = useState("");
 
     const setGameplayLog = (gameplay:Gameplay|null) => {
+        if (!gameplay) setPlayer(""); // gameplay cleared
         setGameplay(gameplay);
+    }
+
+    const setGameplayOwner = (gameplayOwner:string) => {
+        setPlayer(gameplayOwner);
     }
 
     const setGifResolution = (width:number, height:number) => {
@@ -76,7 +82,12 @@ export function GameplayProvider({ children }:{ children: React.ReactNode }) {
     }
 
     return (
-        <gameplayContext.Provider value={ {gameplay, setGameplayLog, setGifResolution, setGifFrames, addGifFrame, clearGifFrames, getGifParameters} }>
+        <gameplayContext.Provider value={ 
+            {player, gameplay, setGameplayLog, 
+            setGameplayOwner, setGifResolution, 
+            setGifFrames, addGifFrame, 
+            clearGifFrames, getGifParameters} 
+        }>
             { children }
         </gameplayContext.Provider>
     );
