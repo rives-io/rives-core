@@ -1,7 +1,7 @@
 import { envClient } from "@/app/utils/clientEnv";
 import { CartridgeInfo, GetRulesPayload, RuleInfo } from "../backend-libs/core/ifaces";
 import { cartridgeInfo, rules } from "../backend-libs/core/lib";
-import { Contest, ContestStatus, getContestStatus } from "../utils/common";
+import { Contest, ContestStatus, getContestStatus, getContestStatusMessage } from "../utils/common";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -93,7 +93,7 @@ export default async function Contests() {
                     <span>Prize: {contest.prize}</span>
                     {/* <span>Tapes: {contest.n_tapes}</span> */}
                     <span>Winner: {contest.winner? contest.winner: "TBA"}</span>
-                    <span>{getContestStatus(contest) == ContestStatus.IN_PROGRESS ? "Status: Open" : "" }</span>
+                    <span>Status: {getContestStatusMessage(getContestStatus(contest))}</span>
                   </div>
 
                   {/* <Link href={`/play/rule/${contest.id}`} className="btn flex items-center"

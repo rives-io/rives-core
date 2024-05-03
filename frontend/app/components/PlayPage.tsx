@@ -7,7 +7,7 @@ import { envClient } from "../utils/clientEnv";
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from './RivemuPlayer';
 import GameplaySubmitter from "./GameplaySubmitter";
-import { ContestStatus, getContestStatus } from "../utils/common";
+import { ContestStatus, getContestStatus, getContestStatusMessage } from "../utils/common";
 
 
 const getRule = async (ruleId:string):Promise<RuleInfo> => {
@@ -64,11 +64,11 @@ export default async function PlayPage({cartridge_id, rule_id}:{cartridge_id?: s
     return (
         <main className="flex h-lvh items-center justify-center">
             <div className="grid grid-cols-1 gap-4 place-items-center ">
-                <span style={{color: 'white'}}>{rule ? "Rule: " + rule?.name : "No rules"}</span>
+                <span className="text-white">{rule ? "Play mode: " + rule?.name : "No play mode"}</span>
+                {status ? <span className="text-xs text-white">Contest Status: {getContestStatusMessage(status)}</span> : <></>}
                 <RivemuPlayer cartridge_id={cartridge_id} rule_id={rule_id} args={args} in_card={in_card} scoreFunction={score_function} />
-                {status ? <span style={{color: 'white'}}>Contest Status: {ContestStatus[status]}</span> : <></>}
+                {!status || status == ContestStatus.IN_PROGRESS ? <GameplaySubmitter /> : <></>}
             </div>
-            {!status || status == ContestStatus.IN_PROGRESS ? <GameplaySubmitter /> : <></>}
         </main>
     )
 }

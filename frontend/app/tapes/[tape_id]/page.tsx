@@ -1,11 +1,12 @@
 import { ethers } from "ethers";
 
-import { VerifyPayload, getOutputs, rules } from '@/app/backend-libs/core/lib';
+import { VerificationOutput, VerifyPayload, getOutputs, rules } from '@/app/backend-libs/core/lib';
 import { RuleInfo } from '@/app/backend-libs/core/ifaces';
 import { envClient } from '@/app/utils/clientEnv';
 import ReportIcon from '@mui/icons-material/Report';
 import RivemuPlayer from '@/app/components/RivemuPlayer';
 import { getTapeGif } from "@/app/utils/util";
+import { ContestStatus, formatBytes, getContestStatus } from '../../utils/common';
 
 
 const getTapePayload = async (tapeId:string):Promise<VerifyPayload> => {
@@ -36,6 +37,18 @@ const getRule = async (ruleId:string):Promise<RuleInfo> => {
     if (data.total === 0 || data.data.length === 0) throw new Error(`Rule ${ruleId} not found!`);
     
     return data.data[0];
+}
+
+const getScore = async (tapeId:string):Promise<string> => {
+    const out:Array<VerificationOutput> = await getOutputs(
+        {
+            tags: ["score",tapeId],
+            type: 'notice'
+        },
+        {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
+    );
+    if (out.length === 0) return "";
+    return out[0].score.toString();
 }
 
 
@@ -110,9 +123,21 @@ export default async function Tape({ params }: { params: { tape_id: string } }) 
     }
     // END: error and feedback handling
 
+    const player = `${tapePayload._msgSender.slice(0, 6)}...${tapePayload._msgSender.substring(tapePayload._msgSender.length-4,tapePayload._msgSender.length)}`;
+    const timestamp = new Date(tapePayload._timestamp*1000).toLocaleDateString();
+    const size = formatBytes(tape.length);
+    let score = "";
+    if ([ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(getContestStatus(rule)) > -1) {
+        score = await getScore(params.tape_id)
+    }
+
     return (
         <main className="flex items-center justify-center h-lvh">
-            <RivemuPlayer cartridge_id={rule.cartridge_id} rule_id={rule.id} args={rule.args} in_card={inCard} scoreFunction={rule.score_function} tape={tape} userAddress={tapePayload._msgSender} />
+            <div className="grid grid-cols-1 gap-2 place-items-center">
+                <span className="text-white" >Play mode: {rule.name}</span>
+                <span className="text-xs text-white">Tape from {player} on {timestamp} {score ? "with score "+score : ""} ({size})</span>
+                <RivemuPlayer cartridge_id={rule.cartridge_id} rule_id={rule.id} args={rule.args} in_card={inCard} scoreFunction={rule.score_function} tape={tape} userAddress={tapePayload._msgSender} />
+            </div>
         </main>
     )
 }

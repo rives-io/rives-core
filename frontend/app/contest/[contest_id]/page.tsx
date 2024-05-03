@@ -4,7 +4,7 @@ import ContestInfo from "@/app/components/ContestInfo";
 import { envClient } from "@/app/utils/clientEnv";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Contest as ContestClass, ContestStatus, getContestStatus } from "../../utils/common";
+import { Contest as ContestClass, ContestStatus, getContestStatus, getContestStatusMessage } from "../../utils/common";
 import Image from "next/image";
 
 
@@ -46,7 +46,8 @@ export default async function Contest({ params }: { params: { contest_id: string
     notFound();
   }
 
-  const contestIsOpen = getContestStatus(contest) == ContestStatus.IN_PROGRESS;
+  const status = getContestStatus(contest);
+  const contestIsOpen = status == ContestStatus.IN_PROGRESS;
   const game = await getGameInfo(contest.cartridge_id);
 
   return (
@@ -77,7 +78,7 @@ export default async function Contest({ params }: { params: { contest_id: string
               <span>Prize: {contestMetadata.prize}</span>
               <span>Tapes: {contest.n_tapes}</span>
               <span>Winner: {contestMetadata.winner? contestMetadata.winner: "TBA"}</span>
-              <span>{contestIsOpen ? "Status: Open" : "" }</span>
+              <span>Status: {getContestStatusMessage(status)}</span>
             </div>
 
             <div className="flex flex-col justify-center">

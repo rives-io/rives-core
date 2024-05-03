@@ -5,11 +5,12 @@ import {  ethers } from "ethers";
 import { useEffect, useState } from "react";
 import { sha256 } from "js-sha256";
 import { CartridgeInfo, RuleInfo } from "../backend-libs/core/ifaces";
-import { cartridgeInfo, getOutputs, rules, RulesOutput, VerifyPayload } from "../backend-libs/core/lib";
+import { cartridgeInfo, getOutputs, rules, RulesOutput, VerificationOutput, VerifyPayload } from "../backend-libs/core/lib";
 import { envClient } from "../utils/clientEnv";
 import { getTapesGifs } from "../utils/util";
 import Image from "next/image";
 import Link from "next/link";
+import { ContestStatus, formatBytes, getContestStatus } from '../utils/common';
 
 
 interface TapesRequest {
@@ -81,6 +82,7 @@ export default function Tapes() {
   const [cartridgeInfoMap, setCartridgeInfoMap] = useState<Record<string, CartridgeInfo>>({});
   const [ruleInfoMap, setRuleInfoMap] = useState<Record<string, RuleInfo>>({});
   const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: 12, atEnd: false, fetching: false})
+  const [scores, setScores] = useState<Record<string, number|undefined>>({});
 
   useEffect(() => {
     const getFirstPage = async () => {
@@ -161,7 +163,7 @@ export default function Tapes() {
           {
             verificationInputs?.map((verificationInput, index) => {
               // only display tape after gif is loaded
-              if (gifs[index] === undefined) return <></>
+              if (gifs[index] === undefined) return <div key={index}></div>
 
               const cartridgeName = cartridgeInfoMap[verificationInput.rule_id]?.name;
               const ruleName = ruleInfoMap[verificationInput.rule_id]?.name;
@@ -169,6 +171,21 @@ export default function Tapes() {
               const player = `${user.slice(0, 6)}...${user.substring(user.length-4,user.length)}`;
               const timestamp = new Date(verificationInput._timestamp*1000).toLocaleDateString();
               const tapeId = getTapeId(verificationInput.tape);
+              const size = formatBytes((verificationInput.tape.length -2 )/2);
+              if (ruleInfoMap[verificationInput.rule_id] && 
+                  [ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(getContestStatus(ruleInfoMap[verificationInput.rule_id])) > -1) {
+                    getOutputs(
+                      {
+                          tags: ["score",tapeId],
+                          type: 'notice'
+                      },
+                      {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
+                    ).then((out: VerificationOutput[]) =>{
+                      if(out.length>0){
+                        scores[tapeId] = out[0].score;
+                      }
+                    });
+              }
               
               return (
                 <Link key={index} href={`/tapes/${tapeId}`}>
@@ -180,12 +197,13 @@ export default function Tapes() {
                   >
                     <div className="text-center p-2 h-fit bg-black bg-opacity-50 flex flex-col">
                       <span className="text-sm">{cartridgeName}</span>
-                      {/* <span className="text-xs">Score: {verificationOutput.score.toString()}</span> */}
+                      {scores[tapeId] ? <span className="text-xs">Score: {scores[tapeId]?.toString()}</span> : <></>}
                     </div>
 
                     <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-50">
-                      <span>Rule: {ruleName}</span><br />
+                      <span>Mode: {ruleName}</span><br />
                       <span>{player} on {timestamp}</span>
+                      <span>Size {size}</span>
                     </div>
                   </div>
 

@@ -17,6 +17,7 @@ import Image from "next/image";
 import { TwitterShareButton, TwitterIcon } from 'next-share';
 import { SOCIAL_MEDIA_HASHTAGS } from "../utils/common";
 import ReportIcon from '@mui/icons-material/Report';
+import ErrorIcon from '@mui/icons-material/Error';
 import { cartridgeInfo } from '../backend-libs/core/lib';
 import { CartridgeInfo as Cartridge } from "../backend-libs/core/ifaces";
 
@@ -25,9 +26,41 @@ import GIFEncoder from "gif-encoder-2";
 
 
 enum MODAL_STATE {
+    NOT_PREPARED,
     SUBMIT,
     SUBMITTING,
     SUBMITTED
+}
+
+enum ERROR_SEVERITY {
+    Alert,
+    Warning,
+    Error,
+}
+
+interface LOG_MESSAGE {
+    severity?:ERROR_SEVERITY,
+    message?:string
+}
+
+
+function statusMessage(log?: LOG_MESSAGE) {
+    if (log?.message) {
+        // delay(5000).then(() =>{
+        //     setLogStatus({status: logStatus.status});
+        // })
+        return (
+            <div className="fixed text-[10px] flex-col max-w-xs p-4 bg-gray-400 shadow right-5 bottom-5 z-40" role="alert">
+                <div className={"flex p-1 border-b " + (log.severity == ERROR_SEVERITY.Error ? "text-red-500" : "text-yellow-800" )}>
+                    {log.severity == ERROR_SEVERITY.Error ? <ErrorIcon/> : <></>}
+                    <div className="ms-2 text-sm font-normal">{log.severity ? ERROR_SEVERITY[log.severity] : "Log"}</div>
+                </div>
+                <div className="p-1 break-words">
+                    {log.message}
+                </div>
+            </div>
+        )
+    }
 }
 
 function generateGif(frames: string[], width:number, height:number): Promise<string> {
@@ -87,15 +120,16 @@ function GameplaySubmitter() {
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
     const [gameInfo, setGameInfo] = useState<Cartridge>();
+    const [logMessage, setLogMessage] = useState<LOG_MESSAGE>();
 
     // modal state variables
     const [modalIsOpen, setModalIsOpen] = useState(false);
-    const [modalState, setModalState] = useState(MODAL_STATE.SUBMIT);
+    const [modalState, setModalState] = useState(MODAL_STATE.NOT_PREPARED);
 
     function closeModal() {
-
-        setGifImg(""); // clear gif image
+        console.log("close modal")
         setModalIsOpen(false)
+        setLogMessage(undefined);
     }
   
     function openModal() {
@@ -108,7 +142,11 @@ function GameplaySubmitter() {
     }, [])
 
     useEffect(() => {
-        if (!gameplay) return;
+        if (!gameplay) {
+            setModalState(MODAL_STATE.NOT_PREPARED);
+            setGifImg(""); // clear gif image
+            return;
+        }
 
         //submitLog();
         prepareSubmission();
@@ -140,6 +178,7 @@ function GameplaySubmitter() {
             await connect();
         }
 
+        setLogMessage(undefined);
         // get cartridgeInfo asynchronously
         cartridgeInfo({id:gameplay.cartridge_id},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"})
         .then(setGameInfo);
@@ -159,20 +198,30 @@ function GameplaySubmitter() {
         } catch (error) {
             console.log(error)
             setModalState(MODAL_STATE.SUBMIT);
-            throw error;
+            let errorMsg = (error as Error).message;
+            if (errorMsg.toLowerCase().indexOf("user rejected") > -1) errorMsg = "User rejected tx";
+            setLogMessage({message:errorMsg,severity:ERROR_SEVERITY.Error});
+            return;
         }
 
         const gameplay_id = calculateTapeId(gameplay.log);
-        if (gifImg.length > 0) {
-            await insertTapeGif(gameplay_id, gifImg);
+        try {
+            if (gifImg.length > 0) {
+                await insertTapeGif(gameplay_id, gifImg);
+            }
+        } catch (error) {
+            console.log(error)
+            let errorMsg = (error as Error).message;
+            if (errorMsg.toLowerCase().indexOf("failed to fetch") > -1) errorMsg = "Error storing gif";
+            setLogMessage({message:errorMsg,severity:ERROR_SEVERITY.Warning});
         }
-
         if (typeof window !== "undefined") {
             setTapeURL(`${window.location.origin}/tapes/${gameplay_id}`);
         }
         
         setModalState(MODAL_STATE.SUBMITTED);
         clearGifFrames();
+
 
     }
 
@@ -267,6 +316,7 @@ function GameplaySubmitter() {
             </Dialog.Panel>
         )
     }
+    console.log("modalState",modalState)
 
     if (!wallet) {
         return (
@@ -319,6 +369,8 @@ function GameplaySubmitter() {
         )
     }
 
+    if (modalState == MODAL_STATE.NOT_PREPARED) return <></>;
+
     return (
         <>    
             <Transition appear show={modalIsOpen} as={Fragment}>
@@ -352,6 +404,10 @@ function GameplaySubmitter() {
                     </div>
                 </Dialog>
             </Transition>
+            {gameplay ? <button className="btn mt-2 fixed text-[10px] shadow right-5 bottom-20 z-20" onClick={() => {openModal()}}>
+                Open Submit
+            </button> : <></> }
+            {statusMessage(logMessage)}
         </>
     )
 }

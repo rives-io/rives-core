@@ -123,6 +123,7 @@ function RivemuPlayer(
             setCurrScore(0);
         }
         setLastFrameIndex(undefined);
+        setGameplayLog(null);
 
         // @ts-ignore:next-line
         let cartridgeBuf = Module._malloc(cartridgeData.length);
@@ -334,6 +335,7 @@ function RivemuPlayer(
                         rule_id
                     }
                 );
+                if (document.fullscreenElement) document.exitFullscreen();
             }
             setPlaying({isPlaying: false, playCounter: playing.playCounter+1});
         };
@@ -361,7 +363,7 @@ function RivemuPlayer(
                         <RestartIcon/>
                     </button>
 
-                    { !rule_id ? <></> : currScore == undefined ? <span>no score</span> : <span>Score: {currScore}</span>}
+                    { !rule_id ? <span>&emsp;</span> : currScore == undefined ? <span>&emsp;</span> : <span>Score: {currScore}</span>}
 
                     <button className="bg-gray-700 text-white absolute top-1 end-10 border border-gray-700 hover:border-black"
                     hidden={!playing.isPlaying}

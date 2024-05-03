@@ -7,7 +7,7 @@ import { createContext, useState } from 'react';
 
 
 export const gameplayContext = createContext<{
-    gameplay: Gameplay|null, setGameplayLog(gameplay:Gameplay):void,
+    gameplay: Gameplay|null, setGameplayLog(gameplay:Gameplay|null):void,
     getGifParameters():GifParameters, setGifResolution(width:number, height:number):void,
     setGifFrames(frames:Array<string>):void, addGifFrame(frame:string):void, clearGifFrames():void
 }>({gameplay: null, setGameplayLog: () => null, 
@@ -42,7 +42,7 @@ export function GameplayProvider({ children }:{ children: React.ReactNode }) {
     const [gifRes, setGifRes] = useState<{width:number, height:number}|null>(null);
     const [gifFrameArray, setGifFrameArray] = useState<Array<string>>([]);
 
-    const setGameplayLog = (gameplay:Gameplay) => {
+    const setGameplayLog = (gameplay:Gameplay|null) => {
         setGameplay(gameplay);
     }
 
