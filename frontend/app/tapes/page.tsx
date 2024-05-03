@@ -136,9 +136,12 @@ export default function Tapes() {
     if (Object.keys(idToInfoMap).length > 0) setCartridgeInfoMap({...cartridgeInfoMap, ...idToInfoMap});
     if (Object.keys(idToRuleInfoMap).length > 0) setRuleInfoMap({...ruleInfoMap, ...idToRuleInfoMap});
 
-    const newGifs = await getTapesGifs(Array.from(tapes));
-    setGifs([...gifs, ...newGifs]);
-
+    try {
+      const newGifs = await getTapesGifs(Array.from(tapes));
+      setGifs([...gifs, ...newGifs]);
+    } catch (e) {
+      console.log(e)
+    }
     setTapesRequestOptions({...tapesRequestOptions, 
       currentPage: tapesRequestOptions.currentPage+1, 
       fetching: false,
@@ -162,9 +165,6 @@ export default function Tapes() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {
             verificationInputs?.map((verificationInput, index) => {
-              // only display tape after gif is loaded
-              if (gifs[index] === undefined) return <div key={index}></div>
-
               const cartridgeName = cartridgeInfoMap[verificationInput.rule_id]?.name;
               const ruleName = ruleInfoMap[verificationInput.rule_id]?.name;
               const user = verificationInput._msgSender;
@@ -183,6 +183,7 @@ export default function Tapes() {
                     ).then((out: VerificationOutput[]) =>{
                       if(out.length>0){
                         scores[tapeId] = out[0].score;
+                        setScores(scores);
                       }
                     });
               }
@@ -208,7 +209,7 @@ export default function Tapes() {
                   </div>
 
                   <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black">
-                    <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+gifs[index]} alt={"Not found"}/>
+                    <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+(gifs[index] ? gifs[index] :  cartridgeInfoMap[verificationInput.rule_id]?.cover)} alt={"Not found"}/>
                   </div>
                 </Link>
               )
