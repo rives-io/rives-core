@@ -21,7 +21,7 @@ if os.path.isdir('../core'):
     sys.path.append("..")
 
 from core.cartridge import InserCartridgePayload
-from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload
+from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log
 from core.core_settings import CoreSettings, setup_settings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
 
@@ -64,7 +64,7 @@ REDIS_VERIFY_OUTPUT_QUEUE_KEY = f"rives_verify_output_queue_{RIVES_VERSION}"
 REDIS_VERIFY_OUTPUT_TEMP_QUEUE_KEY = f"rives_verify_output_temp_queue_{RIVES_VERSION}"
 REDIS_ERROR_VERIFICATION_KEY = f"rives_error_verification_{RIVES_VERSION}"
 REDIS_BLOCK_KEY = f"rives_processed_block_{RIVES_VERSION}"
-MAX_BLOCK_RANGE = 50000
+MAX_BLOCK_RANGE = 5000
 
 ###
 # Model
@@ -107,6 +107,7 @@ class ExternalVerificationOutput(BaseModel):
     tape_input_index:   int
     tape_timestamp:     int
     score:              int
+    error_code:         int
 
 class InputData(BaseModel):
     type: InputType
@@ -351,6 +352,16 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
 
     entropy = generate_entropy(sender, payload.rule_id.hex())
 
+    out_params = {
+        "user_address": sender,
+        "rule_id": payload.rule_id.hex(),
+        "tape_hash": generate_tape_id(payload.tape),
+        "tape_input_index": input_index,
+        "tape_timestamp": timestamp,
+        "score": 0,
+        "error_code": 0
+    }
+
     # process tape
     LOGGER.info(f"Verifying tape...")
     try:
@@ -359,7 +370,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         msg = f"Couldn't verify tape: {e}"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
-        return None
+        out_params["error_code"] = ErrorCode.VERIFICATION_ERROR
+        return ExternalVerificationOutput.parse_obj(out_params)
 
     outcard_raw = verification_output.get('outcard')
     outhash = verification_output.get('outhash')
@@ -376,7 +388,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         msg = f"Out card hash doesn't match"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
-        return None
+        out_params["error_code"] = ErrorCode.OUTHASH_MATCH_ERROR
+        return ExternalVerificationOutput.parse_obj(out_params)
 
     score = 0
     if rule.score_function is not None and len(rule.score_function) > 0 and outcard_format == b"JSON":
@@ -388,7 +401,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             msg = f"Couldn't load/parse score from json: {e}"
             LOGGER.error(msg)
             Storage.add_error(input_index,msg)
-            return None
+            out_params["error_code"] = ErrorCode.SCORE_ERROR
+            return ExternalVerificationOutput.parse_obj(out_params)
 
         # compare claimed score
         claimed_score = payload.claimed_score
@@ -401,17 +415,11 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             msg = f"Score doesn't match"
             LOGGER.error(msg)
             Storage.add_error(input_index,msg)
-            return None
+            out_params["error_code"] = ErrorCode.SCORE_MATCH_ERROR
+            return ExternalVerificationOutput.parse_obj(out_params)
 
-    out = ExternalVerificationOutput(
-        user_address = sender,
-        rule_id = payload.rule_id.hex(),
-        tape_hash = generate_tape_id(payload.tape),
-        tape_input_index = input_index,
-        tape_timestamp = timestamp,
-        score = score
-    )
-    return out
+    out_params['score'] = score
+    return ExternalVerificationOutput.parse_obj(out_params)
 
 class VerificationSender:
     input_box_abi = []
@@ -441,6 +449,7 @@ class VerificationSender:
             "tape_input_indexes":[],
             "tape_timestamps":[],
             "scores":[],
+            "error_codes":[],
         }
         for out in all_data:
             payload['user_addresses'].append(out.user_address)
@@ -449,6 +458,7 @@ class VerificationSender:
             payload['tape_input_indexes'].append(out.tape_input_index)
             payload['tape_timestamps'].append(out.tape_timestamp)
             payload['scores'].append(out.score)
+            payload['error_codes'].append(out.error_code)
 
         model = ExternalVerificationPayload
 
@@ -529,12 +539,20 @@ class InputFinder:
                 # LOGGER.info(f"looking for new entries in input box")
                 t0 = time.time()
 
-                input_added_filter = self.input_box_contract.events.InputAdded.create_filter(
-                    fromBlock=int(last_input_block), argument_filters={'dapp':self.w3.to_checksum_address(CRAPP_ADDRESS)})
-
+                params = {
+                    "fromBlock":int(last_input_block), 
+                    "argument_filters":{'dapp':self.w3.to_checksum_address(CRAPP_ADDRESS)}
+                }
+                last_eth_block = self.w3.eth.block_number
+                if params['fromBlock'] > last_eth_block:
+                    time.sleep(self.poll_interval)
+                    continue
                 to_block = int(last_input_block)+MAX_BLOCK_RANGE-1
-                if to_block < self.w3.eth.block_number:
-                    input_added_filter.filter_params['toBlock'] = to_block
+                if to_block < last_eth_block:
+                    params['toBlock'] = to_block
+
+                input_added_filter = self.input_box_contract.events.InputAdded.create_filter(**params)
+
                 while not (new_entries := input_added_filter.get_all_entries()) and time.time() - t0 < self.timeout:
                     time.sleep(self.poll_interval)
                 # LOGGER.info(f"got {len(new_entries)} new entries")
@@ -617,44 +635,26 @@ def initialize_storage_with_genesis_data():
             traceback.print_exc()
 
     LOGGER.info(f"{cartridge_ids=}")
-    # genesis_rule_cartridge = "antcopter"
-    # if cartridge_ids.get(genesis_rule_cartridge) is not None:
-    #     try:
-    #         name = "Only 5 to beat"
-    #         rule_id = generate_rule_id(hex2bytes(cartridge_ids[genesis_rule_cartridge]),str2bytes(name))
-    #         rule_conf_dict = {
-    #             "id": rule_id,
-    #             "cartridge_id":cartridge_ids[genesis_rule_cartridge],
-    #             "args":"5",
-    #             "in_card":b"",
-    #             "score_function":"score",
-    #             "start":1711940400,
-    #             "end":  1717210800,
-    #             "sender":OPERATOR_ADDRESS
-    #         }
-    #         rule = Rule.parse_obj(rule_conf_dict)
-    #         add_rule(rule)
-    #     except Exception as e:
-    #         LOGGER.warning(e)
-    genesis_rule_cartridge = "freedoom"
-    if cartridge_ids.get(genesis_rule_cartridge) is not None:
-        try:
-            name = "Welcome to the vanguard"
-            rule_id = generate_rule_id(hex2bytes(cartridge_ids[genesis_rule_cartridge]),str2bytes(name))
-            rule_conf_dict = {
-                "id": rule_id,
-                "cartridge_id":cartridge_ids[genesis_rule_cartridge],
-                "args":"-skill 3 -warp 1 2 -levelquit 4 -deathquit -autoquit -nomenu",
-                "in_card":b"",
-                "score_function":"score",
-                "start":1714446000,
-                "end":  1714964400,
-                "sender":OPERATOR_ADDRESS
-            }
-            rule = Rule.parse_obj(rule_conf_dict)
-            add_rule(rule)
-        except Exception as e:
-            LOGGER.warning(e)
+
+    for genesis_rule_cartridge in CoreSettings.genesis_rules:
+        if cartridge_ids.get(genesis_rule_cartridge) is not None:
+            try:
+                name = CoreSettings.genesis_rules[genesis_rule_cartridge].get('name')
+                rule_id = generate_rule_id(hex2bytes(cartridge_ids[genesis_rule_cartridge]),str2bytes(name))
+                rule_conf_dict = {
+                    "id": rule_id,
+                    "cartridge_id":cartridge_ids[genesis_rule_cartridge],
+                    "args":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("args")),
+                    "in_card":bytes.fromhex(str(CoreSettings.genesis_rules[genesis_rule_cartridge].get('in_card') or "")),
+                    "score_function":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("score_function")),
+                    "start":int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("start") or 0),
+                    "end":  int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("end") or 0),
+                    "sender":OPERATOR_ADDRESS
+                }
+                rule = Rule.parse_obj(rule_conf_dict)
+                add_rule(rule)
+            except Exception as e:
+                LOGGER.warning(e)
 
 ###
 # Verification storage manipulation

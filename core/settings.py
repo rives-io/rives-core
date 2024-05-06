@@ -1,7 +1,7 @@
 # App Framework settings
 
 # Files with definitions to import
-FILES = ['core_settings','cartridge','tape']
+FILES = ['core_settings','cartridge','tape','admin']
 
 # Index outputs in inspect indexer queries
 INDEX_OUTPUTS = True

@@ -1,5 +1,6 @@
 import os
 from hashlib import sha256
+import json
 
 from cartesapp.storage import Storage
 from cartesapp.setup import setup
@@ -15,7 +16,8 @@ class CoreSettings:
     version = '0'
     rivemu_path = os.getenv('RIVEMU_PATH')
     operator_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    genesis_cartridges = ['freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
+    genesis_cartridges = ['antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
+    genesis_rules = {"antcopter":{"name":"Be quick as a cat","description":"A cat has 9 lives and so do you. Be swift and try to complete AntCopter as fast as you can to achieve your best score.","args":"9","score_function":"score","start":1714964400,"end":1715569200}}
 
 @setup()
 def setup_settings():
@@ -24,6 +26,7 @@ def setup_settings():
     CoreSettings.operator_address = os.getenv('OPERATOR_ADDRESS') or CoreSettings.operator_address
     CoreSettings.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
         if os.getenv('GENESIS_CARTRIDGES') is not None else CoreSettings.genesis_cartridges
+    CoreSettings.genesis_rules = json.loads(os.getenv('GENESIS_RULES')) if os.getenv('GENESIS_RULES') is not None else CoreSettings.genesis_rules
 
 ###
 # Helpers

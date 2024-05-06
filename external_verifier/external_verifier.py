@@ -95,7 +95,7 @@ class Verifier(Process):
                         LOGGER.info(f"found tape")
                         all_data.append(data)
                 if len(all_data) > 0:
-                    LOGGER.info(f"verfiying {len(all_data)} tapes")
+                    LOGGER.info(f"verifiying {len(all_data)} tapes")
                     with Pool(len(all_data)) as pool:
                         # result = pool.map_async(verify_payload, all_data)
                         # result.wait()
