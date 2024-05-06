@@ -21,7 +21,7 @@ if os.path.isdir('../core'):
     sys.path.append("..")
 
 from core.cartridge import InserCartridgePayload
-from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload
+from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log
 from core.core_settings import CoreSettings, setup_settings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
 
@@ -352,6 +352,16 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
 
     entropy = generate_entropy(sender, payload.rule_id.hex())
 
+    out_params = {
+        "user_address": sender,
+        "rule_id": payload.rule_id.hex(),
+        "tape_hash": generate_tape_id(payload.tape),
+        "tape_input_index": input_index,
+        "tape_timestamp": timestamp,
+        "score": 0,
+        "error_code": 0
+    }
+
     # process tape
     LOGGER.info(f"Verifying tape...")
     try:
@@ -360,7 +370,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         msg = f"Couldn't verify tape: {e}"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
-        return None
+        out_params["error_code"] = ErrorCode.VERIFICATION_ERROR
+        return ExternalVerificationOutput.parse_obj(out_params)
 
     outcard_raw = verification_output.get('outcard')
     outhash = verification_output.get('outhash')
@@ -377,7 +388,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         msg = f"Out card hash doesn't match"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
-        return None
+        out_params["error_code"] = ErrorCode.OUTHASH_MATCH_ERROR
+        return ExternalVerificationOutput.parse_obj(out_params)
 
     score = 0
     if rule.score_function is not None and len(rule.score_function) > 0 and outcard_format == b"JSON":
@@ -389,7 +401,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             msg = f"Couldn't load/parse score from json: {e}"
             LOGGER.error(msg)
             Storage.add_error(input_index,msg)
-            return None
+            out_params["error_code"] = ErrorCode.SCORE_ERROR
+            return ExternalVerificationOutput.parse_obj(out_params)
 
         # compare claimed score
         claimed_score = payload.claimed_score
@@ -402,18 +415,11 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             msg = f"Score doesn't match"
             LOGGER.error(msg)
             Storage.add_error(input_index,msg)
-            return None
+            out_params["error_code"] = ErrorCode.SCORE_MATCH_ERROR
+            return ExternalVerificationOutput.parse_obj(out_params)
 
-    out = ExternalVerificationOutput(
-        user_address = sender,
-        rule_id = payload.rule_id.hex(),
-        tape_hash = generate_tape_id(payload.tape),
-        tape_input_index = input_index,
-        tape_timestamp = timestamp,
-        score = score,
-        error_code = 0
-    )
-    return out
+    out_params['score'] = score
+    return ExternalVerificationOutput.parse_obj(out_params)
 
 class VerificationSender:
     input_box_abi = []
@@ -633,13 +639,13 @@ def initialize_storage_with_genesis_data():
     for genesis_rule_cartridge in CoreSettings.genesis_rules:
         if cartridge_ids.get(genesis_rule_cartridge) is not None:
             try:
-                name = "Welcome to the vanguard"
+                name = CoreSettings.genesis_rules[genesis_rule_cartridge].get('name')
                 rule_id = generate_rule_id(hex2bytes(cartridge_ids[genesis_rule_cartridge]),str2bytes(name))
                 rule_conf_dict = {
                     "id": rule_id,
-                    "cartridge_id":hex2bytes(cartridge_ids[genesis_rule_cartridge]),
+                    "cartridge_id":cartridge_ids[genesis_rule_cartridge],
                     "args":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("args")),
-                    "in_card":bytes.fromhex(f"{CoreSettings.genesis_rules[genesis_rule_cartridge].get('in_card')}"),
+                    "in_card":bytes.fromhex(str(CoreSettings.genesis_rules[genesis_rule_cartridge].get('in_card') or "")),
                     "score_function":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("score_function")),
                     "start":int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("start") or 0),
                     "end":  int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("end") or 0),
