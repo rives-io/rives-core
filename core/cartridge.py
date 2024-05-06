@@ -175,7 +175,7 @@ def cartridges(payload: CartridgesPayload) -> bool:
     dict_list_result = []
     for cartridge in cartridges:
         cartridge_dict = cartridge.to_dict()
-        # cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
+        cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
         dict_list_result.append(cartridge_dict)
 
     LOGGER.info(f"Returning {len(dict_list_result)} of {total} cartridges")
