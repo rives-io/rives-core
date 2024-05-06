@@ -10,7 +10,7 @@ from cartesapp.context import get_metadata
 from cartesapp.input import query, mutation
 from cartesapp.output import event, output, add_output, emit_event, index_input
 
-from .model import Cartridge, CartridgeInfo, create_cartridge, delete_cartridge
+from .model import Cartridge, CartridgeInfo as Info, create_cartridge, delete_cartridge, StringList
 from .core_settings import get_cartridges_path
 
 LOGGER = logging.getLogger(__name__)
@@ -30,9 +30,11 @@ class CartridgePayload(BaseModel):
 # TODO: TypeError: unhashable type: 'ABIType' allow python cartesi types
 class CartridgesPayload(BaseModel):
     name:       Optional[str]
+    authors:     Optional[List[str]]
     tags:       Optional[List[str]]
     page:       Optional[int]
     page_size:  Optional[int]
+    get_cover:  Optional[bool]
 
 
 # Outputs
@@ -48,13 +50,12 @@ class CartridgeRemoved(BaseModel):
     cartridge_id:   String
     timestamp:      UInt
 
-Info = CartridgeInfo
-
 @output()
 class CartridgeInfo(BaseModel):
     id: String
     name: String
     user_address: String
+    authors: StringList
     info: Optional[Info]
     created_at: UInt
     cover: Optional[str] # encode to base64
@@ -155,6 +156,9 @@ def cartridges(payload: CartridgesPayload) -> bool:
     if payload.name is not None:
         cartridges_query = cartridges_query.filter(lambda c: payload.name in c.name)
 
+    if payload.authors is not None:
+        cartridges_query = cartridges_query.filter(lambda c: payload.authors in c.authors)
+
     if payload.tags is not None and len(payload.tags) > 0:
         for tag in payload.tags:
             cartridges_query = cartridges_query.filter(lambda c: tag in c.info['tags'])
@@ -175,7 +179,8 @@ def cartridges(payload: CartridgesPayload) -> bool:
     dict_list_result = []
     for cartridge in cartridges:
         cartridge_dict = cartridge.to_dict()
-        # cartridge_dict['cover'] = base64.b64encode(cartridge_dict['cover'])
+        if payload.get_cover is not None and payload.get_cover:
+            cartridge_dict['cover'] = base64.b64encode(cartridge.cover)
         dict_list_result.append(cartridge_dict)
 
     LOGGER.info(f"Returning {len(dict_list_result)} of {total} cartridges")
