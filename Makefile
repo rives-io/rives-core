@@ -64,6 +64,9 @@ run-frontend-dev:
 build-frontend:
 	make -C frontend build
 
+generate-frontend-libs: ; $(value setup_venv)
+	cartesapp generate-frontend-libs --libs-path app/backend-libs
+
 # Aux env targets
 --load-env: ${ENVFILE}
 	$(eval include include $(PWD)/${ENVFILE})

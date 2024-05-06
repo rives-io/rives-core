@@ -78,6 +78,10 @@ body {
 }
 
 @layer utilities {
+  .bg-rives-purple {
+    @apply bg-[var(--highlight-text-end-hex)]
+  }
+
   .first-section {
     @apply mx-auto pb-16 !pt-[126px] px-8 flex flex-col items-center;
   }
