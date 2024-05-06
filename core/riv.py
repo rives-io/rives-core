@@ -143,7 +143,6 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
     rivemu_path = CoreSettings.rivemu_path
     if not os.path.isabs(rivemu_path):
         rivemu_path = f"{os.getcwd()}/{rivemu_path}"
-    cwd = str(Path(rivemu_path).parent.absolute())
     run_args = []
     run_args.append(rivemu_path)
     run_args.append(f"-cartridge={absolute_cartridge_path}")

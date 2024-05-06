@@ -35,7 +35,7 @@ setup-env: ; $(value setup_venv)
 
 # build targets
 build: --load-env --check-opaddr-env ; $(value setup_venv)
-	cartesapp build --config user=root --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS} $(ARGS)
+	cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS} $(ARGS)
 
 build-reader-node: ; $(value setup_venv)
 	cartesapp build-reader-image $(ARGS)
@@ -44,9 +44,7 @@ build-dev-node: ; $(value setup_venv)
 	cartesapp build-dev-image $(ARGS)
 
 build-%: --load-env-% --check-opaddr-env ; $(value setup_venv)
-	cartesapp build --config user=root --config build-args=OPERATOR_ADDRESS=${OPERATOR_ADDRESS}\
-	 --config envs=RIVES_VERSION=${RIVES_VERSION} --config build-args=RIVES_VERSION=${RIVES_VERSION}\
-	 $(ARGS)
+	cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
 
 # Run targets
 run: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ; $(value setup_venv)

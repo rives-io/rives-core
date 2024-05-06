@@ -3,6 +3,7 @@ import logging
 from typing import Optional, List
 import json
 from py_expression_eval import Parser
+from enum import Enum
 
 from cartesi.abi import String, Bytes, Bytes32, Int, UInt, Address
 
@@ -17,6 +18,16 @@ from .riv import verify_log
 from .core_settings import CoreSettings, generate_tape_id, get_version, generate_entropy, get_cartridges_path
 
 LOGGER = logging.getLogger(__name__)
+
+
+# model
+
+class ErrorCode(Enum):
+    NONE = 0
+    VERIFICATION_ERROR = 1
+    OUTHASH_MATCH_ERROR = 2
+    SCORE_MATCH_ERROR = 3
+    SCORE_ERROR = 4
 
 # Inputs
 
@@ -44,6 +55,7 @@ class ExternalVerificationPayload(BaseModel):
     tape_input_indexes: UInt256List
     tape_timestamps:    UInt256List
     scores:             Int256List
+    error_codes:        UInt256List
 
 class GetRuleTagsPayload(BaseModel):
     cartridge_id:   Optional[str]
@@ -68,6 +80,7 @@ class VerificationOutput(BaseModel):
     rule_input_index:       Int
     tape_hash:              Bytes32
     tape_input_index:       Int
+    error_code:             UInt
 
 class RuleInfo(BaseModel):
     id: str
@@ -271,7 +284,8 @@ def verify(payload: VerifyPayload) -> bool:
         rule_id = rule.id,
         rule_input_index = rule.input_index,
         tape_hash = hex2bytes(tape_id),
-        tape_input_index = metadata.input_index
+        tape_input_index = metadata.input_index,
+        error_code=0
     )
     common_tags = [rule.cartridge_id,payload.rule_id.hex(),tape_id]
     common_tags.extend(list(rule.tags.name.distinct().keys()))
@@ -345,6 +359,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
         len(payload.tape_input_indexes),
         len(payload.tape_timestamps),
         len(payload.scores),
+        len(payload.error_codes),
     ]
 
     if len(set(payload_lens)) != 1:
@@ -400,7 +415,8 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             rule_id = rule.id,
             rule_input_index = rule.input_index,
             tape_hash = tape_id,
-            tape_input_index = payload.tape_input_indexes[ind]
+            tape_input_index = payload.tape_input_indexes[ind],
+            error_code = payload.error_codes[ind]
         )
 
         LOGGER.info(f"Sending tape verification output")
