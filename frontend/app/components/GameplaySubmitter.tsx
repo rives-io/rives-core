@@ -16,15 +16,16 @@ import { Dialog, Transition } from '@headlessui/react'
 import Image from "next/image";
 import { TwitterShareButton, TwitterIcon } from 'next-share';
 import { SOCIAL_MEDIA_HASHTAGS } from "../utils/common";
-import ReportIcon from '@mui/icons-material/Report';
 import { cartridgeInfo } from '../backend-libs/core/lib';
 import { CartridgeInfo as Cartridge } from "../backend-libs/core/ifaces";
 
 // @ts-ignore
 import GIFEncoder from "gif-encoder-2";
+import ErrorModal, { ERROR_FEEDBACK } from "./ErrorModal";
 
 
 enum MODAL_STATE {
+    NOT_PREPARED,
     SUBMIT,
     SUBMITTING,
     SUBMITTED
@@ -82,35 +83,51 @@ function calculateTapeId(log: Uint8Array): string {
 
 
 function GameplaySubmitter() {
-    const {gameplay, getGifParameters, clearGifFrames} = useContext(gameplayContext);
+    const {player, gameplay, setGameplayLog, getGifParameters, clearGifFrames} = useContext(gameplayContext);
     const [{ wallet }, connect] = useConnectWallet();
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
     const [gameInfo, setGameInfo] = useState<Cartridge>();
 
     // modal state variables
-    const [modalIsOpen, setModalIsOpen] = useState(false);
-    const [modalState, setModalState] = useState(MODAL_STATE.SUBMIT);
+    const [modalState, setModalState] = useState({isOpen: false, state: MODAL_STATE.NOT_PREPARED});
+    const [errorFeedback, setErrorFeedback] = useState<ERROR_FEEDBACK>();
 
     function closeModal() {
-
-        setGifImg(""); // clear gif image
-        setModalIsOpen(false)
+        setModalState({...modalState, isOpen: false})
     }
   
     function openModal() {
-        setModalIsOpen(true)
+        setModalState({...modalState, isOpen: true})
     }
 
     useEffect(() => {
         // show warning message if user is not connected
-        if (!wallet) openModal();
-    }, [])
+        if (!wallet) {
+            const error:ERROR_FEEDBACK = {
+                severity: "alert",
+                message: "You need to be connect for your gameplay to be saved!",
+                dismissible: true
+            };
+            setErrorFeedback(error);
+        } else if (player.length > 0 && (wallet.accounts[0].address.toLowerCase() != player)) {
+            const error:ERROR_FEEDBACK = {
+                severity: "warning",
+                message: `You need to send the gameplay using the same account used to play (${player.slice(0,6)}...${player.slice(player.length-4)})!`,
+                dismissible: false
+            };
+            setErrorFeedback(error);
+        } else {
+            setErrorFeedback(undefined);
+        }
+    }, [wallet])
 
     useEffect(() => {
-        if (!gameplay) return;
+        if (!gameplay) {
+            setModalState({isOpen: false, state: MODAL_STATE.NOT_PREPARED});
+            return;
+        }
 
-        //submitLog();
         prepareSubmission();
     }, [gameplay])
 
@@ -125,8 +142,7 @@ function GameplaySubmitter() {
             console.log("Error getting gif parameters", error)
         }
         
-        setModalState(MODAL_STATE.SUBMIT);
-        openModal();
+        setModalState({isOpen: true, state: MODAL_STATE.SUBMIT});
     }
 
     async function submitLog() {
@@ -153,34 +169,43 @@ function GameplaySubmitter() {
             claimed_score: gameplay.score || 0
         }
         try {
-            setModalState(MODAL_STATE.SUBMITTING);
+            setModalState({...modalState, state: MODAL_STATE.SUBMITTING});
             const receipt:ContractReceipt = await registerExternalVerification(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
-
+            setGameplayLog(null) // clear gameplay log
         } catch (error) {
             console.log(error)
-            setModalState(MODAL_STATE.SUBMIT);
-            throw error;
+            setModalState({...modalState, state: MODAL_STATE.SUBMIT});
+            let errorMsg = (error as Error).message;
+            if (errorMsg.toLowerCase().indexOf("user rejected") > -1) errorMsg = "User rejected tx";
+            setErrorFeedback({message:errorMsg, severity: "error", dismissible: true});
+            return;
         }
 
         const gameplay_id = calculateTapeId(gameplay.log);
-        if (gifImg.length > 0) {
-            await insertTapeGif(gameplay_id, gifImg);
+        try {
+            if (gifImg.length > 0) {
+                await insertTapeGif(gameplay_id, gifImg);
+            }
+        } catch (error) {
+            console.log(error)
+            let errorMsg = (error as Error).message;
+            if (errorMsg.toLowerCase().indexOf("failed to fetch") > -1) errorMsg = "Error storing gif";
+            setErrorFeedback({message:errorMsg, severity: "error", dismissible: true});
         }
-
         if (typeof window !== "undefined") {
             setTapeURL(`${window.location.origin}/tapes/${gameplay_id}`);
         }
         
-        setModalState(MODAL_STATE.SUBMITTED);
+        setModalState({...modalState, state: MODAL_STATE.SUBMITTED});
         clearGifFrames();
+
 
     }
 
-
-    function modalBody() {
+    function submitModalBody() {
         let modalBodyContent:JSX.Element;
 
-        if (modalState == MODAL_STATE.SUBMIT) {
+        if (modalState.state == MODAL_STATE.SUBMIT) {
             modalBodyContent = (
                 <>
                     <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
@@ -208,7 +233,7 @@ function GameplaySubmitter() {
                     </div>
                 </>
             )
-        } else if (modalState == MODAL_STATE.SUBMITTING) {
+        } else if (modalState.state == MODAL_STATE.SUBMITTING) {
             modalBodyContent = (
                 <>
                     <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
@@ -268,60 +293,14 @@ function GameplaySubmitter() {
         )
     }
 
-    if (!wallet) {
-        return (
-            <>    
-                <Transition appear show={modalIsOpen} as={Fragment}>
-                    <Dialog as="div" className="relative z-10" onClose={closeModal}>
-                        <Transition.Child
-                            as={Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0"
-                            enterTo="opacity-100"
-                            leave="ease-in duration-200"
-                            leaveFrom="opacity-100"
-                            leaveTo="opacity-0"
-                        >
-                            <div className="fixed inset-0 bg-black/25" />
-                        </Transition.Child>
-                
-                        <div className="fixed inset-0 overflow-y-auto">
-                            <div className="flex min-h-full items-center justify-center p-4 text-center">
-                                <Transition.Child
-                                    as={Fragment}
-                                    enter="ease-out duration-300"
-                                    enterFrom="opacity-0 scale-95"
-                                    enterTo="opacity-100 scale-100"
-                                    leave="ease-in duration-200"
-                                    leaveFrom="opacity-100 scale-100"
-                                    leaveTo="opacity-0 scale-95"
-                                >
-                                    <Dialog.Panel className="w-full max-w-md transform overflow-hidden bg-gray-500 p-4 shadow-xl transition-all flex flex-col items-center text-white">
-                                        <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
-                                            <ReportIcon className='text-yellow-500 text-5xl' />
-                                        </Dialog.Title>
-                                        <div className='flex w-96 flex-wrap justify-center'>
-                                            <span> You need to be connect for your gameplay to be saved!</span>
-                                        </div>
-
-                                        <button className="mt-4 bg-yellow-500 text-white p-3 border border-yellow-500 hover:text-yellow-500 hover:bg-transparent"
-                                        onClick={closeModal}
-                                        >
-                                            OK
-                                        </button>
-                                    </Dialog.Panel>
-                                </Transition.Child>
-                            </div>
-                        </div>
-                    </Dialog>
-                </Transition>
-            </>
-        )
+    if (errorFeedback) {
+        return <ErrorModal error={errorFeedback} dissmissFunction={() => {setErrorFeedback(undefined)}} />;
     }
+
 
     return (
         <>    
-            <Transition appear show={modalIsOpen} as={Fragment}>
+            <Transition appear show={modalState.isOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-10" onClose={closeModal}>
                     <Transition.Child
                         as={Fragment}
@@ -346,12 +325,20 @@ function GameplaySubmitter() {
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                {modalBody()}
+                                {submitModalBody()}
                             </Transition.Child>
                         </div>
                     </div>
                 </Dialog>
             </Transition>
+            {
+                modalState.state != MODAL_STATE.NOT_PREPARED? 
+                    <button className="btn mt-2 fixed text-[10px] shadow right-5 bottom-20 z-20" onClick={() => {openModal()}}>
+                        Open Submit
+                    </button>
+                : 
+                    <></> 
+            }
         </>
     )
 }

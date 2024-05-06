@@ -6,7 +6,6 @@ import Script from "next/script"
 import { useContext, useState, useEffect } from "react";
 import { useConnectWallet } from '@web3-onboard/react';
 
-import CloseIcon from '@mui/icons-material/Close';
 import RestartIcon from '@mui/icons-material/RestartAlt';
 import StopIcon from '@mui/icons-material/Stop';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
@@ -56,7 +55,7 @@ function RivemuPlayer(
         {cartridge_id, rule_id, args, in_card, scoreFunction, userAddress, tape}:
         {cartridge_id: string, rule_id?:string, args?:string, in_card?:Uint8Array, 
             scoreFunction?:string, userAddress?:string, tape?:Uint8Array}) {
-    const {setGameplayLog, setGifResolution, addGifFrame} = useContext(gameplayContext);
+    const {setGameplayOwner, setGameplayLog, setGifResolution, addGifFrame} = useContext(gameplayContext);
 
     const isTape = tape? true:false;
 
@@ -71,7 +70,7 @@ function RivemuPlayer(
 
     // signer
     const [{ wallet }] = useConnectWallet();
-    const [signerAddress, setSignerAddress] = useState<String|null>(wallet? wallet.accounts[0].address.toLowerCase(): null);
+    const [signerAddress, setSignerAddress] = useState<string|null>(wallet? wallet.accounts[0].address.toLowerCase(): null);
 
     useEffect(() => {
         if (!wallet) {
@@ -123,6 +122,7 @@ function RivemuPlayer(
             setCurrScore(0);
         }
         setLastFrameIndex(undefined);
+        setGameplayLog(null);
 
         // @ts-ignore:next-line
         let cartridgeBuf = Module._malloc(cartridgeData.length);
@@ -137,6 +137,7 @@ function RivemuPlayer(
         // entropy
         let entropy = "";
         if (signerAddress) {
+            setGameplayOwner(signerAddress);
             entropy = generateEntropy(signerAddress,rule_id);
             if (entropy.length == 0) {
                 alert("Invalid entropy");
@@ -334,6 +335,7 @@ function RivemuPlayer(
                         rule_id
                     }
                 );
+                if (document.fullscreenElement) document.exitFullscreen();
             }
             setPlaying({isPlaying: false, playCounter: playing.playCounter+1});
         };
@@ -361,7 +363,7 @@ function RivemuPlayer(
                         <RestartIcon/>
                     </button>
 
-                    { !rule_id ? <></> : currScore == undefined ? <span>no score</span> : <span>Score: {currScore}</span>}
+                    { !rule_id ? <span>&emsp;</span> : currScore == undefined ? <span>&emsp;</span> : <span>Score: {currScore}</span>}
 
                     <button className="bg-gray-700 text-white absolute top-1 end-10 border border-gray-700 hover:border-black"
                     hidden={!playing.isPlaying}

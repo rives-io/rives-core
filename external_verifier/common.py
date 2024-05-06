@@ -523,22 +523,20 @@ class InputFinder:
 
         if block is None: block = self.starting_block
 
-        input_added_filter = self.input_box_contract.events.InputAdded.create_filter(
-            fromBlock=int(block), argument_filters={'dapp':self.w3.to_checksum_address(CRAPP_ADDRESS)})
-
         last_input_block = int(block)
         while True:
             try:
                 # LOGGER.info(f"looking for new entries in input box")
                 t0 = time.time()
-                input_added_filter.filter_params['fromBlock'] = hex(int(last_input_block))
+
+                input_added_filter = self.input_box_contract.events.InputAdded.create_filter(
+                    fromBlock=int(last_input_block), argument_filters={'dapp':self.w3.to_checksum_address(CRAPP_ADDRESS)})
+
                 to_block = int(last_input_block)+MAX_BLOCK_RANGE-1
-                input_added_filter.filter_params['toBlock'] = to_block
-                if to_block >= self.w3.eth.block_number:
-                    del input_added_filter.filter_params['toBlock']
+                if to_block < self.w3.eth.block_number:
+                    input_added_filter.filter_params['toBlock'] = to_block
                 while not (new_entries := input_added_filter.get_all_entries()) and time.time() - t0 < self.timeout:
                     time.sleep(self.poll_interval)
-
                 # LOGGER.info(f"got {len(new_entries)} new entries")
                 while len(new_entries) > 0:
                     tx_event = new_entries.pop()
@@ -583,7 +581,10 @@ class InputFinder:
                         # LOGGER.info(f"non processed entry")
                         yield InputData(type=InputType.unknown,data=None,last_input_block=last_input_block)
 
-                yield InputData(type=InputType.none,data=None,last_input_block=input_added_filter.filter_params.get('toBlock') or self.w3.eth.block_number)
+                filter_to_block = input_added_filter.filter_params.get('toBlock')
+                last_input_block = self.w3.eth.block_number if filter_to_block is None or filter_to_block == 'latest' else filter_to_block
+                yield InputData(type=InputType.none,data=None,last_input_block=last_input_block)
+                last_input_block += 1
             except Exception as e:
                 LOGGER.error(e)
                 traceback.print_exc()

@@ -212,7 +212,9 @@ function CartridgeInfo() {
             setSubmitLogStatus({status: STATUS.FINISHED});
 
         } catch (error) {
-            setSubmitLogStatus({...submitLogStatus, error: (error as Error).message});
+            let errorMsg = (error as Error).message;
+            if (errorMsg.toLowerCase().indexOf("user rejected") > -1) errorMsg = "User rejected tx";
+            setSubmitLogStatus({...submitLogStatus, error: errorMsg});
         }
 
         try {

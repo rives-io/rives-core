@@ -46,7 +46,7 @@ class Enqueuer(Process):
             elif new_input.type == InputType.unknown:
                 LOGGER.info(f"new non-processable entry")
             elif new_input.type == InputType.none:
-                continue
+                pass
             elif new_input.type == InputType.cartridge:
                 LOGGER.info(f"new cartridge entry")
                 cartridge_data = new_input.data.data

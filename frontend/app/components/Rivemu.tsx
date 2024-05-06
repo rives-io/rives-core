@@ -412,6 +412,7 @@ function Rivemu() {
                     }
                     setGameplay(new Uint8Array(rivlog),new Uint8Array(outcard),outhash,score,lastFrames,cartridgeHeight,cartridgeWidth);
                 }
+                if (document.fullscreenElement) document.exitFullscreen();
             }
             rivemuStop();
             setRivemuState(RIVEMU_STATE.WAITING);

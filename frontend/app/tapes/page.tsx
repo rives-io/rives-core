@@ -5,11 +5,12 @@ import {  ethers } from "ethers";
 import { useEffect, useState } from "react";
 import { sha256 } from "js-sha256";
 import { CartridgeInfo, RuleInfo } from "../backend-libs/core/ifaces";
-import { cartridgeInfo, getOutputs, rules, RulesOutput, VerifyPayload } from "../backend-libs/core/lib";
+import { cartridgeInfo, getOutputs, rules, RulesOutput, VerificationOutput, VerifyPayload } from "../backend-libs/core/lib";
 import { envClient } from "../utils/clientEnv";
 import { getTapesGifs } from "../utils/util";
 import Image from "next/image";
 import Link from "next/link";
+import { ContestStatus, formatBytes, getContestStatus } from '../utils/common';
 
 
 interface TapesRequest {
@@ -20,6 +21,8 @@ interface TapesRequest {
   orderBy?:string,  
   cartridge?:string // can be used to filter by cartridge
 }
+
+const DEFAULT_PAGE_SIZE = 12
 
 function getTapeId(tapeHex: string): string {
   return sha256(ethers.utils.arrayify(tapeHex));
@@ -61,16 +64,16 @@ function hideTapeInfo(id:string) {
 }
 
 function loadingFallback() {
+  const arr = Array.from(Array(DEFAULT_PAGE_SIZE).keys());
   return (
     <>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
-      <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse">
-      </div>
+      {
+        arr.map((val, index) => {
+          return (
+            <div key={index} className="w-64 h-64 grid grid-cols-1 place-content-center bg-black animate-pulse"></div>
+          )
+        })
+      }
     </>
   )
 }
@@ -80,7 +83,8 @@ export default function Tapes() {
   const [gifs, setGifs] = useState<Array<string>>([]);
   const [cartridgeInfoMap, setCartridgeInfoMap] = useState<Record<string, CartridgeInfo>>({});
   const [ruleInfoMap, setRuleInfoMap] = useState<Record<string, RuleInfo>>({});
-  const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: 12, atEnd: false, fetching: false})
+  const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: DEFAULT_PAGE_SIZE, atEnd: false, fetching: false})
+  const [scores, setScores] = useState<Record<string, number|undefined>>({});
 
   useEffect(() => {
     const getFirstPage = async () => {
@@ -134,9 +138,12 @@ export default function Tapes() {
     if (Object.keys(idToInfoMap).length > 0) setCartridgeInfoMap({...cartridgeInfoMap, ...idToInfoMap});
     if (Object.keys(idToRuleInfoMap).length > 0) setRuleInfoMap({...ruleInfoMap, ...idToRuleInfoMap});
 
-    const newGifs = await getTapesGifs(Array.from(tapes));
-    setGifs([...gifs, ...newGifs]);
-
+    try {
+      const newGifs = await getTapesGifs(Array.from(tapes));
+      setGifs([...gifs, ...newGifs]);
+    } catch (e) {
+      console.log(e)
+    }
     setTapesRequestOptions({...tapesRequestOptions, 
       currentPage: tapesRequestOptions.currentPage+1, 
       fetching: false,
@@ -155,20 +162,34 @@ export default function Tapes() {
 
 
   return (
-    <main>
+    // h-screen to allow scroll-down
+    <main className={!(tapesRequestOptions.atEnd || tapesRequestOptions.fetching)? "h-screen":""}> 
       <section className="py-16 my-8 w-full flex justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {
             verificationInputs?.map((verificationInput, index) => {
-              // only display tape after gif is loaded
-              if (gifs[index] === undefined) return <></>
-
               const cartridgeName = cartridgeInfoMap[verificationInput.rule_id]?.name;
               const ruleName = ruleInfoMap[verificationInput.rule_id]?.name;
               const user = verificationInput._msgSender;
               const player = `${user.slice(0, 6)}...${user.substring(user.length-4,user.length)}`;
               const timestamp = new Date(verificationInput._timestamp*1000).toLocaleDateString();
               const tapeId = getTapeId(verificationInput.tape);
+              const size = formatBytes((verificationInput.tape.length -2 )/2);
+              if (ruleInfoMap[verificationInput.rule_id] && 
+                  [ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(getContestStatus(ruleInfoMap[verificationInput.rule_id])) > -1) {
+                    getOutputs(
+                      {
+                          tags: ["score",tapeId],
+                          type: 'notice'
+                      },
+                      {cartesiNodeUrl: envClient.CARTESI_NODE_URL}
+                    ).then((out: VerificationOutput[]) =>{
+                      if(out.length>0){
+                        scores[tapeId] = out[0].score;
+                        setScores(scores);
+                      }
+                    });
+              }
               
               return (
                 <Link key={index} href={`/tapes/${tapeId}`}>
@@ -180,17 +201,18 @@ export default function Tapes() {
                   >
                     <div className="text-center p-2 h-fit bg-black bg-opacity-50 flex flex-col">
                       <span className="text-sm">{cartridgeName}</span>
-                      {/* <span className="text-xs">Score: {verificationOutput.score.toString()}</span> */}
+                      {scores[tapeId] ? <span className="text-xs">Score: {scores[tapeId]?.toString()}</span> : <></>}
                     </div>
 
                     <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-50">
-                      <span>Rule: {ruleName}</span><br />
+                      <span>Mode: {ruleName}</span><br />
                       <span>{player} on {timestamp}</span>
+                      <span>Size {size}</span>
                     </div>
                   </div>
 
                   <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black">
-                    <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+gifs[index]} alt={"Not found"}/>
+                    <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+(gifs[index] ? gifs[index] :  cartridgeInfoMap[verificationInput.rule_id]?.cover)} alt={"Not found"}/>
                   </div>
                 </Link>
               )

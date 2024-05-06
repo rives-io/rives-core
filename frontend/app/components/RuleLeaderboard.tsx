@@ -123,27 +123,31 @@ function RuleLeaderboard({cartridge_id, rule, get_verification_outputs = false}:
 
     useEffect(() => {
         let newRule = false;
+        let page = pageToLoad;
         if (rule != oldRule) {
             setTapePayloads(null);
             setOldRule(rule);
             newRule = true;
+            page = 1;
         }
+        if (currPage == pageToLoad && !newRule) return;
         const currTapes = tapePayloads;
         if (tapePayloads) setTapePayloads(null) // set to null to trigger the loading effect
 
-        reloadScores(pageToLoad).then((scores) => {
+        reloadScores(page).then((scores) => {
             if (scores.length == 0 && !newRule) {
                 setAtEnd(true);
                 setTapePayloads(currTapes || []);
                 return;
             } else if (scores.length < DEFAULT_PAGE_SIZE) {
                 setAtEnd(true);
-            } else if (pageToLoad < currPage) {
+            } else {
                 setAtEnd(false);
             }
             
             setTapePayloads(scores);
-            setCurrPage(pageToLoad);
+            setCurrPage(page);
+            setPageToLoad(page);
         });
     }, [pageToLoad,rule, get_verification_outputs])
 
@@ -154,7 +158,7 @@ function RuleLeaderboard({cartridge_id, rule, get_verification_outputs = false}:
     if (!rule) {
         return (
             <div className='relative text-center'>
-                <span>No rule selected!</span>
+                {/* <span>No rule selected!</span> */}
             </div>
         )
     }
