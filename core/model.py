@@ -35,7 +35,7 @@ class Cartridge(Entity):
     info            = helpers.Optional(helpers.Json, lazy=True)
     created_at      = helpers.Required(int, unsigned=True)
     input_index     = helpers.Required(int, lazy=True) # -1 means not created by an input (created in genesis)
-    cover           = helpers.Optional(bytes, lazy=True)
+    cover           = helpers.Optional(bytes)
 
 class Rule(Entity):
     id              = helpers.PrimaryKey(str, 64)
