@@ -50,7 +50,7 @@ COPY core core
 # COPY misc/snake.sqfs misc/snake.sqfs
 # COPY misc/2048.sqfs misc/2048.sqfs
 COPY misc/freedoom.sqfs misc/freedoom.sqfs
-# COPY misc/antcopter.sqfs misc/antcopter.sqfs
+COPY misc/antcopter.sqfs misc/antcopter.sqfs
 # COPY misc/monky.sqfs misc/monky.sqfs
 # COPY misc/breakout.sqfs misc/breakout.sqfs
 # COPY misc/particles.sqfs misc/particles.sqfs
