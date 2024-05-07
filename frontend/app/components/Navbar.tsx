@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from 'react'
 import { useConnectWallet, useSetChain } from '@web3-onboard/react';
 import RivesLogo from './svg/RivesLogo';
+import MenuIcon from '@mui/icons-material/Menu';
+import { Menu } from '@headlessui/react'
 
 function Navbar() {
     const pathname = usePathname();
@@ -50,23 +52,23 @@ function Navbar() {
                 <RivesLogo style={{width:100}}/>
             </Link>
 
-            <a href={"/cartridges"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/cartridges" ? "link-active" : "" }`}>
+            <a href={"/cartridges"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/cartridges" ? "link-active" : "" }`}>
                 <p>Cartridges</p>
             </a>
 
-            <Link href={"/contests"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/contests" ? "link-active" : "" }`}>
+            <Link href={"/contests"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/contests" ? "link-active" : "" }`}>
                 Contests
             </Link>
 
-            <Link href={"/tapes"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/tapes" ? "link-active" : "" }`}>
+            <Link href={"/tapes"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/tapes" ? "link-active" : "" }`}>
                 Tapes
             </Link>
 
-            <Link href={"/upload-cartridge"} className={`invisible md:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/upload-cartridge" ? "link-active" : "" }`}>
+            <Link href={"/upload-cartridge"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/upload-cartridge" ? "link-active" : "" }`}>
                 Upload Cartridge
             </Link>
 
-            <div className='flex-1 flex justify-end h-full'>
+            <div className='invisible lg:visible flex-1 flex justify-end h-full'>
                 <button className='navbar-item' disabled={connecting}
                     onClick={() => (wallet ? disconnect(wallet) : connect())}
                     title={wallet? wallet.accounts[0].address:""}
@@ -76,6 +78,83 @@ function Navbar() {
                     </div>
                 </button>
             </div>
+
+            <Menu as="div" className="lg:hidden navbar-item">
+                <Menu.Button className="h-full flex flex-col justify-center"><MenuIcon className='text-5xl' /></Menu.Button>
+                <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none">
+                    <div className="px-1 py-1 ">
+                        <Menu.Item>
+                            {({ active }) => (
+                                <a 
+                                href={"/cartridges"} 
+                                className={`${pathname === "/cartridges" || active? 'bg-rives-purple text-white' : 'text-black' 
+                                } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                                    Cartridges
+                                </a>
+                            )}
+                        </Menu.Item>
+                    </div>
+
+                    <div className="px-1 py-1 ">
+                        <Menu.Item>
+                            {({ active }) => (
+                                <Link 
+                                href={"/contests"} 
+                                className={`${pathname === "/contests" || active ? 'bg-rives-purple text-white' : 'text-black'
+                                } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                                    Contests
+                                </Link>
+                            )}
+                        </Menu.Item>
+                    </div>
+
+                    <div className="px-1 py-1">
+                        <Menu.Item>
+                            {({ active }) => (
+                                <Link 
+                                href={"/tapes"} 
+                                className={`${pathname === "/tapes" || active ? 'bg-rives-purple text-white' : 'text-black'
+                                } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                                    Tapes
+                                </Link>
+                            )}
+                        </Menu.Item>
+                    </div>
+
+                    <div className="px-1 py-1">
+                        <Menu.Item>
+                            {({ active }) => (
+                                <Link 
+                                href={"/upload-cartridge"} 
+                                className={`${pathname === "/upload-cartridge" || active ? 'bg-rives-purple text-white' : 'text-black'
+                                } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                                    Upload Cartridge
+                                </Link>
+                            )}
+                        </Menu.Item>
+                    </div>
+
+                    <div className="px-1 py-1">
+                        <Menu.Item>
+                            {({ active }) => (
+                                <div className='flex-1 flex justify-end h-full'>
+                                    <button 
+                                    className={`${active ? 'bg-rives-purple text-white' : 'text-black'
+                                    } group flex w-full items-center rounded-md px-2 py-2 text-sm`} 
+                                    disabled={connecting}
+                                    onClick={() => (wallet ? disconnect(wallet) : connect())}
+                                    title={wallet? wallet.accounts[0].address:""}
+                                    >
+                                        <div className='flex flex-col justify-center h-full'>
+                                            {connectButtonTxt}
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
+                        </Menu.Item>
+                    </div>
+                </Menu.Items>
+            </Menu>
         </header>
     )
 }

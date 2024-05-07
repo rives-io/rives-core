@@ -1,43 +1,41 @@
-// import Title from "../components/Title";
 import CartridgesList from "../components/CartridgesList";
 import CartridgeInfo from "../components/CartridgeInfo";
-import Rivemu from "../components/Rivemu";
 import { Suspense } from "react";
+import RivesLogo from "../components/svg/RivesLogo";
 
 
 
 function listLoaderFallback() {
-	const arr = Array.from(Array(10).keys());
+	const arr = Array.from(Array(8).keys());
 	return (
-		<ul className="animate-pulse space-y-2">
+		<>
             {
                 arr.map((num, index) => {
                     return (
-						<li key={index} className="flex">
-							<button className="game-list-fallback-animation">
-								<div></div>
-							</button>
-						</li>
-					);
+						<div key={index} className="w-48 h-64 grid grid-cols-1 p-2 bg-black animate-pulse">
+							<RivesLogo className="place-self-start" style={{width:50}}/>
+							<div className="w-fill h-36 bg-gray-500 relative"></div>
+							<div className="place-self-end p-1 bg-gray-500 flex flex-col w-full h-16"></div>
+						</div>
+					)
                 })
             }
-        </ul>
+        </>
 	)
 }
 
 export default async function Cartridges() {
     return (
       <main>
-		<section id="cartridges-section" className="second-section">
-			<Suspense fallback={listLoaderFallback()}>
-				<CartridgesList />
-			</Suspense>
+		<section className="py-16 my-8 w-full flex justify-center">
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+				<Suspense fallback={listLoaderFallback()}>
+					<CartridgesList />
+				</Suspense>
+			</div>
 
 			<CartridgeInfo />
-
 		</section>
-
-		<Rivemu />
       </main>
     )
   }

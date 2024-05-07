@@ -31,11 +31,12 @@ AddressList = Annotated[List[str], ABIType('address[]')]
 class Cartridge(Entity):
     id              = helpers.PrimaryKey(str, 64)
     name            = helpers.Required(str, index=True, unique=True)
+    authors         = helpers.Required(helpers.StrArray, index=True)
     user_address    = helpers.Required(str, 42)
     info            = helpers.Optional(helpers.Json, lazy=True)
     created_at      = helpers.Required(int, unsigned=True)
     input_index     = helpers.Required(int, lazy=True) # -1 means not created by an input (created in genesis)
-    cover           = helpers.Optional(bytes)
+    cover           = helpers.Optional(bytes, lazy=True)
 
 class Rule(Entity):
     id              = helpers.PrimaryKey(str, 64)
@@ -324,6 +325,7 @@ def create_cartridge(cartridge_data,**metadata):
     new_cartridge = Cartridge(
         id = data_hash,
         name = cartridge_info_json['name'],
+        authors = [a.get('name') for a in cartridge_info_json['authors'] if a.get('name') is not None] if cartridge_info_json.get('authors') else [],
         user_address = user_address,
         created_at = metadata.get('timestamp') or 0,
         input_index = metadata.get('input_index') or -1, # genesis input index
