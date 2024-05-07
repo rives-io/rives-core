@@ -6,7 +6,7 @@ import { CartridgeInfo } from '../backend-libs/core/ifaces';
 
 
 const getCartridges = cache(async () => {
-	const cartridges: any[] = (await cartridgerequest({},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"})).data;
+	const cartridges: any[] = (await cartridgerequest({get_cover: true},{decode:true, cartesiNodeUrl: envClient.CARTESI_NODE_URL,cache:"force-cache"})).data;
 
     return cartridges;
 })
