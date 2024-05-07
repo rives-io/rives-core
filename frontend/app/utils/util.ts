@@ -17,53 +17,71 @@ export function formatDate(date:Date) {
     return date.toLocaleString(undefined, options);
 }
 
-export async function getTapeGif(tape_id:string):Promise<string> {
-    const response = await fetch(`${envClient.GIF_SERVER_URL}/gifs`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify([tape_id])
-        }
-    );
+export async function getTapeGif(tape_id:string):Promise<string|null> {
+    try {
+        const response = await fetch(`${envClient.GIF_SERVER_URL}/gifs`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify([tape_id])
+            }
+        );
 
-    const gif = await response.json();
+        if (!response.ok || response.status === 204) return null;
 
-    return gif[0];
+        const gif = await response.json();
+
+        return gif[0];
+    } catch (e) {
+        console.log(`Error fetching gif: ${e}`)
+        return null;
+    }
 }
 
 export async function getTapesGifs(tapes:Array<string>):Promise<Array<string>> {
     if (tapes.length == 0) return [];
     
-    const response = await fetch(`${envClient.GIF_SERVER_URL}/gifs`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(tapes)
-        }
-    );
+    try {
+        const response = await fetch(`${envClient.GIF_SERVER_URL}/gifs`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(tapes)
+            }
+        );
 
-    const gifs = await response.json();
-    return gifs;
+        if (!response.ok) return [];
+
+        const gifs = await response.json();
+        return gifs;
+    } catch (e) {
+        console.log(`Error fetching gifs: ${e}`)
+        return [];
+    }
 }
 
 export async function insertTapeGif(gameplay_id:string, gifImage:string) {
-    await fetch(
-        `${envClient.GIF_SERVER_URL}/insert-gif`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                "gameplay_id": gameplay_id,
-                "gif": gifImage
-            })
-        }
-    )
+    try {
+        await fetch(
+            `${envClient.GIF_SERVER_URL}/insert-gif`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    "gameplay_id": gameplay_id,
+                    "gif": gifImage
+                })
+            }
+        )
+    } catch (e) {
+        console.log(`Error inserting gif: ${e}`)
+    }
 }
 
 export async function useCode(payload:string) {
@@ -98,4 +116,71 @@ export async function validateCode(payload:string) {
     )
 
     return await response.json();
+}
+
+export async function getTapeImage(tape_id:string):Promise<string|null> {
+    try {
+        const response = await fetch(`${envClient.GIF_SERVER_URL}/images`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify([tape_id])
+            }
+        );
+
+        if (!response.ok) return null;
+
+        const imgs = await response.json();
+
+        return imgs[0];
+    } catch (e) {
+        console.log(`Error fetching image: ${e}`)
+        return null;
+    }
+}
+
+export async function getTapesImages(tapes:Array<string>):Promise<Array<string>> {
+    if (tapes.length == 0) return [];
+    
+    try {
+        const response = await fetch(`${envClient.GIF_SERVER_URL}/images`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(tapes)
+            }
+        );
+
+        if (!response.ok) return [];
+
+        const imgs = await response.json();
+        return imgs;
+    } catch (e) {
+        console.log(`Error fetching images: ${e}`)
+        return [];
+    }
+}
+
+export async function insertTapeImage(gameplay_id:string, gifImage:string) {
+    try {
+        await fetch(
+            `${envClient.GIF_SERVER_URL}/insert-image`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    "gameplay_id": gameplay_id,
+                    "image": gifImage
+                })
+            }
+        )
+    } catch (e) {
+        console.log(`Error inserting image: ${e}`)
+    }
 }

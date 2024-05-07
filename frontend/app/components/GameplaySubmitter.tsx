@@ -6,7 +6,7 @@
 import { useContext, useEffect, useState, Fragment } from "react";
 import { gameplayContext } from "../play/GameplayContextProvider";
 import { useConnectWallet } from "@web3-onboard/react";
-import { insertTapeGif } from "../utils/util";
+import { insertTapeGif, insertTapeImage } from "../utils/util";
 import { sha256 } from "js-sha256";
 import { ContractReceipt, ethers } from "ethers";
 import { VerifyPayload } from "../backend-libs/core/ifaces";
@@ -83,10 +83,11 @@ function calculateTapeId(log: Uint8Array): string {
 
 
 function GameplaySubmitter() {
-    const {player, gameplay, setGameplayLog, getGifParameters, clearGifFrames} = useContext(gameplayContext);
+    const {player, gameplay, getGifParameters, clearGifFrames} = useContext(gameplayContext);
     const [{ wallet }, connect] = useConnectWallet();
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
+    const [img, setImg] = useState("");
     const [gameInfo, setGameInfo] = useState<Cartridge>();
 
     // modal state variables
@@ -123,6 +124,7 @@ function GameplaySubmitter() {
     }, [wallet])
 
     useEffect(() => {
+        console.log("gameplay", gameplay)
         if (!gameplay) {
             setModalState({isOpen: false, state: MODAL_STATE.NOT_PREPARED});
             return;
@@ -134,6 +136,7 @@ function GameplaySubmitter() {
     async function prepareSubmission() {
         try {
             const gifParameters = getGifParameters();
+            setImg(gifParameters.frames[0].split(',')[1]);
             if (gifParameters) {
                 const gif = await generateGif(gifParameters.frames, gifParameters.width, gifParameters.height);
                 setGifImg(gif);
@@ -171,7 +174,6 @@ function GameplaySubmitter() {
         try {
             setModalState({...modalState, state: MODAL_STATE.SUBMITTING});
             const receipt:ContractReceipt = await registerExternalVerification(signer, envClient.DAPP_ADDR, inputData, {sync:false, cartesiNodeUrl: envClient.CARTESI_NODE_URL}) as ContractReceipt;
-            setGameplayLog(null) // clear gameplay log
         } catch (error) {
             console.log(error)
             setModalState({...modalState, state: MODAL_STATE.SUBMIT});
@@ -183,7 +185,10 @@ function GameplaySubmitter() {
 
         const gameplay_id = calculateTapeId(gameplay.log);
         try {
-            if (gifImg.length > 0) {
+            if (img && img.length > 0) {
+                await insertTapeImage(gameplay_id, img);
+            }
+            if (gifImg && gifImg.length > 0) {
                 await insertTapeGif(gameplay_id, gifImg);
             }
         } catch (error) {
@@ -198,8 +203,6 @@ function GameplaySubmitter() {
         
         setModalState({...modalState, state: MODAL_STATE.SUBMITTED});
         clearGifFrames();
-
-
     }
 
     function submitModalBody() {

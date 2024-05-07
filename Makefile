@@ -4,7 +4,7 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
-RIV_VERSION := 0.3-rc11
+RIV_VERSION := 0.3-rc12
 
 RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
 
@@ -43,8 +43,8 @@ build-reader-node: ; $(value setup_venv)
 build-dev-node: ; $(value setup_venv)
 	cartesapp build-dev-image $(ARGS)
 
-build-%: --load-env-% --check-opaddr-env ; $(value setup_venv)
-	cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
+build-%: ${ENVFILE}.% --check-envs-% ; $(value setup_venv)
+	. $^ && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
 
 # Run targets
 run: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ; $(value setup_venv)
@@ -75,7 +75,7 @@ ${ENVFILE}:
 	echo RIVEMU_PATH=rivemu >> $(ENVFILE)
 	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
 
---load-env-%: --${ENVFILE}.%
+--load-env-%: ${ENVFILE}.%
 	@$(eval include include $^)
 
 ${ENVFILE}.%:
@@ -86,6 +86,9 @@ ${ENVFILE}.%:
 
 
 # custom rives tagets
+
+--check-envs-%: --load-env-%
+	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
 
 --check-rivemu-env:
 	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'

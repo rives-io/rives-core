@@ -37,7 +37,8 @@ function PlayModes() {
             <div>
             { rulesInfo ?
                 rulesInfo.map((ruleInfo, index) => {
-                    const status = ruleInfo ? getContestStatus(ruleInfo) : undefined;
+                    const status = ruleInfo ? getContestStatus(ruleInfo) : ContestStatus.INVALID;
+                    const available = [ContestStatus.INVALID,ContestStatus.IN_PROGRESS].indexOf(status) > -1;
                     return (
                         <div key={index}
                         className={"flex flex-row border-2 hover:border-black p-2 " + (ruleInfo.id == selectedRule?.id ? "border-black" : "border-transparent")}
@@ -47,10 +48,10 @@ function PlayModes() {
             
                         <div className="flex flex-col basis-3/4">
                             <span >{ruleInfo.name}</span>
-                            {status ? <span className='text-xs'>
+                            {status != ContestStatus.INVALID ? <span className='text-xs'>
                                 { ruleInfo.id in contestsMetadata ?
                                 <Link href={`/contest/${ruleInfo.id}`} onClick={(e) => e.stopPropagation()} title='Contest page'>
-                                    <MilitaryTechIcon className='text-[#ffd700]'/>
+                                    <MilitaryTechIcon className='text-[#ffb700] hover:text-[#ff8000]'/>
                                 </Link>
                                 : <></>}
                                 {getContestStatusMessage(status)}
@@ -58,7 +59,7 @@ function PlayModes() {
                         </div>
 
                         <Link href={`/play/rule/${ruleInfo.id}`} className="btn items-center flex flex-col basis-1/4"
-                            onClick={(e) => e.stopPropagation()} style={{height:"50px",pointerEvents: status == ContestStatus.IN_PROGRESS || status == ContestStatus.INVALID ? "auto":"none",}}>
+                            onClick={(e) => e.stopPropagation()} style={{height:"50px",pointerEvents: available ? "auto":"none",}}>
                             PLAY
                         </Link>
 
