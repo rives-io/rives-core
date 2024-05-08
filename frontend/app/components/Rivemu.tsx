@@ -1,15 +1,7 @@
 "use client"
 
-import { Parser } from "expr-eval";
-import { ethers } from "ethers";
 import Script from "next/script"
-import { useContext, useState, useEffect, useImperativeHandle, forwardRef } from "react";
-import { useConnectWallet } from '@web3-onboard/react';
-
-import { GIF_FRAME_FREQ, gameplayContext } from "../play/GameplayContextProvider";
-import { sha256 } from "js-sha256";
-import { envClient } from "../utils/clientEnv";
-import { cartridge } from "../backend-libs/core/lib";
+import { useState, useImperativeHandle, forwardRef } from "react";
 
 export type RivemuRef = {
 	stop: () => void;
