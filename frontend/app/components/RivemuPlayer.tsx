@@ -273,8 +273,6 @@ function RivemuPlayer(
 
     const rivemuOnBegin = function (width: number, height: number, target_fps: number, total_frames: number) {
         console.log("rivemu_on_begin");
-        if (isTape && total_frames) setTotalFrames(total_frames);
-        else setGifResolution(width, height);
         setCurrScore(undefined);
         if (rule?.score_function) {
             setCurrScore(0);
@@ -282,6 +280,11 @@ function RivemuPlayer(
         setCurrProgress(0);
         setLastFrameIndex(undefined);
         setGameplayLog(null);
+        if (isTape && total_frames) setTotalFrames(total_frames);
+        else {
+            setGameplayOwner(signerAddress || "0x");
+            setGifResolution(width, height);
+        }
     };
 
     const rivemuOnFinish = function (

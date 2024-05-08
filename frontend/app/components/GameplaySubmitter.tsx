@@ -124,7 +124,6 @@ function GameplaySubmitter() {
     }, [wallet])
 
     useEffect(() => {
-        console.log("gameplay", gameplay)
         if (!gameplay) {
             setModalState({isOpen: false, state: MODAL_STATE.NOT_PREPARED});
             return;
