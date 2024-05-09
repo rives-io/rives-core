@@ -5,9 +5,9 @@
 import { Tab } from '@headlessui/react'
 import { RuleInfo } from '../backend-libs/core/ifaces'
 import RuleLeaderboard from './RuleLeaderboard'
-import { ContestStatus, getContestStatus } from '../utils/common'
+import { ContestStatus } from '../utils/common'
 
-function ContestInfo({contest}:{contest:RuleInfo}) {
+function ContestInfo({contest, status}:{contest:RuleInfo, status:ContestStatus}) {
 
 
     return (
@@ -26,7 +26,7 @@ function ContestInfo({contest}:{contest:RuleInfo}) {
                         className={({selected}) => {return selected?"game-tabs-option-selected":"game-tabs-option-unselected"}}
                         >
                             <span className='game-tabs-option-text'>
-                                <span>Leaderboard</span>
+                                <span>{status == ContestStatus.VALIDATED? "Leaderboard":"Submissions"}</span>
                             </span>
                     </Tab>
                 </Tab.List>
@@ -38,7 +38,7 @@ function ContestInfo({contest}:{contest:RuleInfo}) {
 
                     <Tab.Panel className="game-tab-content">
                         <RuleLeaderboard cartridge_id={contest.cartridge_id} rule={contest.id} 
-                            get_verification_outputs={contest != undefined && [ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(getContestStatus(contest)) > -1 } 
+                            get_verification_outputs={contest != undefined && [ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(status) > -1 } 
                         />
                     </Tab.Panel>
 
