@@ -27,6 +27,13 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
     // rivemu state
     const [runtimeInitialized, setRuntimeInitialized] = useState(false);
 
+    useImperativeHandle(ref, () => ({
+		start: rivemuStart,
+        stop: rivemuStop,
+        fullScreen: rivemuFullscreen,
+        setSpeed: rivemuSetSpeed
+	}));
+
     if (!cartridge_data) {
         return (
             <main className="flex items-center justify-center h-lvh text-white">
@@ -151,13 +158,6 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
         }
     }
 
-	useImperativeHandle(ref, () => ({
-		start: rivemuStart,
-        stop: rivemuStop,
-        fullScreen: rivemuFullscreen,
-        setSpeed: rivemuSetSpeed
-	}));
-
     if (typeof window !== "undefined") {
         // @ts-ignore:next-line
         window.rivemu_on_frame = rivemu_on_frame;
@@ -187,5 +187,7 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
         </main>
     )
 })
+
+Rivemu.displayName = 'Rivemu';
 
 export default Rivemu
