@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Contest as ContestClass, ContestStatus, getContestStatus, getContestStatusMessage } from "../../utils/common";
 import Image from "next/image";
-import { indexerQuery } from "@/app/backend-libs/indexer/lib";
+import ReportIcon from '@mui/icons-material/Report';
 
 
 const getContest = (rule_id:string) => {
@@ -45,17 +45,7 @@ const getWinner = async (cartridge_id:string, rule:string):Promise<string|undefi
           order_dir: "desc"
       },
       {cartesiNodeUrl: envClient.CARTESI_NODE_URL});
-  console.log(tapes,await indexerQuery(
-    {
-      tags,
-      type: 'notice',
-      page_size: 0,
-      page: 1,
-      order_by: "value",
-      order_dir: "desc"
-  },
-  {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true}
-  ))
+
   if (tapes.length == 0) return undefined
   return tapes[0].user_address
 }
@@ -125,8 +115,21 @@ export default async function Contest({ params }: { params: { contest_id: string
 
           </div>
 
+          {
+            status != ContestStatus.VALIDATED?
+              <div className="text-white flex space-x-1 items-center justify-center">
+                <ReportIcon className="text-yellow-500 text-3xl" />
+                <span className="text-sm text-center">
+                  Scores will be available after the contest ends.
+                </span>
+                <ReportIcon className="text-yellow-500 text-3xl" />
+              </div>
+            :
+              <></>
+          }
+
           <div className="flex h-full">
-            <ContestInfo contest={contest}></ContestInfo>
+            <ContestInfo contest={contest} status={status}></ContestInfo>
           </div>
         </section>
       </main>
