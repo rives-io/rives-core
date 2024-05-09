@@ -12,11 +12,11 @@ export interface Contest {
 }
 
 export enum ContestStatus {
-  INVALID,
-  NOT_INITIATED,
   IN_PROGRESS,
+  NOT_INITIATED,
+  VALIDATED,
   FINISHED,
-  VALIDATED
+  INVALID,
 }
 
 export const getContestStatus = (rule: RuleInfo): ContestStatus => {

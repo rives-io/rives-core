@@ -33,17 +33,17 @@ all: build build-reader-node
 setup-env: ; $(value setup_venv)
 
 # Run targets
-run: --load-env --check-envs rivemu InputBox.json ; $(value setup_venv)
-	python external_verifier.py $(ARGS)
+run: ${ENVFILE} --check-envs rivemu InputBox.json ; $(value setup_venv)
+	. $^ && python external_verifier.py $(ARGS)
 
-run-%: --load-env-% --check-envs rivemu InputBox.json ; $(value setup_venv)
-	python external_verifier.py $(ARGS)
+run-%: ${ENVFILE}.% --check-envs-% rivemu InputBox.json ; $(value setup_venv)
+	. $^ && python external_verifier.py $(ARGS)
 
-run-cloud-services: --load-env --check-envs rivemu InputBox.json ; $(value setup_venv)
-	dagster dev -f __init__.py $(ARGS)
+run-cloud-services: ${ENVFILE} --check-envs rivemu InputBox.json ; $(value setup_venv)
+	. $^ && dagster dev -f __init__.py $(ARGS)
 
-run-cloud-services-%: --load-env-% --check-envs rivemu InputBox.json ; $(value setup_venv)
-	dagster dev -f __init__.py $(ARGS)
+run-cloud-services-%: ${ENVFILE}.% --check-envs-% rivemu InputBox.json ; $(value setup_venv)
+	. $^ && dagster dev -f __init__.py $(ARGS)
 
 # Aux env targets
 --load-env: ${ENVFILE}
@@ -52,7 +52,7 @@ run-cloud-services-%: --load-env-% --check-envs rivemu InputBox.json ; $(value s
 ${ENVFILE}:
 	@test ! -f $@ && echo "$(ENVFILE) not found. Creating with default values" 
 	echo RIVEMU_PATH=../rivemu >> $(ENVFILE)
-	echo CRAPP_ADDRESS=0xab7528bb862fb57e8a2bcd567a2e929a0be56a5e >> $(ENVFILE)
+	echo DAPP_ADDRESS=0xab7528bb862fb57e8a2bcd567a2e929a0be56a5e >> $(ENVFILE)
 	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
 	echo PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 >> $(ENVFILE)
 
@@ -62,18 +62,18 @@ ${ENVFILE}:
 ${ENVFILE}.%:
 	test ! -f $@ && $(error "file $@ doesn't exist")
 
---check-envs: --check-opaddr-env --check-rivemu-env --check-daddr-env --check-priv-env
---check-opaddr-env:
+--check-envs: --load-env
 	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
-
---check-rivemu-env:
 	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'
-
---check-daddr-env:
-	@test ! -z '${CRAPP_ADDRESS}' || echo "Must define CRAPP_ADDRESS in env" && test ! -z '${CRAPP_ADDRESS}'
-
---check-priv-env:
+	@test ! -z '${DAPP_ADDRESS}' || echo "Must define DAPP_ADDRESS in env" && test ! -z '${DAPP_ADDRESS}'
 	@test ! -z '${PRIVATE_KEY}' || echo "Must define PRIVATE_KEY in env" && test ! -z '${PRIVATE_KEY}'
+
+--check-envs-%: --load-env-%
+	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
+	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'
+	@test ! -z '${DAPP_ADDRESS}' || echo "Must define DAPP_ADDRESS in env" && test ! -z '${DAPP_ADDRESS}'
+	@test ! -z '${PRIVATE_KEY}' || echo "Must define PRIVATE_KEY in env" && test ! -z '${PRIVATE_KEY}'
+
 
 rivemu: ../rivemu
 

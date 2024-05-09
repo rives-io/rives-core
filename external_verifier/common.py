@@ -35,11 +35,11 @@ load_dotenv()
 # required
 RIVEMU_PATH = os.getenv('RIVEMU_PATH') or ''
 OPERATOR_ADDRESS = os.getenv('OPERATOR_ADDRESS') or ""
-CRAPP_ADDRESS = os.getenv('CRAPP_ADDRESS') or ""
+DAPP_ADDRESS = os.getenv('DAPP_ADDRESS') or ""
 PRIVATE_KEY = os.getenv('PRIVATE_KEY') or ''
 
 # recommended
-CRAPP_DEPLOY_BLOCK = os.getenv('CRAPP_DEPLOY_BLOCK') or 0
+DAPP_DEPLOY_BLOCK = os.getenv('DAPP_DEPLOY_BLOCK') or 0
 RIVES_VERSION = os.getenv('RIVES_VERSION') or '0'
 
 REDIS_HOST = os.getenv('REDIS_HOST') or "localhost"
@@ -473,7 +473,7 @@ class VerificationSender:
             "from": self.acct.address,
             "nonce": self.w3.eth.get_transaction_count(self.acct.address),
         }
-        tx = self.input_box_contract.functions.addInput(self.w3.to_checksum_address(CRAPP_ADDRESS),input_box_payload).build_transaction(tx_parameters)
+        tx = self.input_box_contract.functions.addInput(self.w3.to_checksum_address(DAPP_ADDRESS),input_box_payload).build_transaction(tx_parameters)
         tx_signed = self.w3.eth.account.sign_transaction(tx, private_key=self.acct.key)
         
         tx_hash = self.w3.eth.send_raw_transaction(tx_signed.rawTransaction)
@@ -503,7 +503,7 @@ class InputFinder:
         provider = Web3.WebsocketProvider(WSS_URL) if WSS_URL else Web3.HTTPProvider(RPC_URL)
         self.w3 = Web3(provider)
         self.input_box_contract = self.w3.eth.contract(address=INPUT_BOX_ADDRESS, abi=json.dumps(self.input_box_abi))
-        self.starting_block = CRAPP_DEPLOY_BLOCK
+        self.starting_block = DAPP_DEPLOY_BLOCK
 
         verify_abi_types = abi.get_abi_types_from_model(VerifyPayload)
         verify_header = ABIFunctionSelectorHeader(
@@ -541,7 +541,7 @@ class InputFinder:
 
                 params = {
                     "fromBlock":int(last_input_block), 
-                    "argument_filters":{'dapp':self.w3.to_checksum_address(CRAPP_ADDRESS)}
+                    "argument_filters":{'dapp':self.w3.to_checksum_address(DAPP_ADDRESS)}
                 }
                 last_eth_block = self.w3.eth.block_number
                 if params['fromBlock'] > last_eth_block:

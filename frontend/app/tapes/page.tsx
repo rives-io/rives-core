@@ -7,7 +7,7 @@ import { sha256 } from "js-sha256";
 import { CartridgeInfo, RuleInfo } from "../backend-libs/core/ifaces";
 import { cartridgeInfo, getOutputs, rules, RulesOutput, VerificationOutput, VerifyPayload } from "../backend-libs/core/lib";
 import { envClient } from "../utils/clientEnv";
-import { getTapesGifs } from "../utils/util";
+import { getTapeGif, getTapeImage, getTapesGifs, getTapesImages } from "../utils/util";
 import Image from "next/image";
 import Link from "next/link";
 import { ContestStatus, formatBytes, getContestStatus } from '../utils/common';
@@ -55,11 +55,11 @@ async function getGameInfo(cartridge_id:string) {
   return cartridgeWithInfo;
 }
 
-function showTapeInfo(id:string) {
+function showDiv(id:string) {
   document.getElementById(id)?.classList.remove("opacity-0");
 }
 
-function hideTapeInfo(id:string) {
+function hideDiv(id:string) {
   document.getElementById(id)?.classList.add("opacity-0");
 }
 
@@ -80,7 +80,8 @@ function loadingFallback() {
 
 export default function Tapes() {
   const [verificationInputs, setVerificationInputs] = useState<Array<VerifyPayload>|null>(null);
-  const [gifs, setGifs] = useState<Array<string>>([]);
+  const [gifs, setGifs] = useState<Record<string,string>>({});
+  const [imgs, setImgs] = useState<Record<string,string>>({});
   const [cartridgeInfoMap, setCartridgeInfoMap] = useState<Record<string, CartridgeInfo>>({});
   const [ruleInfoMap, setRuleInfoMap] = useState<Record<string, RuleInfo>>({});
   const [tapesRequestOptions, setTapesRequestOptions] = useState<TapesRequest>({currentPage: 1, pageSize: DEFAULT_PAGE_SIZE, atEnd: false, fetching: false})
@@ -138,12 +139,29 @@ export default function Tapes() {
     if (Object.keys(idToInfoMap).length > 0) setCartridgeInfoMap({...cartridgeInfoMap, ...idToInfoMap});
     if (Object.keys(idToRuleInfoMap).length > 0) setRuleInfoMap({...ruleInfoMap, ...idToRuleInfoMap});
 
-    try {
-      const newGifs = await getTapesGifs(Array.from(tapes));
-      setGifs([...gifs, ...newGifs]);
-    } catch (e) {
-      console.log(e)
-    }
+      const tapeList = Array.from(tapes);
+      getTapesImages(tapeList).then((newimgs) => {
+        try {
+          const newImgsRecord: Record<string,string> = {};
+          for (var i = 0; i < tapeList.length; i++) {
+            newImgsRecord[tapeList[i]] = newimgs[i];
+          }
+          setImgs({...imgs, ...newImgsRecord});
+        } catch (e) {
+          console.log(e)
+        }
+      });
+      getTapesGifs(tapeList).then((newGifs) => {
+        try {
+          const newGifsRecord: Record<string,string> = {};
+          for (var i = 0; i < tapeList.length; i++) {
+            newGifsRecord[tapeList[i]] = newGifs[i];
+          }
+          setGifs({...gifs, ...newGifsRecord});
+        } catch (e) {
+          console.log(e)
+        }
+      });
     setTapesRequestOptions({...tapesRequestOptions, 
       currentPage: tapesRequestOptions.currentPage+1, 
       fetching: false,
@@ -175,6 +193,10 @@ export default function Tapes() {
               const timestamp = new Date(verificationInput._timestamp*1000).toLocaleDateString();
               const tapeId = getTapeId(verificationInput.tape);
               const size = formatBytes((verificationInput.tape.length -2 )/2);
+              // let gif = "";
+              // let img = "";
+              // getTapeImage(tapeId).then((newimg) => img = newimg || "");
+              // getTapeGif(tapeId).then((newGif) => gif = newGif || "");
               if (ruleInfoMap[verificationInput.rule_id] && 
                   [ContestStatus.INVALID,ContestStatus.VALIDATED].indexOf(getContestStatus(ruleInfoMap[verificationInput.rule_id])) > -1) {
                     getOutputs(
@@ -192,12 +214,9 @@ export default function Tapes() {
               }
               
               return (
-                <Link key={index} href={`/tapes/${tapeId}`}>
+                <Link key={index} href={`/tapes/${tapeId}`} className="relative">
                   <div 
-                    id={tapeId}
-                    className="absolute w-64 h-64 opacity-0 text-white"
-                    onMouseOver={() => showTapeInfo(tapeId)}
-                    onMouseOut={() => hideTapeInfo(tapeId)}
+                    className="absolute w-64 h-64 text-white"
                   >
                     <div className="text-center p-2 h-fit bg-black bg-opacity-50 flex flex-col">
                       <span className="text-sm">{cartridgeName}</span>
@@ -212,8 +231,16 @@ export default function Tapes() {
                   </div>
 
                   <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black">
-                    <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+(gifs[index] ? gifs[index] :  cartridgeInfoMap[verificationInput.rule_id]?.cover)} alt={"Not found"}/>
+                    <Image className="border border-black" width={256} height={256} src={"data:image/jpeg;base64,"+(imgs[tapeId] ? imgs[tapeId] : cartridgeInfoMap[verificationInput.rule_id]?.cover)} alt={"Not found"}/>
                   </div>
+
+                  {gifs[tapeId] ? <div className="w-64 h-64 grid grid-cols-1 place-content-center bg-black opacity-0 absolute inset-0 "
+                    id={"gif-"+tapeId}
+                    onMouseOver={() => showDiv("gif-"+tapeId)}
+                    onMouseOut={() => hideDiv("gif-"+tapeId)}
+                  >
+                    <Image className="border border-black" width={256} height={256} src={"data:image/gif;base64,"+(gifs[tapeId])} alt={"Not found"}/>
+                  </div> : <></>}
                 </Link>
               )
                

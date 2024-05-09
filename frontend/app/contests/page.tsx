@@ -31,7 +31,14 @@ const getRules = async (contests:Record<string,Contest>, onlyActive = false) => 
 
 export default async function Contests() {
   const contestsMetadata = envClient.CONTESTS as Record<string,Contest>;
-  const contests = await getRules(contestsMetadata);
+  const contests = (await getRules(contestsMetadata)).sort((a, b) => {
+    const aStatus = getContestStatus(a);
+    const bStatus = getContestStatus(b);
+    if (!b.start || !a.start) return b.created_at - a.created_at;
+    if (aStatus != bStatus) aStatus - bStatus;
+    return b.start - a.start
+  });
+
   let cartridgeInfoMap:Record<string, CartridgeInfo> = {};
   
   if (contests.length == 0) {
@@ -92,7 +99,7 @@ export default async function Contests() {
                   <div className="flex flex-col justify-center">
                     <span>Prize: {contest.prize}</span>
                     {/* <span>Tapes: {contest.n_tapes}</span> */}
-                    <span>Winner: {contest.winner? contest.winner: "TBA"}</span>
+                    {/* <span>Winner: {contest.winner? contest.winner: "TBA"}</span> */}
                     <span>Status: {getContestStatusMessage(getContestStatus(contest))}</span>
                   </div>
 
