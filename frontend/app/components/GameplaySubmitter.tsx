@@ -5,7 +5,6 @@
 
 import { useContext, useEffect, useState, Fragment } from "react";
 import { gameplayContext } from "../play/GameplayContextProvider";
-import { useConnectWallet } from "@web3-onboard/react";
 import { insertTapeGif, insertTapeImage } from "../utils/util";
 import { sha256 } from "js-sha256";
 import { ContractReceipt, ethers } from "ethers";
@@ -22,6 +21,7 @@ import { CartridgeInfo as Cartridge } from "../backend-libs/core/ifaces";
 // @ts-ignore
 import GIFEncoder from "gif-encoder-2";
 import ErrorModal, { ERROR_FEEDBACK } from "./ErrorModal";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 
 
 enum MODAL_STATE {
@@ -84,7 +84,8 @@ function calculateTapeId(log: Uint8Array): string {
 
 function GameplaySubmitter() {
     const {player, gameplay, getGifParameters, clearGifFrames} = useContext(gameplayContext);
-    const [{ wallet }, connect] = useConnectWallet();
+    const {login} = usePrivy();
+    const {wallets} = useWallets();
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
     const [img, setImg] = useState("");
@@ -104,14 +105,14 @@ function GameplaySubmitter() {
 
     useEffect(() => {
         // show warning message if user is not connected
-        if (!wallet) {
+        if (!wallets) {
             const error:ERROR_FEEDBACK = {
                 severity: "alert",
                 message: "You need to be connect for your gameplay to be saved!",
                 dismissible: true
             };
             setErrorFeedback(error);
-        } else if (player.length > 0 && (wallet.accounts[0].address.toLowerCase() != player)) {
+        } else if (player.length > 0 && (wallets[0].address.toLowerCase() != player)) {
             const error:ERROR_FEEDBACK = {
                 severity: "warning",
                 message: `You need to send the gameplay using the same account used to play (${player.slice(0,6)}...${player.slice(player.length-4)})!`,
@@ -121,7 +122,7 @@ function GameplaySubmitter() {
         } else {
             setErrorFeedback(undefined);
         }
-    }, [wallet])
+    }, [wallets])
 
     useEffect(() => {
         if (!gameplay) {
@@ -153,9 +154,9 @@ function GameplaySubmitter() {
             return;
         }
 
-        if (!wallet) {
+        if (!wallets) {
             alert("Connect first to upload a gameplay log.");
-            await connect();
+            login();
         }
 
         // get cartridgeInfo asynchronously
@@ -163,7 +164,8 @@ function GameplaySubmitter() {
         .then(setGameInfo);
 
         // submit the gameplay
-        const signer = new ethers.providers.Web3Provider(wallet!.provider, 'any').getSigner();
+        const provider = await wallets[0].getEthereumProvider();
+        const signer = new ethers.providers.Web3Provider(provider, 'any').getSigner();
         const inputData: VerifyPayload = {
             rule_id: '0x' + gameplay.rule_id,
             outcard_hash: '0x' + gameplay.outcard.hash,

@@ -1,34 +1,34 @@
 "use client"
 
-import { useConnectWallet } from "@web3-onboard/react";
+import { usePrivy } from '@privy-io/react-auth';
 import { useEffect } from "react";
 
 function AuthLoginForm({session, loginFunction}:{session:any, loginFunction(code:string, userAddress:string):void}) {
-    const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
+    const {user, ready, login, logout} = usePrivy();
 
     useEffect(() => {
-        if (!wallet) return;
+        if (!user || !user.wallet) return;
 
-        const userAddress = wallet.accounts[0].address;
+        const userAddress = user.wallet.address;
         const login = async () => {
             try {
                 await loginFunction(session.code, userAddress);    
             } catch (error) {
                 alert((error as Error).message);
-                disconnect(wallet);
+                logout();
             }
         }
 
         login();
 
-    }, [wallet])
+    }, [user])
 
 
     return (
         <div className="flex flex-col">
             <h3 className="text-white mb-4">Connect to complete your login</h3>
             
-            <button className="btn w-fit self-center" disabled={connecting} onClick={() => connect()}>
+            <button className="btn w-fit self-center" disabled={!ready} onClick={() => login()}>
                 Connect
             </button>
         </div>

@@ -3,48 +3,74 @@
 import Link from 'next/link'
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from 'react'
-import { useConnectWallet, useSetChain } from '@web3-onboard/react';
 import RivesLogo from './svg/RivesLogo';
 import MenuIcon from '@mui/icons-material/Menu';
 import { Menu } from '@headlessui/react'
+import { usePrivy } from '@privy-io/react-auth';
+// import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 function Navbar() {
     const pathname = usePathname();
-    const [{ wallet, connecting }, connect, disconnect] = useConnectWallet();
-    const [{ chains, connectedChain }, setChain] = useSetChain();
     const [connectButtonTxt, setConnectButtonTxt] = useState<React.JSX.Element>(<span>Connect</span>);
+    
+    const {ready, authenticated, login, logout, user, linkDiscord} = usePrivy();
+    // Disable login when Privy is not ready or the user is already authenticated
+    const disableLogin = !ready || (ready && authenticated);
 
     useEffect(() => {
-        if (!connectedChain) return;
+        if (!user) {
+            setConnectButtonTxt(<span>Connect</span>);
+            return;
+        }
 
-        chains.forEach((chain) => {
-            if (connectedChain.id == chain.id) return;
-        })
+        if ((ready && authenticated) && !user.discord) {
+            linkDiscord();
+        }
 
-        setChain({chainId: chains[0].id});
-
-      }, [connectedChain])
-
-
-    useEffect(() => {
-        if (connecting) {
-            setConnectButtonTxt(<span>Connecting</span>);
-        } else if (wallet) {
-            const currAddress = wallet.accounts[0].address;
-
+        if (user.discord) {
+            const userAddress = user.wallet?.address;
             setConnectButtonTxt(
                 <>
-                    <span>Disconnect</span>
                     <span className='text-[10px] opacity-50'>
-                        {currAddress.slice(0, 6)}...{currAddress.slice(currAddress.length-4)}
+                        {user.discord.username}
                     </span>
+                    <span>Disconnect</span>
+                    {
+                        userAddress?
+                            <span className='text-[10px] opacity-50'>
+                                {userAddress.slice(0, 6)}...{userAddress.slice(userAddress.length-4)}
+                                {/* <button className='border border-transparent hover:border-white ms-1'
+                                onMouseOver={(e) => {e.preventDefault()}}
+                                onClick={(e) => {e.stopPropagation(); copyToClipboard(userAddress);}}>
+                                    <ContentCopyIcon />
+                                </button> */}
+                            </span>
+                        :
+                            <></>
+                    }
                 </>
                 
             );
-        } else {
-            setConnectButtonTxt(<span>Connect</span>);
         }
-    }, [connecting, wallet])
+        // else if (user.linkedAccounts.length > 0 && user.linkedAccounts[0].type == 'wallet') {
+        //     const userAddress = user.linkedAccounts[0].address;
+        //     setConnectButtonTxt(
+        //         <>
+        //             <span>Disconnect</span>
+        //             <span className='text-[10px] opacity-50'>
+        //                 {userAddress.slice(0, 6)}...{userAddress.slice(userAddress.length-4)}
+        //             </span>
+        //         </> 
+        //     );
+
+        // }
+
+    }, [user])
+
+    // function copyToClipboard(s:string) {
+    //     navigator.clipboard.writeText(s);
+    //     alert(`${s} copied to clipboard!`);
+    // }
 
     return (
         <header className='header'>
@@ -69,9 +95,10 @@ function Navbar() {
             </Link>
 
             <div className='invisible lg:visible flex-1 flex justify-end h-full'>
-                <button className='navbar-item' disabled={connecting}
-                    onClick={() => (wallet ? disconnect(wallet) : connect())}
-                    title={wallet? wallet.accounts[0].address:""}
+                <button className='navbar-item'
+                    disabled={!ready}
+                    onClick={disableLogin?logout:login}
+                    title={user?.wallet?.address}
                 >
                     <div className='flex flex-col justify-center h-full'>
                         {connectButtonTxt}
@@ -140,10 +167,10 @@ function Navbar() {
                                 <div className='flex-1 flex justify-end h-full'>
                                     <button 
                                     className={`${active ? 'bg-rives-purple text-white' : 'text-black'
-                                    } group flex w-full items-center rounded-md px-2 py-2 text-sm`} 
-                                    disabled={connecting}
-                                    onClick={() => (wallet ? disconnect(wallet) : connect())}
-                                    title={wallet? wallet.accounts[0].address:""}
+                                    } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                                    disabled={!ready}
+                                    onClick={disableLogin?logout:login}
+                                    title={user?.wallet?.address}
                                     >
                                         <div className='flex flex-col justify-center h-full'>
                                             {connectButtonTxt}

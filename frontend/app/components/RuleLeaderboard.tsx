@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { sha256 } from "js-sha256";
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
-import { useConnectWallet } from '@web3-onboard/react';
+import { usePrivy } from '@privy-io/react-auth';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -104,8 +104,8 @@ function RuleLeaderboard({cartridge_id, rule, get_verification_outputs = false}:
     const [oldRule, setOldRule] = useState<string>();
 
     // user
-    const [{ wallet }] = useConnectWallet();
-    const userAddress = wallet? wallet.accounts[0].address.toLocaleLowerCase(): null;
+    const {user, ready, authenticated} = usePrivy();
+    const userAddress = ready && authenticated? user?.wallet?.address.toLowerCase(): "";
 
 
     const reloadScores = async (page: number) => {
@@ -204,7 +204,7 @@ function RuleLeaderboard({cartridge_id, rule, get_verification_outputs = false}:
                             const sender = verification_outputs ? tape.user_address : tape._msgSender;
                             const tapeId = verification_outputs ? tape.tape_hash : getTapeId(tape.tape);
                             const score = verification_outputs ? tape.score.toString() : "-";
-                            const userTape = userAddress == sender?.toLocaleLowerCase();
+                            const userTape = userAddress == sender?.toLowerCase();
                             return (
                                 <tr key={index} onClick={() => window.open(`/tapes/${tapeId}`, "_blank", "noopener,noreferrer")}
                                 className={`p-4 hover:games-list-selected-item ${userTape? "bg-gray-500":""}`}

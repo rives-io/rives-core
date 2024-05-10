@@ -2,16 +2,13 @@
 
 import { Parser } from "expr-eval";
 import { ethers } from "ethers";
-import Script from "next/script"
 import { useContext, useState, useEffect, useRef } from "react";
-import { useConnectWallet } from '@web3-onboard/react';
 
 import RestartIcon from '@mui/icons-material/RestartAlt';
 import StopIcon from '@mui/icons-material/Stop';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
-import PauseIcon from '@mui/icons-material/Pause';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import { GIF_FRAME_FREQ, gameplayContext } from "../play/GameplayContextProvider";
 import { sha256 } from "js-sha256";
@@ -22,6 +19,7 @@ import { RuleInfo } from "../backend-libs/core/ifaces";
 import { ContestStatus, formatBytes, getContestStatus, getContestStatusMessage } from "../utils/common";
 import Image from "next/image";
 import rivesLogo from '../../public/rives64px.png';
+import { usePrivy } from "@privy-io/react-auth";
 
 
 export interface TapeInfo {
@@ -134,23 +132,23 @@ function RivemuPlayer(
     const [speed, setSpeed] = useState(1.0);
 
     // signer
-    const [{ wallet }] = useConnectWallet();
-    const [signerAddress, setSignerAddress] = useState<string|null>(wallet? wallet.accounts[0].address.toLowerCase(): null);
+    const {user, ready, authenticated} = usePrivy();
+    const [signerAddress, setSignerAddress] = useState<string|null>(user && user.wallet? user.wallet.address.toLowerCase(): null);
 
     const rivemuRef = useRef<RivemuRef>(null);
 
     useEffect(() => {
         if (!isTape){
-            if (!wallet) {
+            if (!user || !user.wallet) {
                 setSignerAddress(null);
                 if (!isTape && rule_id) setEntropy("entropy");
             }
             else {
-                setSignerAddress(wallet.accounts[0].address.toLowerCase());
-                if (rule_id) setEntropy(generateEntropy(wallet.accounts[0].address.toLowerCase(), rule_id));
+                setSignerAddress(user.wallet.address.toLowerCase());
+                if (rule_id) setEntropy(generateEntropy(user.wallet.address.toLowerCase(), rule_id));
             }
         }
-    },[wallet]);
+    },[user]);
 
     useEffect(() => {
         if (rule_id) {
@@ -221,7 +219,7 @@ function RivemuPlayer(
 
     if (loadingMessage) {
         return (
-            <main className="flex items-center justify-center text-white grid grid-cols-1 gap-4 place-items-center">
+            <main className="items-center justify-center text-white grid grid-cols-1 gap-4 place-items-center">
                 <div className="flex space-x-2">
                     <Image className="animate-bounce" src={rivesLogo} alt='RiVES logo'/>
                 </div>
