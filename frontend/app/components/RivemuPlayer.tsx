@@ -472,7 +472,7 @@ function RivemuPlayer(
                         </button>
                     : (paused ?     
                         <button className={'absolute gameplay-screen text-gray-500 hover:text-white t-0 backdrop-blur-sm border border-gray-500'} onClick={pause}>
-                            <PauseIcon className='text-7xl' />
+                            <PlayArrowIcon className='text-7xl' />
                         </button>
                     : <></>)
                     }

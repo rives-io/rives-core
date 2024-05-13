@@ -3,8 +3,7 @@
 import React from 'react'
 import { Parser } from "expr-eval";
 import { ethers } from "ethers";
-import Script from "next/script"
-import { useContext, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useConnectWallet } from '@web3-onboard/react';
 
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -19,23 +18,19 @@ import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import StopIcon from '@mui/icons-material/Stop';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import FastForwardIcon from '@mui/icons-material/FastForward';
 import PauseIcon from '@mui/icons-material/Pause';
 import ReplayIcon from '@mui/icons-material/Replay';
 import UploadIcon from '@mui/icons-material/Upload';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
-import { DemoContainer, DemoItem } from '@mui/x-date-pickers/internals/demo';
 import { sha256 } from "js-sha256";
 import { envClient } from "../utils/clientEnv";
 import { CartridgesOutput, cartridge, cartridgeInfo, cartridges, createRule, insertCartridge, rules, ruleTags as getRuleTags, RuleTagsOutput } from "../backend-libs/core/lib";
 import Rivemu, { RivemuRef } from "./Rivemu";
-import { CartridgeInfo, RuleInfo, InfoCartridge, CartridgePayload, RuleData, InserCartridgePayload } from "../backend-libs/core/ifaces";
+import { CartridgeInfo, RuleInfo, InfoCartridge, RuleData, InserCartridgePayload } from "../backend-libs/core/ifaces";
 
 import ErrorModal, { ERROR_FEEDBACK } from "./ErrorModal";
 
@@ -60,8 +55,7 @@ const getCartridges = async ():Promise<CartridgeInfo[]> => {
         {
             decode:true,
             decodeModel:"CartridgesOutput",
-            cartesiNodeUrl: envClient.CARTESI_NODE_URL,
-            cache:"force-cache"
+            cartesiNodeUrl: envClient.CARTESI_NODE_URL
         }
     );
     const data: CartridgeInfo[] = out.data;
