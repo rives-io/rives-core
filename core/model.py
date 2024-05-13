@@ -74,7 +74,7 @@ class Author(BaseModel):
     name:           str
     link:           str
 
-class CartridgeInfo(BaseModel):
+class InfoCartridge(BaseModel):
     name:           str
     summary:        Optional[str]
     description:    Optional[str]
@@ -300,7 +300,7 @@ def create_cartridge(cartridge_data,**metadata):
     
     # validate info
     cartridge_info_json = json.loads(cartridge_info)
-    CartridgeInfo(**cartridge_info_json)
+    InfoCartridge(**cartridge_info_json)
 
     # check if cartridge runs
     test_replay_file = open(CoreSettings.test_tape_path,'rb')

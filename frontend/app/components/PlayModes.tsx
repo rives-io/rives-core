@@ -1,11 +1,9 @@
 "use client"
 
-import { getOutputs, RulesOutput, rules, VerifyPayloadInput } from '../backend-libs/core/lib';
-import {  ethers } from "ethers";
+import { rules } from '../backend-libs/core/lib';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import { envClient } from '../utils/clientEnv';
 import React, { useContext, useEffect, useState } from 'react';
-import { sha256 } from "js-sha256";
 import { GetRulesPayload, RuleInfo } from '../backend-libs/core/ifaces';
 import { ContestStatus, Contest, getContestStatus, getContestStatusMessage } from '../utils/common';
 import Link from 'next/link';
@@ -25,7 +23,10 @@ function PlayModes() {
         const inputPayload: GetRulesPayload = {
             cartridge_id: selectedCartridge?.id
         };
-        rules(inputPayload, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true}).then((rules) => setRulesInfo(rules.data));
+        rules(inputPayload, {cartesiNodeUrl: envClient.CARTESI_NODE_URL, decode: true}).then((rules) => {
+            setRulesInfo(rules.data);
+            if (rules.data.length > 0) setSelectedRule(rules.data[0]);
+        });
     }, [selectedCartridge?.id])
 
     if (!selectedCartridge) {

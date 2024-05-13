@@ -27,21 +27,13 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
     // rivemu state
     const [runtimeInitialized, setRuntimeInitialized] = useState(false);
 
-    useImperativeHandle(ref, () => ({
+	useImperativeHandle(ref, () => ({
 		start: rivemuStart,
         stop: rivemuStop,
         fullScreen: rivemuFullscreen,
         setSpeed: rivemuSetSpeed
 	}));
-
-    if (!cartridge_data) {
-        return (
-            <main className="flex items-center justify-center h-lvh text-white">
-                No Cartridge...
-            </main>
-        )
-    }
-      
+    
     // BEGIN: rivemu
     async function rivemuStart() {
         if (!cartridge_data || cartridge_data.length == 0) return;
@@ -141,7 +133,7 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
 
     async function rivemuStop() {
         console.log("rivemuStop");
-        rivemuHalt();
+        await rivemuHalt();
     }
 
     function rivemuFullscreen() {
@@ -152,10 +144,8 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
     }
 
     function rivemuSetSpeed(speed: number) {
-        if (tape && tape.length > 0) {
-            // @ts-ignore:next-line
-            Module.ccall('rivemu_set_speed', null, ['number'], [speed]);
-        }
+        // @ts-ignore:next-line
+        Module.ccall('rivemu_set_speed', null, ['number'], [speed]);
     }
 
     if (typeof window !== "undefined") {
@@ -169,11 +159,13 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
         window.rivemu_on_finish = rivemu_on_finish;
     }
     // END: rivemu
-
+      
     return (
         <main className="flex items-center justify-center">
-            <canvas
-                className='gameplay-screen t-0 border border-gray-500'
+            { !cartridge_data ?
+            <div className="text-white">No Cartridge...</div>
+            :<canvas
+                className='gameplay-screen border border-gray-500'
                 id="canvas"
                 onContextMenu={(e) => e.preventDefault()}
                 tabIndex={-1}
@@ -181,13 +173,13 @@ const Rivemu = forwardRef<RivemuRef,RivemuProps> ((props,ref) => {
                     imageRendering: "pixelated",
                     objectFit: "contain"
                 }}
-            />
+            />}
             <Script src="/rivemu.js?" strategy="lazyOnload" />
             <Script src="/initializeRivemu.js?" strategy="lazyOnload" />
         </main>
     )
 })
 
-Rivemu.displayName = 'Rivemu';
+Rivemu.displayName = "Rivemu";
 
 export default Rivemu

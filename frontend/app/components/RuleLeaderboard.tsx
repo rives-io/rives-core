@@ -202,7 +202,7 @@ function RuleLeaderboard({cartridge_id, rule, get_verification_outputs = false}:
                             const tapets = verification_outputs ? tape.timestamp : tape._timestamp;
                             const tapeDate = new Date(Number(tapets)*1000);
                             const sender = verification_outputs ? tape.user_address : tape._msgSender;
-                            const tapeId = verification_outputs ? tape.tape_hash : getTapeId(tape.tape);
+                            const tapeId = verification_outputs ? tape.tape_hash.slice(2) : getTapeId(tape.tape);
                             const score = verification_outputs ? tape.score.toString() : "-";
                             const userTape = userAddress == sender?.toLocaleLowerCase();
                             return (
