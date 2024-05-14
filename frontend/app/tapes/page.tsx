@@ -98,7 +98,6 @@ export default function Tapes() {
   if (typeof window !== "undefined") {
     window.onscroll = function(ev) {
       if ((window.innerHeight + Math.round(window.scrollY)) >= document.body.offsetHeight) {
-        console.log("bottom of the page");
         nextPage();
       }
     };  
@@ -223,7 +222,7 @@ export default function Tapes() {
                       {scores[tapeId] ? <span className="text-xs">Score: {scores[tapeId]?.toString()}</span> : <></>}
                     </div>
 
-                    <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-50">
+                    <div className="absolute bottom-0 text-center w-64 p-2 text-[8px] h-fit bg-black bg-opacity-50 flex flex-col">
                       <span>Mode: {ruleName}</span><br />
                       <span>{player} on {timestamp}</span>
                       <span>Size {size}</span>

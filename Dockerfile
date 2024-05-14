@@ -54,7 +54,7 @@ COPY misc/antcopter.sqfs misc/antcopter.sqfs
 # COPY misc/monky.sqfs misc/monky.sqfs
 # COPY misc/breakout.sqfs misc/breakout.sqfs
 # COPY misc/particles.sqfs misc/particles.sqfs
-# COPY misc/tetrix.sqfs misc/tetrix.sqfs
+COPY misc/tetrix.sqfs misc/tetrix.sqfs
 COPY misc/test.rivlog misc/test.rivlog
 
 

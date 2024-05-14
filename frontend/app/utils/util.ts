@@ -1,5 +1,5 @@
 import { envClient } from "./clientEnv";
-import { base, mainnet, sepolia, polygon, polygonMumbai, Chain } from 'viem/chains';
+import { anvil, base, mainnet, sepolia, polygon, polygonMumbai, Chain } from 'viem/chains';
 import { isHex, fromHex } from 'viem'
 
 export function delay(ms: number) {
@@ -193,6 +193,7 @@ chains[mainnet.id] = mainnet;
 chains[sepolia.id] = sepolia;
 chains[polygon.id] = polygon;
 chains[polygonMumbai.id] = polygon;
+chains[anvil.id] = anvil;
 
 export function getChain(chainId:number):Chain;
 export function getChain(chainId:string):Chain;

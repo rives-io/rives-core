@@ -5,6 +5,8 @@ import { getChain } from './util';
 import { envClient } from './clientEnv';
 
 export default function PrivyProviders({children}: {children: React.ReactNode}) {
+  const chain = getChain(envClient.NETWORK_CHAIN_ID);
+
   return (
     <PrivyProvider
       appId="clu7afadg02xd7ei97jlmd3vj"
@@ -18,7 +20,8 @@ export default function PrivyProviders({children}: {children: React.ReactNode}) 
         // embeddedWallets: {
         //   createOnLogin: 'users-without-wallets',
         // },
-        defaultChain: getChain(envClient.NETWORK_CHAIN_ID)
+        defaultChain: chain,
+        supportedChains: [chain]
       }}
     >
       {children}

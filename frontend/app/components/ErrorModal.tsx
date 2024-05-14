@@ -18,13 +18,14 @@ type ERROR_OPTIONS_TYPE = ERROR[number];
 export interface ERROR_FEEDBACK {
     severity:ERROR_OPTIONS_TYPE,
     message:string,
-    dismissible:boolean
+    dismissible:boolean,
+    dissmissFunction?():void
 }
 
 
 
-export default function ErrorModal({error, dissmissFunction}:{error:ERROR_FEEDBACK, dissmissFunction?():void}) {
-    if (error.dismissible && !dissmissFunction) throw new Error("Dissmissible Error missing dissmissFunction!")
+export default function ErrorModal({error}:{error:ERROR_FEEDBACK}) {
+    if (error.dismissible && !error.dissmissFunction) throw new Error("Dissmissible Error missing dissmissFunction!")
 
     let color:string;
 
@@ -40,7 +41,7 @@ export default function ErrorModal({error, dissmissFunction}:{error:ERROR_FEEDBA
     return (
         <>    
             <Transition appear show={true} as={Fragment}>
-                <Dialog as="div" className="relative z-10" onClose={error.dismissible? () => {dissmissFunction!()}:() => null}>
+                <Dialog as="div" className="relative z-10" onClose={error.dismissible? () => {error.dissmissFunction!()}:() => null}>
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-300"
@@ -77,7 +78,7 @@ export default function ErrorModal({error, dissmissFunction}:{error:ERROR_FEEDBA
                                         }
                                         
                                     </Dialog.Title>
-                                    <div className='flex w-96 flex-wrap justify-center'>
+                                    <div className='flex w-96 flex-wrap justify-center [overflow-wrap:anywhere]'>
                                         <span>{error.message}</span>
                                     </div>
 
@@ -85,7 +86,7 @@ export default function ErrorModal({error, dissmissFunction}:{error:ERROR_FEEDBA
                                         error.dismissible?
                                             <button 
                                             className={`mt-4 bg-${color}-500 text-white p-3 border border-${color}-500 hover:text-${color}-500 hover:bg-transparent`}
-                                            onClick={dissmissFunction}
+                                            onClick={error.dissmissFunction}
                                             >
                                                 OK
                                             </button>

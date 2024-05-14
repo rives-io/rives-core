@@ -84,7 +84,7 @@ function calculateTapeId(log: Uint8Array): string {
 
 function GameplaySubmitter() {
     const {player, gameplay, getGifParameters, clearGifFrames} = useContext(gameplayContext);
-    const {login} = usePrivy();
+    const {user, ready, connectWallet} = usePrivy();
     const {wallets} = useWallets();
     const [tapeURL, setTapeURL] = useState("");
     const [gifImg, setGifImg] = useState("");
@@ -105,7 +105,7 @@ function GameplaySubmitter() {
 
     useEffect(() => {
         // show warning message if user is not connected
-        if (!wallets) {
+        if (ready && !user) {
             const error:ERROR_FEEDBACK = {
                 severity: "alert",
                 message: "You need to be connect for your gameplay to be saved!",
@@ -122,7 +122,7 @@ function GameplaySubmitter() {
         } else {
             setErrorFeedback(undefined);
         }
-    }, [wallets])
+    }, [user])
 
     useEffect(() => {
         if (!gameplay) {
@@ -154,9 +154,17 @@ function GameplaySubmitter() {
             return;
         }
 
-        if (!wallets) {
-            alert("Connect first to upload a gameplay log.");
-            login();
+        const wallet = wallets.find((wallet) => wallet.address === user!.wallet!.address)
+        if (!wallet) {
+            setErrorFeedback(
+                {
+                    message:`Please connect your wallet ${user!.wallet!.address}`, severity: "warning",
+                    dismissible: true,
+                    dissmissFunction: () => {setErrorFeedback(undefined); connectWallet();}
+                }
+            );
+
+            return;
         }
 
         // get cartridgeInfo asynchronously
@@ -164,7 +172,7 @@ function GameplaySubmitter() {
         .then(setGameInfo);
 
         // submit the gameplay
-        const provider = await wallets[0].getEthereumProvider();
+        const provider = await wallet.getEthereumProvider();
         const signer = new ethers.providers.Web3Provider(provider, 'any').getSigner();
         const inputData: VerifyPayload = {
             rule_id: '0x' + gameplay.rule_id,
@@ -298,7 +306,7 @@ function GameplaySubmitter() {
     }
 
     if (errorFeedback) {
-        return <ErrorModal error={errorFeedback} dissmissFunction={() => {setErrorFeedback(undefined)}} />;
+        return <ErrorModal error={errorFeedback} />;
     }
 
 

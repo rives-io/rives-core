@@ -72,7 +72,7 @@ export default async function Contests() {
             contests.map((contest, index) => {
               if (!contest.start || !contest.end) return <></>;
               return (
-                <Link key={index} href={`/contest/${contest.id}`}
+                <Link key={index} href={`/contests/${contest.id}`}
                   className="bg-gray-400 flex flex-wrap justify-between p-4 border-2 border-transparent hover:border-white"
                 >
     

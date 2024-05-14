@@ -74,24 +74,20 @@ function Navbar() {
 
     return (
         <header className='header'>
-            <Link href={"/"} className={`h-full grid grid-cols-1 items-center navbar-item ${pathname === "/" ? "link-active" : "" }`}>
-                <RivesLogo style={{width:100}}/>
+            <Link href={"/"} className={`min-w-24 grid grid-cols-1 items-center navbar-item ${pathname === "/" ? "lg:link-active" : "" }`}>
+                <RivesLogo className="w-full min-w-16 max-w-28" />
             </Link>
 
-            <a href={"/cartridges"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/cartridges" ? "link-active" : "" }`}>
+            <Link href={"/cartridges"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname.startsWith("/cartridges") ? "lg:link-active" : "" }`}>
                 <p>Cartridges</p>
-            </a>
+            </Link>
 
-            <Link href={"/contests"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/contests" ? "link-active" : "" }`}>
+            <Link href={"/contests"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname.startsWith("/contests") ? "lg:link-active" : "" }`}>
                 Contests
             </Link>
 
-            <Link href={"/tapes"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/tapes" ? "link-active" : "" }`}>
+            <Link href={"/tapes"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname.startsWith("/tapes") ? "lg:link-active" : "" }`}>
                 Tapes
-            </Link>
-
-            <Link href={"/upload-cartridge"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname === "/upload-cartridge" ? "link-active" : "" }`}>
-                Upload Cartridge
             </Link>
 
             <div className='invisible lg:visible flex-1 flex justify-end h-full'>
@@ -112,12 +108,12 @@ function Navbar() {
                     <div className="px-1 py-1 ">
                         <Menu.Item>
                             {({ active }) => (
-                                <a 
+                                <Link 
                                 href={"/cartridges"} 
                                 className={`${pathname === "/cartridges" || active? 'bg-rives-purple text-white' : 'text-black' 
                                 } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
                                     Cartridges
-                                </a>
+                                </Link>
                             )}
                         </Menu.Item>
                     </div>
@@ -143,19 +139,6 @@ function Navbar() {
                                 className={`${pathname === "/tapes" || active ? 'bg-rives-purple text-white' : 'text-black'
                                 } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
                                     Tapes
-                                </Link>
-                            )}
-                        </Menu.Item>
-                    </div>
-
-                    <div className="px-1 py-1">
-                        <Menu.Item>
-                            {({ active }) => (
-                                <Link 
-                                href={"/upload-cartridge"} 
-                                className={`${pathname === "/upload-cartridge" || active ? 'bg-rives-purple text-white' : 'text-black'
-                                } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
-                                    Upload Cartridge
                                 </Link>
                             )}
                         </Menu.Item>
