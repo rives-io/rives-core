@@ -64,10 +64,6 @@ function Navbar() {
                 Tapes
             </Link>
 
-            <Link href={"/devs-area"} className={`invisible lg:visible h-full grid grid-cols-1 items-center navbar-item ${pathname.startsWith("/devs-area") ? "lg:link-active" : "" }`}>
-                Devs Area
-            </Link>
-
             <div className='invisible lg:visible flex-1 flex justify-end h-full'>
                 <button className='navbar-item' disabled={connecting}
                     onClick={() => (wallet ? disconnect(wallet) : connect())}
@@ -116,19 +112,6 @@ function Navbar() {
                                 className={`${pathname === "/tapes" || active ? 'bg-rives-purple text-white' : 'text-black'
                                 } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
                                     Tapes
-                                </Link>
-                            )}
-                        </Menu.Item>
-                    </div>
-
-                    <div className="px-1 py-1">
-                        <Menu.Item>
-                            {({ active }) => (
-                                <Link 
-                                href={"/devs-area"} 
-                                className={`${pathname === "/devs-area" || active ? 'bg-rives-purple text-white' : 'text-black'
-                                } group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
-                                    Devs Area
                                 </Link>
                             )}
                         </Menu.Item>

@@ -67,7 +67,6 @@ export default async function Contest({ params }: { params: { contest_id: string
   const status = getContestStatus(contest);
   const contestIsOpen = status == ContestStatus.IN_PROGRESS;
   const game = await getGameInfo(contest.cartridge_id);
-  console.log(status, ContestStatus[status])
   if (status == ContestStatus.VALIDATED) {
     contestMetadata.winner = await getWinner(contest.cartridge_id,contest_id);
   }
