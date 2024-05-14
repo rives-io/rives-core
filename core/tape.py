@@ -138,7 +138,7 @@ def create_rule(payload: RulePayload) -> bool:
         test_replay = test_replay_file.read()
         test_replay_file.close()
 
-        with open(f"{get_cartridges_path()}/{payload.cartridge_id}",'rb')as cartridge_file:
+        with open(f"{get_cartridges_path()}/{payload.cartridge_id.hex()}",'rb')as cartridge_file:
             cartridge_data = cartridge_file.read()
 
         verification_output = verify_log(cartridge_data,test_replay,payload.args,payload.in_card)
@@ -482,7 +482,7 @@ def rule_tags(payload: GetRuleTagsPayload) -> bool:
         tags_query = tags_query.filter(lambda r: r.cartridge_id == payload.cartridge_id)
 
     tag_names = helpers.select(r.name for r in tags_query).fetch()
-    out = RuleTagsOutput.parse_obj({"tags":tag_names})
+    out = RuleTagsOutput.parse_obj({"tags":list(tag_names)})
     add_output(out)
 
     return True

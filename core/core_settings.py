@@ -59,4 +59,4 @@ def generate_entropy(user_address: str, rule_id: str) -> str:
     return sha256(hex2bytes(user_address) + hex2bytes(rule_id)).hexdigest()
 
 def generate_rule_parameters_tag(args: str, in_card: bytes, score_function: str) -> str:
-    return sha256(hex2bytes(args) + in_card + hex2bytes(score_function)).hexdigest()
+    return sha256(str2bytes(args) + in_card + str2bytes(score_function)).hexdigest()

@@ -2,7 +2,6 @@
 
 import { Parser } from "expr-eval";
 import { ethers } from "ethers";
-import Script from "next/script"
 import { useContext, useState, useEffect, useRef } from "react";
 import { useConnectWallet } from '@web3-onboard/react';
 
@@ -10,9 +9,10 @@ import RestartIcon from '@mui/icons-material/RestartAlt';
 import StopIcon from '@mui/icons-material/Stop';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ReplayIcon from '@mui/icons-material/Replay';
+import Box from '@mui/material/Box';
+import Slider from '@mui/material/Slider';
 import PauseIcon from '@mui/icons-material/Pause';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import { GIF_FRAME_FREQ, gameplayContext } from "../play/GameplayContextProvider";
 import { sha256 } from "js-sha256";
 import { envClient } from "../utils/clientEnv";
@@ -125,13 +125,15 @@ function RivemuPlayer(
     const [entropy, setEntropy] = useState<string>("entropy");
     const [currScore, setCurrScore] = useState<number>();
     const [playing, setPlaying] = useState({isPlaying: false, playCounter: 0})
-    const [currProgress, setCurrProgress] = useState<number>();
+    const [currProgress, setCurrProgress] = useState<number>(0);
+    const [skipToFrame, setSkipToFrame] = useState<number>();
     const [totalFrames, setTotalFrames] = useState<number>();
     const [lastFrameIndex, setLastFrameIndex] = useState<number>();
     const [loadingMessage, setLoadingMessage] = useState<string|undefined>("Initializing");
     const [errorMessage, setErrorMessage] = useState<string>();
     const [paused, setPaused] = useState(false);
     const [speed, setSpeed] = useState(1.0);
+    const [restarting, setRestarting] = useState(false);
 
     // signer
     const [{ wallet }] = useConnectWallet();
@@ -159,6 +161,12 @@ function RivemuPlayer(
         if (tape_id) {
             loadTape(tape_id, rule_id == undefined);
         }
+        document.addEventListener("visibilitychange", (event) => {
+            if (document.visibilityState == "hidden") {
+                rivemuRef.current?.setSpeed(0);
+                setPaused(true);
+            }
+          });
     }, []);
 
     const loadRule = (ruleId:string, currTapeInfo?: TapeInfo) => {
@@ -254,12 +262,13 @@ function RivemuPlayer(
         cpu_usage: number,
         cpu_quota: number
     ) {
-        if (scoreFunctionEvaluator && decoder.decode(outcard.slice(0,4)) == 'JSON') {
-            const outcard_str = decoder.decode(outcard);
-            const outcard_json = JSON.parse(outcard_str.substring(4));
-            setCurrScore(scoreFunctionEvaluator.evaluate(outcard_json));
-        }
         if (isTape && totalFrames && totalFrames != 0){
+            if (skipToFrame) {
+                setCurrProgress(Math.round(100 * skipToFrame/totalFrames));
+                if (frame < skipToFrame) return;
+                setSkipToFrame(undefined);
+                rivemuRef.current?.setSpeed(speed);
+            }
             setCurrProgress(Math.round(100 * frame/totalFrames));
         } else if (lastFrameIndex == undefined || frame >= lastFrameIndex + fps/GIF_FRAME_FREQ) {
             const canvas = document.getElementById("canvas");
@@ -268,6 +277,11 @@ function RivemuPlayer(
             const frameImage = (canvas as HTMLCanvasElement).toDataURL('image/jpeg');
             addGifFrame(frameImage);
             setLastFrameIndex(frame);
+        }
+        if (scoreFunctionEvaluator && decoder.decode(outcard.slice(0,4)) == 'JSON') {
+            const outcard_str = decoder.decode(outcard);
+            const outcard_json = JSON.parse(outcard_str.substring(4));
+            setCurrScore(scoreFunctionEvaluator.evaluate(outcard_json));
         }
     };
 
@@ -285,6 +299,7 @@ function RivemuPlayer(
             setGameplayOwner(signerAddress || "0x");
             setGifResolution(width, height);
         }
+        setRestarting(false);
     };
 
     const rivemuOnFinish = function (
@@ -296,7 +311,7 @@ function RivemuPlayer(
         console.log("rivemu_on_finish")
         if (isTape && totalFrames && totalFrames != 0)
             setCurrProgress(100);
-        if (!isTape && rule && signerAddress) {
+        if (!isTape && rule && signerAddress && !restarting) {
             let score: number | undefined = undefined;
             if (scoreFunctionEvaluator && decoder.decode(outcard.slice(0,4)) == 'JSON') {
                 const outcard_str = decoder.decode(outcard);
@@ -317,21 +332,32 @@ function RivemuPlayer(
             );
             if (document.fullscreenElement) document.exitFullscreen();
         }
-        setPlaying({isPlaying: false, playCounter: playing.playCounter+1});
+        if (restarting)
+            setPlaying({...playing, playCounter: playing.playCounter+1});
+        else
+            setPlaying({isPlaying:false, playCounter: playing.playCounter+1});
     };
 
     async function play() {
-        await rivemuRef.current?.start();
+        setSpeed(1.0);
+        setPaused(false);
+        setRestarting(true);
+        setSkipToFrame(undefined);
+        rivemuRef.current?.start();
         setPlaying({...playing, isPlaying: true});
     }
 
     async function pause() {
-        if (paused){
-            await rivemuRef.current?.setSpeed(speed);
-        } else {
-            await rivemuRef.current?.setSpeed(0);
+        console.log("pause",playing.isPlaying)
+        if (playing.isPlaying) {
+            if (paused){
+                rivemuRef.current?.setSpeed(speed);
+            } else {
+                rivemuRef.current?.setSpeed(0);
+            }
+            setPaused(!paused);
+            setSkipToFrame(undefined);
         }
-        setPaused(!paused);
     }
 
     async function rivemuChangeSpeed() {
@@ -349,13 +375,29 @@ function RivemuPlayer(
         }
         setSpeed(newSpeed);
         if (!paused) {
-            await rivemuRef.current?.setSpeed(newSpeed);
+            rivemuRef.current?.setSpeed(newSpeed);
         }
-      }
+    }
       
+    async function stop() {
+        rivemuRef.current?.stop();
+        setPlaying({...playing, isPlaying: false,});
+    }
+
+    const handleSliderChange = (event: Event, newValue: number | number[]) => {
+        if (!isTape || !totalFrames) return;
+        const valueToset = newValue as number > currProgress ? newValue as number : currProgress;
+        setCurrProgress(valueToset);
+    };
+
+    const handleSliderChangeCommited = (event: React.SyntheticEvent | Event, newValue: number | number[]) => {
+        if (!isTape || !totalFrames) return;
+        setSkipToFrame(Math.round((newValue as number) * totalFrames/100));
+        rivemuRef.current?.setSpeed(10);
+    };
     return (
         <main className="flex items-center justify-center">
-            <section className="grid grid-cols-1 gap-4 place-items-center">
+            <section className="grid grid-cols-1 gap-1 place-items-center">
                 <span className="text-white" >Play mode: {rule?.name}</span>
                 {isTape && tapeInfo ? 
                     <span className="text-xs text-white">Tape from {tapeInfo.player} on {tapeInfo.timestamp} {tapeInfo.score ? "with score "+tapeInfo.score : ""} ({tapeInfo.size})</span> : 
@@ -366,11 +408,29 @@ function RivemuPlayer(
                 <div className='grid grid-cols-3 bg-gray-500 p-2 text-center'>
                     <div className="flex justify-start gap-2">
                         <button className="justify-self-start bg-gray-700 text-white border border-gray-700 hover:border-black"
-                        title="Restart"
+                        title={isTape ? "Restart" :"Record"}
                         onKeyDown={() => null} onKeyUp={() => null}
                         onClick={play}>
-                            <RestartIcon/>
+                            {isTape ? <RestartIcon/> : <FiberManualRecordIcon/>}
                         </button>
+                        <button className="justify-self-end bg-gray-700 text-white border border-gray-700 hover:border-black"
+                        title="Pause/Resume"
+                        disabled={!playing.isPlaying}
+                        onKeyDown={() => null} onKeyUp={() => null}
+                        onClick={pause}
+                        >
+                            <PauseIcon/>
+                        </button>
+
+                        <button className="justify-self-end bg-red-500 text-white border border-gray-700 hover:border-black"
+                        title="Stop"
+                        disabled={!playing.isPlaying}
+                        onKeyDown={() => null} onKeyUp={() => null}
+                        onClick={stop}
+                        >
+                            <StopIcon/>
+                        </button>
+
                     </div>
 
                     <div>
@@ -380,7 +440,7 @@ function RivemuPlayer(
                     <div className="flex justify-end gap-2">
                         <button className="justify-self-end bg-gray-700 text-white border border-gray-700 hover:border-black font-thin"
                         title="Change Speed"
-                        hidden={!playing.isPlaying || !isTape}
+                        disabled={!playing.isPlaying}
                         onKeyDown={() => null} onKeyUp={() => null}
                         onClick={rivemuChangeSpeed}
                         >
@@ -388,26 +448,8 @@ function RivemuPlayer(
                         </button>
 
                         <button className="justify-self-end bg-gray-700 text-white border border-gray-700 hover:border-black"
-                        title="Play/pause"
-                        hidden={!playing.isPlaying || !isTape}
-                        onKeyDown={() => null} onKeyUp={() => null}
-                        onClick={pause}
-                        >
-                            <SkipNextIcon/>
-                        </button>
-
-                        <button className="justify-self-end bg-red-500 text-white border border-gray-700 hover:border-black"
-                        title="Stop"
-                        hidden={!playing.isPlaying}
-                        onKeyDown={() => null} onKeyUp={() => null}
-                        onClick={rivemuRef.current?.stop}
-                        >
-                            <StopIcon/>
-                        </button>
-
-                        <button className="justify-self-end bg-gray-700 text-white border border-gray-700 hover:border-black"
                         title="Fullscreen"
-                        hidden={!playing.isPlaying}
+                        disabled={!playing.isPlaying}
                         onKeyDown={() => null} onKeyUp={() => null}
                         onClick={rivemuRef.current?.fullScreen}
                         >
@@ -418,16 +460,22 @@ function RivemuPlayer(
                 </div>
                     <div className="relative">
                     { !playing.isPlaying?
-                        <button className={'absolute gameplay-screen text-gray-500 hover:text-white t-0 backdrop-blur-sm border border-gray-500'} onClick={play}>
+                        <button className={'absolute gameplay-screen text-gray-500 hover:text-white t-0 backdrop-blur-sm border border-gray-500'} onClick={play}
+                        title={isTape ? "Replay": "Record"}>
                             {
                                 playing.playCounter === 0?
                                     <PlayArrowIcon className='text-7xl'/>
                                 :
-                                    <ReplayIcon className='text-7xl'/>
+                                (isTape ? <RestartIcon className='text-7xl' /> : <PlayArrowIcon className='text-7xl'/>)
                             }
                             
                         </button>
-                    : <></> }
+                    : (paused ?     
+                        <button className={'absolute gameplay-screen text-gray-500 hover:text-white t-0 backdrop-blur-sm border border-gray-500'} onClick={pause}>
+                            <PlayArrowIcon className='text-7xl' />
+                        </button>
+                    : <></>)
+                    }
                         <Rivemu ref={rivemuRef} cartridge_data={cartridgeData} args={rule.args} entropy={entropy}
                             tape={tape?.tape && tape.tape.length > 0 && ethers.utils.arrayify(tape.tape)}
                             in_card={rule.in_card && rule.in_card.length > 0 ? ethers.utils.arrayify(rule.in_card) : new Uint8Array([])} 
@@ -436,9 +484,18 @@ function RivemuPlayer(
                     </div>
                 </div>
                 {isTape ? 
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                    <div className="bg-blue-600 h-2.5 rounded-full" style={{width: `${currProgress}%`}}></div>
-                </div>
+                    <div className="w-full">
+                    <Box sx={{ width: "100%'" }}>
+                    <Slider
+                        size="small"
+                        aria-label="Progress"
+                        valueLabelDisplay="auto"
+                        value={currProgress}
+                        onChange={handleSliderChange}
+                        onChangeCommitted={handleSliderChangeCommited}
+                    />
+                    </Box>
+                    </div>
                 : <></>}
             </section>
         </main>

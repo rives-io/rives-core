@@ -10,7 +10,7 @@ from cartesapp.context import get_metadata
 from cartesapp.input import query, mutation
 from cartesapp.output import event, output, add_output, emit_event, index_input
 
-from .model import Cartridge, CartridgeInfo as Info, create_cartridge, delete_cartridge, StringList
+from .model import Cartridge, InfoCartridge, create_cartridge, delete_cartridge, StringList
 from .core_settings import get_cartridges_path
 
 LOGGER = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class CartridgeInfo(BaseModel):
     name: String
     user_address: String
     authors: StringList
-    info: Optional[Info]
+    info: Optional[InfoCartridge]
     created_at: UInt
     cover: Optional[str] # encode to base64
 
