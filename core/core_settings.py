@@ -16,8 +16,8 @@ class CoreSettings:
     version = '0'
     rivemu_path = os.getenv('RIVEMU_PATH')
     operator_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    genesis_cartridges = ['antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
-    genesis_rules = {"antcopter":{"name":"Be quick as a cat","description":"A cat has 9 lives and so do you. Be swift and try to complete AntCopter as fast as you can to achieve your best score.","args":"9","score_function":"score","start":1714964400,"end":1715569200}}
+    genesis_cartridges = ['tetrix','antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
+    genesis_rules = {"tetrix":{"name":"Easy till it isn't","description":"Oh, this is so easy, wait, help! Get ready to prove your worth on a classic, sharpest mind scores the most!","score_function":"score","start":1715569200,"end":1716174000}}
 
 @setup()
 def setup_settings():

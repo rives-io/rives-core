@@ -113,7 +113,7 @@ class RuleTagsOutput(BaseModel):
 ###
 # Mutations
 
-@mutation(msg_sender=CoreSettings.operator_address)
+@mutation()
 def create_rule(payload: RulePayload) -> bool:
 
     # check if Cartridge exists

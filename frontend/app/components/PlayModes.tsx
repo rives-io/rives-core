@@ -51,7 +51,7 @@ function PlayModes() {
                             <span >{ruleInfo.name}</span>
                             {status != ContestStatus.INVALID ? <span className='text-xs'>
                                 { ruleInfo.id in contestsMetadata ?
-                                <Link href={`/contest/${ruleInfo.id}`} onClick={(e) => e.stopPropagation()} title='Contest page'>
+                                <Link href={`/contests/${ruleInfo.id}`} onClick={(e) => e.stopPropagation()} title='Contest page'>
                                     <MilitaryTechIcon className='text-[#ffb700] hover:text-[#ff8000]'/>
                                 </Link>
                                 : <></>}

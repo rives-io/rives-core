@@ -98,7 +98,6 @@ export default function Tapes() {
   if (typeof window !== "undefined") {
     window.onscroll = function(ev) {
       if ((window.innerHeight + Math.round(window.scrollY)) >= document.body.offsetHeight) {
-        console.log("bottom of the page");
         nextPage();
       }
     };  
