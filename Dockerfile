@@ -1,6 +1,6 @@
 # syntax=docker.io/docker/dockerfile:1.4
-ARG SUNODO_SDK_VERSION=0.4.0
-ARG SUNODO_SDK_RIV_VERSION=0.4.0-riv
+ARG CARTESI_SDK_VERSION=0.6.2
+ARG CARTESI_SDK_RIV_VERSION=0.6.2-riv
 ARG MACHINE_EMULATOR_TOOLS_VERSION=0.14.1
 ARG OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 ARG KERNEL_VERSION=0.19.1-riv1
@@ -10,9 +10,9 @@ ARG CM_CALLER_VERSION=0.1.0
 ARG NONODO_VERSION=0.0.1
 ARG RIVES_VERSION=0
 ARG DAGSTER_VERSION=1.7.2
-ARG SUNODO_DEVNET_VERSION=1.4.0
+ARG CARTESI_DEVNET_VERSION=1.4.0
 
-FROM sunodo/sdk:${SUNODO_SDK_VERSION} as sunodo-riv-sdk
+FROM cartesi/sdk:${CARTESI_SDK_VERSION} as cartesi-riv-sdk
 
 ARG KERNEL_VERSION
 
@@ -61,11 +61,11 @@ COPY misc/test.rivlog misc/test.rivlog
 WORKDIR /opt/cartesi/dapp
 
 # inputbox contract
-FROM sunodo/devnet:${SUNODO_DEVNET_VERSION} as contracts
+FROM cartesi/devnet:${CARTESI_DEVNET_VERSION} as contracts
 
 WORKDIR /opt/cartesi/build
 
-RUN cat /usr/share/sunodo/localhost.json | jq '.contracts.InputBox' > InputBox.json
+RUN cat /usr/share/cartesi/localhost.json | jq '.contracts.InputBox' > InputBox.json
 
 
 # external verification services
@@ -129,9 +129,9 @@ ENV RIVES_VERSION=${RIVES_VERSION}
 
 FROM --platform=linux/riscv64 cartesi/python:3.10-slim-jammy as base
 
-ARG SUNODO_SDK_RIV_VERSION
+ARG CARTESI_SDK_RIV_VERSION
 
-LABEL io.sunodo.sdk_version=${SUNODO_SDK_RIV_VERSION}
+LABEL io.cartesi.sdk_version=${CARTESI_SDK_RIV_VERSION}
 LABEL io.cartesi.rollups.ram_size=128Mi
 LABEL io.cartesi.rollups.data_size=32Mb
 LABEL io.cartesi.rollups.flashdrive_size=128Mb

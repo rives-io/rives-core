@@ -3,7 +3,6 @@ from hashlib import sha256
 import json
 
 from cartesapp.storage import Storage
-from cartesapp.setup import setup
 from cartesapp.utils import hex2bytes, str2bytes
 
 ###
@@ -13,20 +12,15 @@ class CoreSettings:
     cartridges_path = "cartridges"
     scoreboard_ttl = 7776000 # 90 days
     test_tape_path = 'misc/test.rivlog'
-    version = '0'
+    version = os.getenv('RIVES_VERSION') or '0'
     rivemu_path = os.getenv('RIVEMU_PATH')
-    operator_address = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-    genesis_cartridges = ['tetrix','antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
-    genesis_rules = {"tetrix":{"name":"Easy till it isn't","description":"Oh, this is so easy, wait, help! Get ready to prove your worth on a classic, sharpest mind scores the most!","score_function":"score","start":1715569200,"end":1716174000}}
-
-@setup()
-def setup_settings():
-    CoreSettings.version = os.getenv('RIVES_VERSION') or CoreSettings.version
-    CoreSettings.rivemu_path = os.getenv('RIVEMU_PATH') or CoreSettings.rivemu_path
-    CoreSettings.operator_address = os.getenv('OPERATOR_ADDRESS') or CoreSettings.operator_address
-    CoreSettings.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
-        if os.getenv('GENESIS_CARTRIDGES') is not None else CoreSettings.genesis_cartridges
-    CoreSettings.genesis_rules = json.loads(os.getenv('GENESIS_RULES')) if os.getenv('GENESIS_RULES') is not None else CoreSettings.genesis_rules
+    operator_address = os.getenv('OPERATOR_ADDRESS') or "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
+        if os.getenv('GENESIS_CARTRIDGES') is not None else \
+            ['tetrix','antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
+    genesis_rules = json.loads(os.getenv('GENESIS_RULES')) \
+        if os.getenv('GENESIS_RULES') is not None else \
+            {"tetrix":{"name":"Easy till it isn't","description":"Oh, this is so easy, wait, help! Get ready to prove your worth on a classic, sharpest mind scores the most!","score_function":"score","start":1715569200,"end":1716174000}}
 
 ###
 # Helpers
