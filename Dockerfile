@@ -6,8 +6,8 @@ ARG OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 ARG KERNEL_VERSION=0.19.1-riv1
 ARG RIV_VERSION=0.3-rc12
 ARG ROLLUPS_NODE_VERSION=1.4.0
-ARG CM_CALLER_VERSION=0.1.0
-ARG NONODO_VERSION=0.0.1
+ARG CM_CALLER_VERSION=0.1.1
+ARG NONODO_VERSION=1.0.2
 ARG RIVES_VERSION=0
 ARG DAGSTER_VERSION=1.7.2
 ARG CARTESI_DEVNET_VERSION=1.4.0
@@ -29,7 +29,7 @@ COPY ./image_0 /tmp/machine-snapshots/0
 COPY ./image /tmp/machine-snapshots/0_0
 
 ARG NONODO_VERSION
-RUN curl -s -L https://github.com/lynoferraz/nonodo/releases/download/v${NONODO_VERSION}/nonodo-v${NONODO_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
+RUN curl -s -L https://github.com/Calindra/nonodo/releases/download/v${NONODO_VERSION}/nonodo-v${NONODO_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
     tar xzf - -C /usr/local/bin nonodo
 
 ARG CM_CALLER_VERSION
