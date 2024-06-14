@@ -13,7 +13,8 @@ from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
-    tape_verification, add_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id, VERIFICATIONS_BATCH_SIZE
+    tape_verification, add_cartridge, remove_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id, \
+    VERIFICATIONS_BATCH_SIZE
 
 
 ###
@@ -41,6 +42,9 @@ class RuleConfig(Config):
 class CartridgeConfig(Config):
     id:                 str
     data:               str
+
+class RemoveCartridgeConfig(Config):
+    id:                 str
 
 class ExternalVerificationOutputsConfig(Config):
     outputs: str
@@ -124,6 +128,17 @@ def add_cartridge_job():
     add_cartridge_op()
 
 @op
+def remove_cartridge_op(context: OpExecutionContext, config: RemoveCartridgeConfig):
+    context.log.info(f"remove cartridge {config.id}")
+
+    remove_cartridge(config.id)
+    context.log.info(f"removed {config.id} cartridge")
+
+@job
+def remove_cartridge_job():
+    remove_cartridge_op()
+
+@op
 def submit_verification_op(context: OpExecutionContext, config: ExternalVerificationOutputsConfig):
     context.log.info(f"submit verifications")
 
@@ -203,6 +218,19 @@ def inputs_sensor(context: SensorEvaluationContext):
                 partition_key=key,
                 run_config=RunConfig(
                     ops={"add_cartridge":CartridgeConfig(**{"data":bytes2hex(cartridge_data),"cartridge_id":cartridge_id}),}
+                )
+            ))
+        elif new_input.type == InputType.remove_cartridge:
+            context.log.info(f"new remove cartridge entry")
+            cartridge_id = new_input.data.id
+            key = f"remove_cartridge_{cartridge_id}"
+            # add_cartridge(cartridge_id,cartridge_data)
+            partition_keys.append(key)
+            run_requests.append(RunRequest(
+                job_name="remove_cartridge_job",
+                partition_key=key,
+                run_config=RunConfig(
+                    ops={"remove_cartridge":RemoveCartridgeConfig(**{"cartridge_id":cartridge_id}),}
                 )
             ))
         elif new_input.type == InputType.rule:

@@ -3,14 +3,14 @@ import logging
 from typing import Optional, List
 import base64
 
-from cartesi.abi import String, Bytes, Bytes32, UInt
+from cartesi.abi import String, Bytes, Bytes32, UInt, Address
 
 from cartesapp.storage import helpers
 from cartesapp.context import get_metadata
 from cartesapp.input import query, mutation
 from cartesapp.output import event, output, add_output, emit_event, index_input
 
-from .model import Cartridge, InfoCartridge, create_cartridge, delete_cartridge, StringList
+from .model import Cartridge, InfoCartridge, create_cartridge, delete_cartridge, change_cartridge_user_address, StringList
 from .core_settings import get_cartridges_path
 
 LOGGER = logging.getLogger(__name__)
@@ -23,6 +23,10 @@ class InsertCartridgePayload(BaseModel):
 
 class RemoveCartridgePayload(BaseModel):
     id: Bytes32
+
+class TransferCartridgePayload(BaseModel):
+    id: Bytes32
+    new_user_address: Address
 
 class CartridgePayload(BaseModel):
     id: String
@@ -114,13 +118,28 @@ def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
 
     return True
 
+@mutation()
+def transfer_cartridge(payload: TransferCartridgePayload) -> bool:
+    metadata = get_metadata()
+
+    LOGGER.info("Transfering cartridge...")
+    try:
+        change_cartridge_user_address(payload.id.hex(),payload.new_user_address, **metadata.dict())
+    except Exception as e:
+        msg = f"Couldn't transfer cartridge: {e}"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    return True
+
 
 ###
 # Queries
 
 @query(splittable_output=True)
 def cartridge(payload: CartridgePayload) -> bool:
-    query = helpers.select(c for c in Cartridge if c.id == payload.id)
+    query = helpers.select(c for c in Cartridge if c.active and c.id == payload.id)
 
     cartridge_data = b''
     if query.count() > 0:
@@ -151,7 +170,7 @@ def cartridge_info(payload: CartridgePayload) -> bool:
 
 @query()
 def cartridges(payload: CartridgesPayload) -> bool:
-    cartridges_query = Cartridge.select()
+    cartridges_query = Cartridge.select(lambda c: c.active)
 
     if payload.name is not None:
         cartridges_query = cartridges_query.filter(lambda c: payload.name in c.name)

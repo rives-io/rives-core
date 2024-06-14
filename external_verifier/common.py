@@ -20,15 +20,17 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 if os.path.isdir('../core'):
     sys.path.append("..")
 
-from core.cartridge import InserCartridgePayload
+from core.cartridge import InsertCartridgePayload, RemoveCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log
-from core.core_settings import CoreSettings, setup_settings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
+from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
 
 LOGGER = logging.getLogger("external_verifier.common")
 
 load_dotenv() 
 
+
+print(f"{os.getenv('PRIVATE_KEY')=}")
 ###
 # Conf
 
@@ -77,6 +79,7 @@ class InputType(str, Enum):
     rule = "rule"
     cartridge = "cartridge"
     verification = "verification"
+    remove_cartridge = "remove_cartridge"
     unknown = "unknown"
     error = "error"
     none = "none"
@@ -212,7 +215,11 @@ class Storage:
         return cls.store.hget(REDIS_CARTRIDGES_KEY,cartridge_id)
 
     @classmethod
-    def add_error(cls,input_index: int, error_msg: str) -> bytes:
+    def remove_cartridge_data(cls,cartridge_id: str) -> bytes:
+        return cls.store.hdel(REDIS_CARTRIDGES_KEY,cartridge_id)
+
+    @classmethod
+    def add_error(cls,input_index: int, error_msg: str) -> int:
         cls.store.hset(REDIS_ERROR_VERIFICATION_KEY,input_index,error_msg)
 
     # @classmethod
@@ -488,6 +495,7 @@ class InputFinder:
     verify_selector = None
     rule_selector = None
     cartridge_selector = None
+    remove_cartridge_selector = None
     timeout = None
     poll_interval = None
 
@@ -519,12 +527,19 @@ class InputFinder:
         )
         self.rule_selector = rule_header.to_bytes()
 
-        cartridge_abi_types = abi.get_abi_types_from_model(InserCartridgePayload)
+        cartridge_abi_types = abi.get_abi_types_from_model(InsertCartridgePayload)
         cartridge_header = ABIFunctionSelectorHeader(
             function=f"core.insert_cartridge",
             argument_types=cartridge_abi_types
         )
         self.cartridge_selector = cartridge_header.to_bytes()
+
+        remove_cartridge_abi_types = abi.get_abi_types_from_model(RemoveCartridgePayload)
+        remove_cartridge_header = ABIFunctionSelectorHeader(
+            function=f"core.remove_cartridge",
+            argument_types=remove_cartridge_abi_types
+        )
+        self.remove_cartridge_selector = remove_cartridge_header.to_bytes()
 
         self.timeout = timeout
         self.poll_interval = poll_interval
@@ -592,9 +607,14 @@ class InputFinder:
                         yield InputData(type=InputType.rule,data=rule,last_input_block=last_input_block)
                     elif header == self.cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
-                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=InserCartridgePayload)
+                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=InsertCartridgePayload)
                     
                         yield InputData(type=InputType.cartridge,data=payload,last_input_block=last_input_block)
+                    elif header == self.remove_cartridge_selector:
+                        # LOGGER.info(f"cartridge entry")
+                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=RemoveCartridgePayload)
+                    
+                        yield InputData(type=InputType.remove_cartridge,data=payload,last_input_block=last_input_block)
                     else:
                         # LOGGER.info(f"non processed entry")
                         yield InputData(type=InputType.unknown,data=None,last_input_block=last_input_block)
@@ -618,11 +638,12 @@ def set_envs():
     if RIVEMU_PATH is not None: os.environ["RIVEMU_PATH"] = RIVEMU_PATH
     if OPERATOR_ADDRESS is not None: os.environ["OPERATOR_ADDRESS"] = OPERATOR_ADDRESS
     if GENESIS_CARTRIDGES is not None: os.environ["GENESIS_CARTRIDGES"] = GENESIS_CARTRIDGES
-    setup_settings()
+    
 
 def initialize_storage_with_genesis_data():
     cartridge_ids = {}
-    for cartridge_name in CoreSettings.genesis_cartridges:
+    LOGGER.info(f" 0 initialize_storage_with_genesis_data")
+    for cartridge_name in CoreSettings().genesis_cartridges:
         try:
             with open(f"{GENESIS_CARTRIDGES_PATH}/{cartridge_name}.sqfs",'rb') as f:
                 cartridge_data = f.read()
@@ -636,19 +657,20 @@ def initialize_storage_with_genesis_data():
 
     LOGGER.info(f"{cartridge_ids=}")
 
-    for genesis_rule_cartridge in CoreSettings.genesis_rules:
+    LOGGER.info(f" 1 initialize_storage_with_genesis_data")
+    for genesis_rule_cartridge in CoreSettings().genesis_rules:
         if cartridge_ids.get(genesis_rule_cartridge) is not None:
             try:
-                name = CoreSettings.genesis_rules[genesis_rule_cartridge].get('name')
+                name = CoreSettings().genesis_rules[genesis_rule_cartridge].get('name')
                 rule_id = generate_rule_id(hex2bytes(cartridge_ids[genesis_rule_cartridge]),str2bytes(name))
                 rule_conf_dict = {
                     "id": rule_id,
                     "cartridge_id":cartridge_ids[genesis_rule_cartridge],
-                    "args":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("args")),
-                    "in_card":bytes.fromhex(str(CoreSettings.genesis_rules[genesis_rule_cartridge].get('in_card') or "")),
-                    "score_function":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("score_function")),
-                    "start":int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("start") or 0),
-                    "end":  int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("end") or 0),
+                    "args":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("args")),
+                    "in_card":bytes.fromhex(str(CoreSettings().genesis_rules[genesis_rule_cartridge].get('in_card') or "")),
+                    "score_function":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("score_function")),
+                    "start":int(CoreSettings().genesis_rules[genesis_rule_cartridge].get("start") or 0),
+                    "end":  int(CoreSettings().genesis_rules[genesis_rule_cartridge].get("end") or 0),
                     "sender":OPERATOR_ADDRESS
                 }
                 rule = Rule.parse_obj(rule_conf_dict)
@@ -708,6 +730,14 @@ def add_cartridge(cartridge_id: str,cartridge_data: bytes):
         Storage.add_rule(rule.id,rule.json())
     else:
         LOGGER.warning(f"Error validating cartridge")
+
+def remove_cartridge(cartridge_id: str):
+    # TODO: fix not evaluated: no info.json and not i format
+    # TODO: fix not evaluated: nor cover or can't generate
+    # TODO: fix not evaluated: insufficient space
+
+    if Storage.remove_cartridge_data(cartridge_id) == 0:
+        LOGGER.warning(f"Couldn't find cartridge")
 
 def add_rule(rule: Rule):
     if rule.sender.lower() != OPERATOR_ADDRESS.lower():

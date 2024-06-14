@@ -37,6 +37,7 @@ class Cartridge(Entity):
     created_at      = helpers.Required(int, unsigned=True)
     input_index     = helpers.Required(int, lazy=True) # -1 means not created by an input (created in genesis)
     cover           = helpers.Optional(bytes, lazy=True)
+    active          = helpers.Optional(bool, lazy=True)
 
 class Rule(Entity):
     id              = helpers.PrimaryKey(str, 64)
@@ -156,42 +157,42 @@ class TapeHash:
 def initialize_data():
     cartridge_ids = {}
     cartridge_data = {}
-    for cartridge in CoreSettings.genesis_cartridges:
+    for cartridge in CoreSettings().genesis_cartridges:
         try:
             cartridge_path = f"misc/{cartridge}.sqfs"
             with open(cartridge_path,'rb') as cartridge_example_file:
                 cartridge_example_data = cartridge_example_file.read()
                 cartridge_ids[cartridge] = generate_cartridge_id(cartridge_example_data)
                 cartridge_data[cartridge] = cartridge_example_data
-                create_cartridge(cartridge_example_data,msg_sender=CoreSettings.operator_address)
+                create_cartridge(cartridge_example_data,msg_sender=CoreSettings().operator_address)
                 if is_inside_cm(): os.remove(cartridge_path)
         except Exception as e:
             LOGGER.warning(e)
 
-    for genesis_rule_cartridge in CoreSettings.genesis_rules:
+    for genesis_rule_cartridge in CoreSettings().genesis_rules:
         if cartridge_ids.get(genesis_rule_cartridge) is not None:
             try:
                 rule_conf_dict = {
                     "cartridge_id":hex2bytes(cartridge_ids[genesis_rule_cartridge]),
-                    "name":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("name")),
-                    "description":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("description")),
-                    "args":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("args")),
-                    "in_card":bytes.fromhex(str(CoreSettings.genesis_rules[genesis_rule_cartridge].get('in_card') or "")),
-                    "score_function":str(CoreSettings.genesis_rules[genesis_rule_cartridge].get("score_function")),
-                    "start":int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("start") or 0),
-                    "end":  int(CoreSettings.genesis_rules[genesis_rule_cartridge].get("end") or 0),
+                    "name":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("name")),
+                    "description":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("description")),
+                    "args":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("args")),
+                    "in_card":bytes.fromhex(str(CoreSettings().genesis_rules[genesis_rule_cartridge].get('in_card') or "")),
+                    "score_function":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("score_function")),
+                    "start":int(CoreSettings().genesis_rules[genesis_rule_cartridge].get("start") or 0),
+                    "end":  int(CoreSettings().genesis_rules[genesis_rule_cartridge].get("end") or 0),
                     "tags": []
                 }
                 rule_conf = RuleData.parse_obj(rule_conf_dict)
                 rule_id = generate_rule_id(rule_conf.cartridge_id,str2bytes(rule_conf.name))
                 if helpers.count(r for r in Rule if r.id == rule_id) > 0:
                     raise Exception(f"Rule already exists")
-                test_replay_file = open(CoreSettings.test_tape_path,'rb')
+                test_replay_file = open(CoreSettings().test_tape_path,'rb')
                 test_replay = test_replay_file.read()
                 test_replay_file.close()
 
                 verification_output = verify_log(cartridge_data[genesis_rule_cartridge],test_replay,rule_conf_dict["args"],rule_conf_dict["in_card"])
-                insert_rule(rule_conf,verification_output.get("outcard"),msg_sender=CoreSettings.operator_address)
+                insert_rule(rule_conf,verification_output.get("outcard"),msg_sender=CoreSettings().operator_address)
             except Exception as e:
                 LOGGER.warning(e)
 
@@ -303,7 +304,7 @@ def create_cartridge(cartridge_data,**metadata):
     InfoCartridge(**cartridge_info_json)
 
     # check if cartridge runs
-    test_replay_file = open(CoreSettings.test_tape_path,'rb')
+    test_replay_file = open(CoreSettings().test_tape_path,'rb')
     test_replay = test_replay_file.read()
     test_replay_file.close()
 
@@ -330,7 +331,8 @@ def create_cartridge(cartridge_data,**metadata):
         created_at = metadata.get('timestamp') or 0,
         input_index = metadata.get('input_index') or -1, # genesis input index
         info = cartridge_info_json,
-        cover = cartridge_cover
+        cover = cartridge_cover,
+        active = True
     )
 
     metadata['input_index'] = -1 # not created by an input
@@ -349,6 +351,17 @@ def delete_cartridge(cartridge_id,**metadata):
     if cartridge.user_address != metadata['msg_sender'].lower():
         raise Exception(f"Sender not allowed")
 
-    cartridge.delete()
+    cartridge.active = False
+    cartridge.cover = None
     os.remove(f"{get_cartridges_path()}/{cartridge_id}")
 
+
+def change_cartridge_user_address(cartridge_id,new_user_address, **metadata):
+    cartridge = Cartridge.get(lambda c: c.id == cartridge_id)
+    if cartridge is None:
+        raise Exception(f"Cartridge doesn't exist")
+
+    if cartridge.user_address != metadata['msg_sender'].lower():
+        raise Exception(f"Sender not allowed")
+
+    cartridge.user_address = new_user_address

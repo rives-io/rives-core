@@ -37,7 +37,7 @@ run: ${ENVFILE} --check-envs rivemu InputBox.json ; $(value setup_venv)
 	. $< && python external_verifier.py $(ARGS)
 
 run-%: ${ENVFILE}.% --check-envs-% rivemu InputBox.json ; $(value setup_venv)
-	. $< && python external_verifier.py $(ARGS)
+	set -a && source $< && python external_verifier.py $(ARGS)
 
 run-cloud-services: ${ENVFILE} --check-envs rivemu InputBox.json ; $(value setup_venv)
 	. $< && dagster dev -f __init__.py $(ARGS)
