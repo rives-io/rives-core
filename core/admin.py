@@ -8,5 +8,5 @@ LOGGER = logging.getLogger(__name__)
 
 @query()
 def operator_address() -> bool:
-    add_output(CoreSettings.operator_address)
+    add_output(CoreSettings().operator_address)
     return True

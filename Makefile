@@ -5,6 +5,7 @@ ENVFILE := .env
 SHELL := /bin/bash
 
 RIV_VERSION := 0.3-rc12
+CARTESI_SDK_RIV_VERSION := 0.6.2-riv
 
 RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
 
@@ -29,7 +30,7 @@ endef
 
 .ONESHELL:
 
-all: sunodo-riv build build-reader-node
+all: cartesi-riv build build-reader-node
 
 setup-env: ; $(value setup_venv)
 
@@ -44,7 +45,7 @@ build-dev-node: ; $(value setup_venv)
 	cartesapp build-dev-image $(ARGS)
 
 build-%: ${ENVFILE}.% --check-envs-% ; $(value setup_venv)
-	. $^ && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
+	. $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
 
 # Run targets
 run: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ; $(value setup_venv)
@@ -56,14 +57,25 @@ run-dev: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ri
 run-reader: ; $(value setup_venv)
 	cartesapp node --mode reader $(ARGS)
 
+run-dev-%: ${ENVFILE}.% --check-testnet-envs-% --check-dev-envs-% rivemu ; $(value setup_venv)
+	. $< && RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} \
+	 cartesapp node --mode dev --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} \
+	 $(ARGS)
+
+run-reader-%: ${ENVFILE}.% --check-testnet-envs-% ; $(value setup_venv)
+	. $< && cartesapp node --mode reader --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} $(ARGS)
+
 run-frontend-dev:
-	make -C frontend run-dev
+	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
+	make -C ${FRONTEND_PATH} run-dev
 
 build-frontend:
-	make -C frontend build
+	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
+	make -C ${FRONTEND_PATH} build
 
 generate-frontend-libs: ; $(value setup_venv)
-	cartesapp generate-frontend-libs --libs-path app/backend-libs
+	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
+	cartesapp generate-frontend-libs --libs-path app/backend-libs --frontend-path ${FRONTEND_PATH}
 
 # Aux env targets
 --load-env: ${ENVFILE}
@@ -96,10 +108,20 @@ ${ENVFILE}.%:
 --check-opaddr-env:
 	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
 
-sunodo-riv: sunodo-sdk
-sunodo-sdk-riv: sunodo-sdk
-sunodo-sdk:
-	docker build --tag sunodo/sdk:0.4.0-riv --target sunodo-riv-sdk .
+--check-dev-envs-%: --load-env-%
+	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
+	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'
+	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || echo "Must define ROLLUP_HTTP_SERVER_URL in env" && test ! -z '${ROLLUP_HTTP_SERVER_URL}'
+
+--check-testnet-envs-%: --load-env-%
+	@test ! -z '${RPC_URL}' || echo "Must define RPC_URL in env" && test ! -z '${RPC_URL}'
+	@test ! -z '${DAPP_ADDRESS}' || echo "Must define DAPP_ADDRESS in env" && test ! -z '${DAPP_ADDRESS}'
+	@test ! -z '${DAPP_DEPLOY_BLOCK}' || echo "Must define DAPP_DEPLOY_BLOCK in env" && test ! -z '${DAPP_DEPLOY_BLOCK}'
+
+cartesi-riv: cartesi-sdk
+cartesi-sdk-riv: cartesi-sdk
+cartesi-sdk:
+	docker build --tag cartesi/sdk:${CARTESI_SDK_RIV_VERSION} --target cartesi-riv-sdk .
 
 rivemu:
 	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(shell dpkg --print-architecture) -o rivemu
@@ -111,14 +133,15 @@ rivemu:
 update-rivemu: --remove-rivemu rivemu
 
 update-frontend-rivemu:
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.js -o frontend/public/rivemu.js
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.wasm -o frontend/public/rivemu.wasm
+	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
+	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.js -o ${FRONTEND_PATH}/public/rivemu.js
+	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.wasm -o ${FRONTEND_PATH}/public/rivemu.wasm
 
 build-release:
 	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
 	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .rives-core.tag
-	docker build -f Dockerfile --target node .sunodo/ \
+	docker build -f Dockerfile --target node .cartesi/ \
 		-t $$IMAGE_TAG \
 		--label "org.opencontainers.image.title=rives-core" \
 		--label "org.opencontainers.image.description=RIVES Core Node" \

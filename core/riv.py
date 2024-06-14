@@ -38,9 +38,9 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
         outhash_path = "/run/outhash"
         screenshot_path = "/run/screenshot"
         outhist_path = "/run/outhist"
-        rivos_cartridges_path = f"/{CoreSettings.cartridges_path}" # absolute cartridges path on rivos
+        rivos_cartridges_path = f"/{CoreSettings().cartridges_path}" # absolute cartridges path on rivos
         # data_cartridge_path = f"{get_cartridges_path()}/{cartridge_id}" # absolute data full cartridge path
-        cartridge_path = f"/{CoreSettings.cartridges_path}/run_cartridge" #{cartridge_id}" # relative to rivos full cartridge path
+        cartridge_path = f"/{CoreSettings().cartridges_path}/run_cartridge" #{cartridge_id}" # relative to rivos full cartridge path
         rivos_cartridge_path = f"{rivos_cartridges_path}/run_cartridge" #{cartridge_id}" # absolute full cartridge path on rivos
         
         if not os.path.exists(rivos_cartridges_path):
@@ -140,7 +140,7 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
 
     absolute_cartridge_path = cartridge_temp.name # os.path.abspath(f"{get_cartridges_path()}/{cartridge_id}")
 
-    rivemu_path = CoreSettings.rivemu_path
+    rivemu_path = CoreSettings().rivemu_path
     if not os.path.isabs(rivemu_path):
         rivemu_path = f"{os.getcwd()}/{rivemu_path}"
     run_args = []

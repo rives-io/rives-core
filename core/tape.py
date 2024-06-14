@@ -73,14 +73,16 @@ class VerificationOutput(BaseModel):
     version:                Bytes32
     cartridge_id:           Bytes32
     cartridge_input_index:  Int
-    user_address:           Address
+    cartridge_user_address: Address
     timestamp:              UInt
     score:                  Int
-    rule_id:                String
+    rule_id:                Bytes32
     rule_input_index:       Int
     tape_hash:              Bytes32
     tape_input_index:       Int
+    user_address:           Address
     error_code:             UInt
+
 
 class RuleInfo(BaseModel):
     id: str
@@ -117,7 +119,7 @@ class RuleTagsOutput(BaseModel):
 def create_rule(payload: RulePayload) -> bool:
 
     # check if Cartridge exists
-    cartridge = Cartridge.get(lambda r: r.id == payload.cartridge_id.hex())
+    cartridge = Cartridge.get(lambda r: r.active and r.id == payload.cartridge_id.hex())
     if cartridge is None:
         msg = f"Cartridge {payload.cartridge_id.hex()} doesn't exist"
         LOGGER.error(msg)
@@ -134,7 +136,7 @@ def create_rule(payload: RulePayload) -> bool:
     LOGGER.info(f"Running cartridge test")
     try:
         # run cartridge to test args, incard and get outcard
-        test_replay_file = open(CoreSettings.test_tape_path,'rb')
+        test_replay_file = open(CoreSettings().test_tape_path,'rb')
         test_replay = test_replay_file.read()
         test_replay_file.close()
 
@@ -161,7 +163,7 @@ def create_rule(payload: RulePayload) -> bool:
 
     return True
 
-@mutation(msg_sender=CoreSettings.operator_address)
+@mutation(msg_sender=CoreSettings().operator_address)
 def verify(payload: VerifyPayload) -> bool:
     metadata = get_metadata()
 
@@ -193,7 +195,7 @@ def verify(payload: VerifyPayload) -> bool:
         add_output(msg)
         return False
 
-    cartridge = helpers.select(c for c in Cartridge if c.id == rule.cartridge_id).first()
+    cartridge = helpers.select(c for c in Cartridge if c.active and c.id == rule.cartridge_id).first()
 
     if cartridge is None:
         msg = f"Cartridge not found"
@@ -278,10 +280,11 @@ def verify(payload: VerifyPayload) -> bool:
         version=get_version(),
         cartridge_id = hex2bytes(cartridge.id),
         cartridge_input_index = cartridge.input_index,
+        cartridge_user_address = cartridge.user_address,
         user_address = metadata.msg_sender,
         timestamp = metadata.timestamp,
         score = score,
-        rule_id = rule.id,
+        rule_id = hex2bytes(rule.id),
         rule_input_index = rule.input_index,
         tape_hash = hex2bytes(tape_id),
         tape_input_index = metadata.input_index,
@@ -332,7 +335,7 @@ def register_external_verification(payload: VerifyPayload) -> bool:
         add_output(msg)
         return False
 
-    cartridge = helpers.select(c for c in Cartridge if c.id == rule.cartridge_id).first()
+    cartridge = helpers.select(c for c in Cartridge if c.active and c.id == rule.cartridge_id).first()
 
     if cartridge is None:
         msg = f"Cartridge not found"
@@ -348,8 +351,7 @@ def register_external_verification(payload: VerifyPayload) -> bool:
 
     return True
 
-
-@mutation(msg_sender=CoreSettings.operator_address)
+@mutation(msg_sender=CoreSettings().operator_address)
 def external_verification(payload: ExternalVerificationPayload) -> bool:
 
     payload_lens = [
@@ -396,7 +398,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             # return False
             continue
 
-        cartridge = helpers.select(c for c in Cartridge if c.id == rule.cartridge_id).first()
+        cartridge = helpers.select(c for c in Cartridge if c.active and c.id == rule.cartridge_id).first()
 
         if cartridge is None:
             msg = f"Cartridge not found"
@@ -409,10 +411,11 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             version=get_version(),
             cartridge_id = hex2bytes(cartridge.id),
             cartridge_input_index = cartridge.input_index,
+            cartridge_user_address = cartridge.user_address,
             user_address = payload.user_addresses[ind],
             timestamp = payload.tape_timestamps[ind],
             score = payload.scores[ind],
-            rule_id = rule.id,
+            rule_id = hex2bytes(rule.id),
             rule_input_index = rule.input_index,
             tape_hash = tape_id,
             tape_input_index = payload.tape_input_indexes[ind],
