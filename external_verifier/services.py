@@ -258,7 +258,7 @@ def inputs_sensor(context: SensorEvaluationContext):
         blocks.append(new_input.last_input_block)
         new_input = next(next_input)
     
-    context.log.info(f"Got {len(run_requests)} run requests until block {max(blocks)} ({partition_keys=})")
+    context.log.info(f"Got {len(run_requests)} run requests until block {max(blocks)} ({tapes_partition_keys=} {rules_partition_keys=} {cartridges_partition_keys=})")
     context.update_cursor(str(max(blocks) + 1))
     if len(run_requests) == 0:
         yield SkipReason("No inputs")
