@@ -331,7 +331,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         Storage.add_error(input_index,msg)
         return None
 
-    cartridge_data = Storage.get_cartridge_data(rule.cartridge_id)
+    cartridge_id = _normalize_hex(rule.cartridge_id)
+    cartridge_data = Storage.get_cartridge_data(cartridge_id)
     if cartridge_data is None or len(cartridge_data) == 0:
         msg = f"Couldn't find cartridge"
         LOGGER.error(msg)
@@ -714,9 +715,7 @@ def add_rule(rule: Rule):
         LOGGER.warning(f"Sender has no permission to add rule")
         return
 
-    cartridge_id = rule.cartridge_id
-    if cartridge_id.startswith('0x'):
-        cartridge_id = cartridge_id[2:]
+    cartridge_id = _normalize_hex(rule.cartridge_id)
     cartridge_data = Storage.get_cartridge_data(cartridge_id)
 
     if cartridge_data is None:
@@ -737,3 +736,10 @@ def add_rule(rule: Rule):
 def push_verification(extended_verification: ExtendedVerifyPayload):
     Storage.push_verification(abi.encode_model(extended_verification))
 
+
+def _normalize_hex(orig: str) -> str:
+    """Remove leading 0x and ensure lowercase"""
+    result = orig.lower()
+    if result.startswith('0x'):
+        result = result[2:]
+    return result
