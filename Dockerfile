@@ -101,6 +101,7 @@ COPY --from=base-files core core
 COPY external_verifier/__init__.py external_verifier/__init__.py
 COPY external_verifier/common.py external_verifier/common.py
 COPY external_verifier/services.py external_verifier/services.py
+COPY external_verifier/InputBox.json external_verifier/InputBox.json
 
 RUN <<EOF
 echo '[tool.dagster]
