@@ -713,7 +713,12 @@ def add_rule(rule: Rule):
     if rule.sender.lower() != OPERATOR_ADDRESS.lower():
         LOGGER.warning(f"Sender has no permission to add rule")
         return
-    cartridge_data = Storage.get_cartridge_data(rule.cartridge_id)
+
+    cartridge_id = rule.cartridge_id
+    if cartridge_id.startswith('0x'):
+        cartridge_id = cartridge_id[2:]
+    cartridge_data = Storage.get_cartridge_data(cartridge_id)
+
     if cartridge_data is None:
         LOGGER.warning(f"Couldn't find cartridge to verify rule")
         return
