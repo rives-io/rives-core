@@ -23,7 +23,7 @@ if os.path.isdir('../core'):
 from core.cartridge import InsertCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log
-from core.core_settings import CoreSettings, setup_settings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
+from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
 
 LOGGER = logging.getLogger("external_verifier.common")
 
@@ -618,7 +618,7 @@ def set_envs():
     if RIVEMU_PATH is not None: os.environ["RIVEMU_PATH"] = RIVEMU_PATH
     if OPERATOR_ADDRESS is not None: os.environ["OPERATOR_ADDRESS"] = OPERATOR_ADDRESS
     if GENESIS_CARTRIDGES is not None: os.environ["GENESIS_CARTRIDGES"] = GENESIS_CARTRIDGES
-    setup_settings()
+
 
 def initialize_storage_with_genesis_data():
     cartridge_ids = {}
