@@ -20,7 +20,7 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 if os.path.isdir('../core'):
     sys.path.append("..")
 
-from core.cartridge import InserCartridgePayload
+from core.cartridge import InsertCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log
 from core.core_settings import CoreSettings, setup_settings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
@@ -519,7 +519,7 @@ class InputFinder:
         )
         self.rule_selector = rule_header.to_bytes()
 
-        cartridge_abi_types = abi.get_abi_types_from_model(InserCartridgePayload)
+        cartridge_abi_types = abi.get_abi_types_from_model(InsertCartridgePayload)
         cartridge_header = ABIFunctionSelectorHeader(
             function=f"core.insert_cartridge",
             argument_types=cartridge_abi_types
@@ -592,7 +592,7 @@ class InputFinder:
                         yield InputData(type=InputType.rule,data=rule,last_input_block=last_input_block)
                     elif header == self.cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
-                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=InserCartridgePayload)
+                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=InsertCartridgePayload)
                     
                         yield InputData(type=InputType.cartridge,data=payload,last_input_block=last_input_block)
                     else:
