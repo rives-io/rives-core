@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 
 # Inputs
 
-class InserCartridgePayload(BaseModel):
+class InsertCartridgePayload(BaseModel):
     data: Bytes
 
 class RemoveCartridgePayload(BaseModel):
@@ -70,7 +70,7 @@ class CartridgesOutput(BaseModel):
 # Mutations
 
 @mutation()
-def insert_cartridge(payload: InserCartridgePayload) -> bool:
+def insert_cartridge(payload: InsertCartridgePayload) -> bool:
     metadata = get_metadata()
     
     LOGGER.info("Saving cartridge...")

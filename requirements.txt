@@ -1,5 +1,5 @@
 --find-links https://prototyp3-dev.github.io/pip-wheels-riscv/wheels/
-cartesapp @ git+https://github.com/prototyp3-dev/cartesapp@3edb5e4a304f9b713e958e321df61117543ebb0a
+cartesapp @ git+https://github.com/prototyp3-dev/cartesapp@55f7734dd14d2230510d062d294250f4814c2bbb
 certifi==2024.2.2
 charset-normalizer==3.3.2
 click==8.1.7
