@@ -61,6 +61,7 @@ VERIFICATIONS_BATCH_SIZE = os.getenv('VERIFICATIONS_BATCH_SIZE') or 10
 REDIS_VERIFY_QUEUE_KEY = f"rives_verify_queue_{RIVES_VERSION}"
 REDIS_VERIFY_PROCESSING_QUEUE_KEY = f"rives_verify_processing_queue_{RIVES_VERSION}"
 REDIS_CARTRIDGES_KEY = f"rives_cartridges_{RIVES_VERSION}"
+REDIS_TAPES_KEY = f"rives_tapes_{RIVES_VERSION}"
 REDIS_RULES_KEY = f"rives_rules_{RIVES_VERSION}"
 REDIS_VERIFY_OUTPUT_QUEUE_KEY = f"rives_verify_output_queue_{RIVES_VERSION}"
 REDIS_VERIFY_OUTPUT_TEMP_QUEUE_KEY = f"rives_verify_output_temp_queue_{RIVES_VERSION}"
@@ -111,6 +112,7 @@ class ExternalVerificationOutput(BaseModel):
     tape_timestamp:     int
     score:              int
     error_code:         int
+    outcard:            bytes
 
 class InputData(BaseModel):
     type: InputType
@@ -241,6 +243,15 @@ class Storage:
             cls.store.hset(REDIS_CARTRIDGES_KEY,cartridge_id,cartridge_data)
     
     @classmethod
+    def add_tape(cls,tape_id,outcard):
+        if not cls.store.hexists(REDIS_TAPES_KEY,tape_id):
+            cls.store.hset(REDIS_TAPES_KEY,tape_id,outcard)
+    
+    @classmethod
+    def get_tape(cls,tape_id: str) -> bytes:
+        return cls.store.hget(REDIS_TAPES_KEY,tape_id)
+
+    @classmethod
     def push_verification(cls,data):
         return cls.store.lpush(REDIS_VERIFY_QUEUE_KEY, data)
 
@@ -359,14 +370,16 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
 
     entropy = generate_entropy(sender, payload.rule_id.hex())
 
+    tape_id = generate_tape_id(payload.tape)
     out_params = {
         "user_address": sender,
         "rule_id": payload.rule_id.hex(),
-        "tape_hash": generate_tape_id(payload.tape),
+        "tape_hash": tape_id,
         "tape_input_index": input_index,
         "tape_timestamp": timestamp,
         "score": 0,
-        "error_code": 0
+        "error_code": 0,
+        "outcard":b''
     }
 
     # process tape
@@ -426,6 +439,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             return ExternalVerificationOutput.parse_obj(out_params)
 
     out_params['score'] = score
+    Storage.add_tape(tape_id,outcard_raw)
     return ExternalVerificationOutput.parse_obj(out_params)
 
 class VerificationSender:

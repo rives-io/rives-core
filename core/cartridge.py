@@ -10,7 +10,7 @@ from cartesapp.context import get_metadata
 from cartesapp.input import query, mutation
 from cartesapp.output import event, output, add_output, emit_event, index_input
 
-from .model import Cartridge, InfoCartridge, create_cartridge, delete_cartridge, change_cartridge_user_address, StringList
+from .model import Cartridge, InfoCartridge, create_cartridge, delete_cartridge, change_cartridge_user_address, StringList, Bytes32List, format_bytes_list_to_incard
 from .core_settings import get_cartridges_path
 
 LOGGER = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ LOGGER = logging.getLogger(__name__)
 
 class InsertCartridgePayload(BaseModel):
     data: Bytes
+    tapes: Bytes32List
 
 class RemoveCartridgePayload(BaseModel):
     id: Bytes32
@@ -77,9 +78,11 @@ class CartridgesOutput(BaseModel):
 def insert_cartridge(payload: InsertCartridgePayload) -> bool:
     metadata = get_metadata()
     
+    incard = format_bytes_list_to_incard(payload.tapes,b'')
+
     LOGGER.info("Saving cartridge...")
     try:
-        cartridge_id = create_cartridge(payload.data,**metadata.dict())
+        cartridge_id = create_cartridge(payload.data,incard,**metadata.dict())
     except Exception as e:
         msg = f"Couldn't insert cartridge: {e}"
         LOGGER.error(msg)
@@ -193,6 +196,8 @@ def cartridges(payload: CartridgesPayload) -> bool:
             cartridges = cartridges_query.page(payload.page)
     else:
         cartridges = cartridges_query.fetch()
+
+    # TODO: allow order by
     
 
     dict_list_result = []

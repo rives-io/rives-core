@@ -13,7 +13,8 @@ from cartesapp.input import mutation, query
 from cartesapp.output import output, add_output, event, emit_event, index_input
 from cartesapp.utils import hex2bytes, bytes2str
 
-from .model import insert_rule, Rule, RuleTag, RuleData, Cartridge, TapeHash, AddressList, Bytes32List, UInt256List, Int256List
+from .model import insert_rule, Rule, RuleTag, RuleData, Cartridge, TapeHash, AddressList, Bytes32List, UInt256List, Int256List, BytesList, format_tapes_to_incard
+
 from .riv import verify_log
 from .core_settings import CoreSettings, generate_tape_id, get_version, generate_entropy, get_cartridges_path
 
@@ -38,6 +39,7 @@ class VerifyPayload(BaseModel):
     outcard_hash:   Bytes32
     tape:           Bytes
     claimed_score:  Int
+    tapes:          Bytes32List
 
 class GetRulesPayload(BaseModel):
     cartridge_id:   Optional[str]
@@ -56,6 +58,7 @@ class ExternalVerificationPayload(BaseModel):
     tape_timestamps:    UInt256List
     scores:             Int256List
     error_codes:        UInt256List
+    outcards:           BytesList
 
 class GetRuleTagsPayload(BaseModel):
     cartridge_id:   Optional[str]
@@ -94,8 +97,8 @@ class RuleInfo(BaseModel):
     args: str
     in_card: bytes
     score_function: str
-    n_tapes: int
-    n_verified: int
+    # n_tapes: int
+    # n_verified: int
     start: Optional[int]
     end: Optional[int]
     tags: List[str]
@@ -143,7 +146,11 @@ def create_rule(payload: RulePayload) -> bool:
         with open(f"{get_cartridges_path()}/{payload.cartridge_id.hex()}",'rb')as cartridge_file:
             cartridge_data = cartridge_file.read()
 
-        verification_output = verify_log(cartridge_data,test_replay,payload.args,payload.in_card)
+        all_tapes = cartridge.tapes or []
+        all_tapes.extend(map(lambda x: x.hex(), payload.tapes))
+        incard = format_tapes_to_incard(all_tapes, payload.in_card)
+
+        verification_output = verify_log(cartridge_data,test_replay,payload.args,incard)
         rule_id = insert_rule(payload,verification_output.get("outcard"),**get_metadata().dict())
     except Exception as e:
         msg = f"Couldn't run cartridge test: {e}"
@@ -189,7 +196,7 @@ def verify(payload: VerifyPayload) -> bool:
 
     tape_id = generate_tape_id(payload.tape)
     
-    if TapeHash.check_duplicate(rule.cartridge_id,tape_id):
+    if TapeHash.check_duplicate(tape_id):
         msg = f"Tape already submitted"
         LOGGER.error(msg)
         add_output(msg)
@@ -211,7 +218,12 @@ def verify(payload: VerifyPayload) -> bool:
         with open(f"{get_cartridges_path()}/{rule.cartridge_id}",'rb')as cartridge_file:
             cartridge_data = cartridge_file.read()
 
-        verification_output = verify_log(cartridge_data,payload.tape,rule.args,rule.in_card,entropy=entropy)
+        all_tapes = cartridge.tapes or []
+        all_tapes.extend(rule.tapes)
+        all_tapes.extend(map(lambda x: x.hex(), payload.tapes))
+        incard = format_tapes_to_incard(all_tapes, rule.in_card)
+
+        verification_output = verify_log(cartridge_data,payload.tape,rule.args,incard,entropy=entropy)
         outcard_raw = verification_output.get('outcard')
         outhash = verification_output.get('outhash')
         # screenshot = verification_output.get('screenshot')
@@ -300,7 +312,7 @@ def verify(payload: VerifyPayload) -> bool:
     emit_event(out_ev,tags=event_tags,value=score)
     # add_output(screenshot,tags=['screenshot',rule.cartridge_id,payload.rule_id.hex(),tape_hash.hexdigest()])
 
-    TapeHash.set_verified(rule.cartridge_id,rule.id,tape_id)
+    TapeHash.set_verified(tape_id,outcard_raw)
 
     return True
 
@@ -329,7 +341,7 @@ def register_external_verification(payload: VerifyPayload) -> bool:
 
     tape_id = generate_tape_id(payload.tape)
     
-    if TapeHash.check_duplicate(rule.cartridge_id,tape_id):
+    if TapeHash.check_duplicate(tape_id):
         msg = f"Tape already submitted"
         LOGGER.error(msg)
         add_output(msg)
@@ -347,7 +359,7 @@ def register_external_verification(payload: VerifyPayload) -> bool:
     tags = ["tape",rule.cartridge_id,payload.rule_id.hex(),tape_id]
     tags.extend(list(rule.tags.name.distinct().keys()))
     index_input(tags=tags,value=metadata.timestamp)
-    TapeHash.add(rule.cartridge_id,rule.id,tape_id)
+    TapeHash.add(tape_id)#(rule.cartridge_id,rule.id,tape_id)
 
     return True
 
@@ -362,8 +374,8 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
         len(payload.tape_timestamps),
         len(payload.scores),
         len(payload.error_codes),
+        len(payload.outcards),
     ]
-
     if len(set(payload_lens)) != 1:
         msg = f"payload have distinct sizes"
         LOGGER.error(msg)
@@ -384,14 +396,14 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             # return False
             continue
         
-        if not TapeHash.check_duplicate(rule.cartridge_id,tape_id.hex()):
+        if not TapeHash.check_duplicate(tape_id.hex()):
             msg = f"Tape not submitted"
             LOGGER.warning(msg)
             # add_output(msg)
             # return False
             continue
 
-        if TapeHash.check_verified(rule.cartridge_id,tape_id.hex()):
+        if TapeHash.check_verified(tape_id.hex()):
             msg = f"Tape already verified"
             LOGGER.warning(msg)
             # add_output(msg)
@@ -427,7 +439,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
         tags = ['score',rule.cartridge_id,payload.rule_ids[ind].hex(),tape_id.hex()]
         tags.extend(list(rule.tags.name.distinct().keys()))
         emit_event(out_ev,tags=tags,value=payload.scores[ind])
-        TapeHash.set_verified(rule.cartridge_id,rule.id,tape_id.hex())
+        TapeHash.set_verified(tape_id.hex(),payload.outcards[ind])
 
     return True
 
@@ -459,14 +471,16 @@ def rules(payload: GetRulesPayload) -> bool:
         else:
             rules = rules_query.page(payload.page)
     else:
-        rules = rules_query.fetch()
+        rules = rules
+
+    # TODO: allow order by_query.fetch()
     
     dict_list_result = []
     for r in rules:
         dict_rule = r.to_dict()
-        summary = TapeHash.get_rule_tapes_summary(r.id)
-        dict_rule["n_tapes"] = summary["all"]
-        dict_rule["n_verified"] = summary["verified"]
+        # summary = TapeHash.get_rule_tapes_summary(r.id)
+        # dict_rule["n_tapes"] = summary["all"]
+        # dict_rule["n_verified"] = summary["verified"]
         dict_rule["tags"] = list(r.tags.name.distinct().keys())
         dict_list_result.append(dict_rule)
 
