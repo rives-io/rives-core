@@ -7,7 +7,7 @@ ARG KERNEL_VERSION=0.19.1-riv1
 ARG RIV_VERSION=0.3-rc12
 ARG ROLLUPS_NODE_VERSION=1.4.0
 ARG CM_CALLER_VERSION=0.1.3
-ARG NONODO_VERSION=1.0.5
+ARG NONODO_VERSION=1.1.0
 ARG RIVES_VERSION=0
 ARG DAGSTER_VERSION=1.7.2
 ARG CARTESI_DEVNET_VERSION=1.4.0
@@ -60,14 +60,6 @@ COPY misc/test.rivlog misc/test.rivlog
 
 WORKDIR /opt/cartesi/dapp
 
-# inputbox contract
-FROM cartesi/devnet:${CARTESI_DEVNET_VERSION} as contracts
-
-WORKDIR /opt/cartesi/build
-
-RUN cat /usr/share/cartesi/localhost.json | jq '.contracts.InputBox' > InputBox.json
-
-
 # external verification services
 FROM python:3.10-slim as external-verifier-cloud
 
@@ -109,14 +101,13 @@ COPY --from=base-files core core
 COPY external_verifier/__init__.py external_verifier/__init__.py
 COPY external_verifier/common.py external_verifier/common.py
 COPY external_verifier/services.py external_verifier/services.py
+COPY external_verifier/InputBox.json external_verifier/InputBox.json
 
 RUN <<EOF
 echo '[tool.dagster]
 module_name = "external_verifier"
 ' > pyproject.toml
 EOF
-
-COPY --from=contracts /opt/cartesi/build/InputBox.json external_verifier/InputBox.json
 
 ENV TEST_TAPE_PATH=../misc/test.rivlog
 ENV GENESIS_CARTRIDGES_PATH=../misc
