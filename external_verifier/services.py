@@ -63,6 +63,9 @@ def initialize_storage_job():
     initialize_storage_op()
 
 inputs_partition = DynamicPartitionsDefinition(name="tapes")
+rules_input_partition = DynamicPartitionsDefinition(name="rules")
+cartridges_input_partition = DynamicPartitionsDefinition(name="cartridges")
+
 
 @asset(partitions_def=inputs_partition,key=["verify_input"])
 def verification_output_asset(context: AssetExecutionContext, config: TapeVerificationConfig):
@@ -93,35 +96,42 @@ def verification_output_asset(context: AssetExecutionContext, config: TapeVerifi
         }
     )
 
-# @asset(partitions_def=inputs_partition,key=["add_rule"])
-@op
-def add_rule_op(context: OpExecutionContext, config: RuleConfig):
+
+@asset(partitions_def=rules_input_partition, key=["add_rule"])
+def add_rule_asset(context: OpExecutionContext, config: RuleConfig):
     context.log.info(f"add rule {config.id}")
 
     rule_dict = config.dict()
     rule_dict.update({
-        "in_card":hex2bytes(config.in_card),
+        "in_card": hex2bytes(config.in_card),
     })
     rule: Rule = Rule.parse_obj(rule_dict)
     context.log.info(rule)
     add_rule(rule)
     context.log.info(f"added {rule.id} rule")
 
-@job
-def add_rule_job():
-    add_rule_op()
 
-# @asset(partitions_def=inputs_partition,key=["add_cartridge"])
-@op
-def add_cartridge_op(context: OpExecutionContext, config: CartridgeConfig):
+add_rule_job = define_asset_job(
+    name="add_rule_job",
+    selection=AssetSelection.assets(add_rule_asset),
+    partitions_def=rules_input_partition
+)
+
+
+@asset(partitions_def=cartridges_input_partition, key=["add_cartridge"])
+def add_cartridge_asset(context: OpExecutionContext, config: CartridgeConfig):
     context.log.info(f"add cartridge {config.id}")
 
-    add_cartridge(config.id,hex2bytes(config.data))
+    add_cartridge(config.id, hex2bytes(config.data))
     context.log.info(f"added {config.id} cartridge")
 
-@job
-def add_cartridge_job():
-    add_cartridge_op()
+
+add_cartridge_job = define_asset_job(
+    name="add_cartridge_job",
+    selection=AssetSelection.assets(add_cartridge_asset),
+    partitions_def=cartridges_input_partition
+)
+
 
 @op
 def submit_verification_op(context: OpExecutionContext, config: ExternalVerificationOutputsConfig):
@@ -178,8 +188,12 @@ def inputs_sensor(context: SensorEvaluationContext):
     next_input = input_finder.get_input(cursor)
     context.log.info(f"looking for new entries in input box from cursor {cursor}")
     new_input = next(next_input)
+
     run_requests = []
-    partition_keys = []
+    tapes_partition_keys = []
+    rules_partition_keys = []
+    cartridges_partition_keys = []
+
     blocks = []
     while new_input is not None:
         if new_input.type == InputType.error:
@@ -197,7 +211,7 @@ def inputs_sensor(context: SensorEvaluationContext):
             cartridge_id = generate_cartridge_id(cartridge_data)
             key = f"add_cartridge_{cartridge_id}"
             # add_cartridge(cartridge_id,cartridge_data)
-            partition_keys.append(key)
+            cartridges_partition_keys.append(key)
             run_requests.append(RunRequest(
                 job_name="add_cartridge_job",
                 partition_key=key,
@@ -212,7 +226,7 @@ def inputs_sensor(context: SensorEvaluationContext):
             rule_dict.update({"in_card":rule.in_card.hex()})
             # add_rule(rule)
             key = f"add_rule_{rule.id}"
-            partition_keys.append(key)
+            rules_partition_keys.append(key)
             run_requests.append(RunRequest(
                 job_name="add_rule_job",
                 partition_key=key,
@@ -230,7 +244,7 @@ def inputs_sensor(context: SensorEvaluationContext):
                 "rule_id":extended_verification.rule_id.hex()}
             )
             key = f"verify_input_{extended_verification.input_index}"
-            partition_keys.append(key)
+            tapes_partition_keys.append(key)
             run_requests.append(RunRequest(
                 job_name="verify_asset_job",
                 partition_key=key,
@@ -244,17 +258,31 @@ def inputs_sensor(context: SensorEvaluationContext):
         blocks.append(new_input.last_input_block)
         new_input = next(next_input)
     
-    context.log.info(f"Got {len(run_requests)} run requests until block {max(blocks)} ({partition_keys=})")
+    context.log.info(f"Got {len(run_requests)} run requests until block {max(blocks)} ({tapes_partition_keys=} {rules_partition_keys=} {cartridges_partition_keys=})")
     context.update_cursor(str(max(blocks) + 1))
     if len(run_requests) == 0:
         yield SkipReason("No inputs")
         return
 
+    dynamic_partition_requests = []
+    if tapes_partition_keys:
+        dynamic_partition_requests.append(
+            inputs_partition.build_add_request(tapes_partition_keys)
+        )
+    if cartridges_partition_keys:
+        dynamic_partition_requests.append(
+            cartridges_input_partition.build_add_request(
+                cartridges_partition_keys
+            )
+        )
+    if rules_partition_keys:
+        dynamic_partition_requests.append(
+            rules_input_partition.build_add_request(rules_partition_keys)
+        )
+
     return SensorResult(
         run_requests=run_requests,
-        dynamic_partitions_requests=[
-            inputs_partition.build_add_request(partition_keys)
-        ],
+        dynamic_partitions_requests=dynamic_partition_requests,
     )
 
 @multi_asset_sensor(monitored_assets=[AssetKey("verify_input")], job=submit_verification_job)

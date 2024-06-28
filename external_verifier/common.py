@@ -20,10 +20,10 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 if os.path.isdir('../core'):
     sys.path.append("..")
 
-from core.cartridge import InserCartridgePayload
+from core.cartridge import InsertCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log
-from core.core_settings import CoreSettings, setup_settings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
+from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
 
 LOGGER = logging.getLogger("external_verifier.common")
 
@@ -331,7 +331,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         Storage.add_error(input_index,msg)
         return None
 
-    cartridge_data = Storage.get_cartridge_data(rule.cartridge_id)
+    cartridge_id = _normalize_hex(rule.cartridge_id)
+    cartridge_data = Storage.get_cartridge_data(cartridge_id)
     if cartridge_data is None or len(cartridge_data) == 0:
         msg = f"Couldn't find cartridge"
         LOGGER.error(msg)
@@ -519,7 +520,7 @@ class InputFinder:
         )
         self.rule_selector = rule_header.to_bytes()
 
-        cartridge_abi_types = abi.get_abi_types_from_model(InserCartridgePayload)
+        cartridge_abi_types = abi.get_abi_types_from_model(InsertCartridgePayload)
         cartridge_header = ABIFunctionSelectorHeader(
             function=f"core.insert_cartridge",
             argument_types=cartridge_abi_types
@@ -592,7 +593,7 @@ class InputFinder:
                         yield InputData(type=InputType.rule,data=rule,last_input_block=last_input_block)
                     elif header == self.cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
-                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=InserCartridgePayload)
+                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=InsertCartridgePayload)
                     
                         yield InputData(type=InputType.cartridge,data=payload,last_input_block=last_input_block)
                     else:
@@ -618,7 +619,7 @@ def set_envs():
     if RIVEMU_PATH is not None: os.environ["RIVEMU_PATH"] = RIVEMU_PATH
     if OPERATOR_ADDRESS is not None: os.environ["OPERATOR_ADDRESS"] = OPERATOR_ADDRESS
     if GENESIS_CARTRIDGES is not None: os.environ["GENESIS_CARTRIDGES"] = GENESIS_CARTRIDGES
-    setup_settings()
+
 
 def initialize_storage_with_genesis_data():
     cartridge_ids = {}
@@ -713,7 +714,10 @@ def add_rule(rule: Rule):
     if rule.sender.lower() != OPERATOR_ADDRESS.lower():
         LOGGER.warning(f"Sender has no permission to add rule")
         return
-    cartridge_data = Storage.get_cartridge_data(rule.cartridge_id)
+
+    cartridge_id = _normalize_hex(rule.cartridge_id)
+    cartridge_data = Storage.get_cartridge_data(cartridge_id)
+
     if cartridge_data is None:
         LOGGER.warning(f"Couldn't find cartridge to verify rule")
         return
@@ -732,3 +736,10 @@ def add_rule(rule: Rule):
 def push_verification(extended_verification: ExtendedVerifyPayload):
     Storage.push_verification(abi.encode_model(extended_verification))
 
+
+def _normalize_hex(orig: str) -> str:
+    """Remove leading 0x and ensure lowercase"""
+    result = orig.lower()
+    if result.startswith('0x'):
+        result = result[2:]
+    return result
