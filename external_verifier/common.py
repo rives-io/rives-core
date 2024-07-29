@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from py_expression_eval import Parser
 from enum import Enum
 import traceback
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 from cartesi import abi
 from cartesi.models import ABIFunctionSelectorHeader
@@ -20,6 +20,7 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 if os.path.isdir('../core'):
     sys.path.append("..")
 
+from core.model import Bytes32List
 from core.cartridge import InsertCartridgePayload, RemoveCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log
@@ -27,10 +28,9 @@ from core.core_settings import CoreSettings, generate_entropy, generate_rule_id,
 
 LOGGER = logging.getLogger("external_verifier.common")
 
-load_dotenv() 
+# load_dotenv() 
 
 
-print(f"{os.getenv('PRIVATE_KEY')=}")
 ###
 # Conf
 
@@ -48,6 +48,7 @@ REDIS_HOST = os.getenv('REDIS_HOST') or "localhost"
 REDIS_PORT = os.getenv('REDIS_PORT') or 6379
 RPC_URL = os.getenv('RPC_URL') or "http://localhost:8545"
 WSS_URL = os.getenv('WSS_URL')
+PROXY_CONTRACT = os.getenv('PROXY_CONTRACT')
 
 # check likely
 INPUT_BOX_ADDRESS = os.getenv('INPUTBOX_ADDRESS') or "0x59b22D57D4f067708AB0c00552767405926dc768"
@@ -96,10 +97,12 @@ class Rule(BaseModel):
     end:                int
 
 class ExtendedVerifyPayload(VerifyPayload):
+    cartridge_id:   abi.Bytes32
     rule_id:        abi.Bytes32
     outcard_hash:   abi.Bytes32
     tape:           abi.Bytes
     claimed_score:  abi.Int
+    tapes:          Bytes32List
     sender:         abi.Address
     timestamp:      abi.Int
     input_index:    abi.Int
@@ -113,6 +116,7 @@ class ExternalVerificationOutput(BaseModel):
     score:              int
     error_code:         int
     outcard:            bytes
+    tapes:              List[str]
 
 class InputData(BaseModel):
     type: InputType
@@ -350,6 +354,19 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         return None
 
     cartridge_id = _normalize_hex(rule.cartridge_id)
+
+    if cartridge_id != payload.cartridge_id.hex():
+        msg = f"rule and payload have different cartridge {cartridge_id} != {payload.cartridge_id.hex()}"
+        LOGGER.error(msg)
+        Storage.add_error(input_index,msg)
+        return None
+    
+    if not rule.allow_tapes and len(payload.tapes) > 0:
+        msg = f"rule {payload.rule_id.hex()} doesn't allow tapes"
+        LOGGER.error(msg)
+        Storage.add_error(input_index,msg)
+        return None
+    
     cartridge_data = Storage.get_cartridge_data(cartridge_id)
     if cartridge_data is None or len(cartridge_data) == 0:
         msg = f"Couldn't find cartridge"
@@ -371,7 +388,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
 
     entropy = generate_entropy(sender, payload.rule_id.hex())
 
-    tape_id = generate_tape_id(payload.tape)
+    tape_id = generate_tape_id(payload.rule_id,payload.tape)
     out_params = {
         "user_address": sender,
         "rule_id": payload.rule_id.hex(),
@@ -386,6 +403,12 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
     # process tape
     LOGGER.info(f"Verifying tape...")
     try:
+
+        all_tapes = cartridge.tapes or []
+        all_tapes.extend(rule.tapes)
+        all_tapes.extend(map(lambda x: x.hex(), payload.tapes))
+        incard = format_tapes_to_incard(all_tapes, rule.in_card)
+
         verification_output = verify_log(cartridge_data,payload.tape,rule.args,rule.in_card,entropy=entropy)
     except Exception as e:
         msg = f"Couldn't verify tape: {e}"
@@ -467,7 +490,7 @@ class VerificationSender:
         payload = {
             "user_addresses":[],
             "rule_ids":[],
-            "tape_hashes":[],
+            "tape_ids":[],
             "tape_input_indexes":[],
             "tape_timestamps":[],
             "scores":[],
@@ -476,7 +499,7 @@ class VerificationSender:
         for out in all_data:
             payload['user_addresses'].append(out.user_address)
             payload['rule_ids'].append(hex2bytes(out.rule_id))
-            payload['tape_hashes'].append(hex2bytes(out.tape_hash))
+            payload['tape_ids'].append(hex2bytes(out.tape_hash))
             payload['tape_input_indexes'].append(out.tape_input_index)
             payload['tape_timestamps'].append(out.tape_timestamp)
             payload['scores'].append(out.score)
@@ -591,20 +614,30 @@ class InputFinder:
                     last_input_block = tx_event['blockNumber']
 
                     header = tx_event['args']['input'][:4]
+
+                    if PROXY_CONTRACT is None:
+                        input_payload = tx_event['args']['input'][4:]
+                        sender = tx_event['args']['sender'].lower()
+                    else:
+                        if tx_event['args']['sender'].lower() != PROXY_CONTRACT.lower():
+                            raise Exception(f"Proxy sender doesn't match {tx_event['args']['sender'].lower()=} != {PROXY_CONTRACT.lower()=}")
+                        sender = f"0x{tx_event['args']['input'][4:24].hex().lower()}"
+                        input_payload = tx_event['args']['input'][24:]
+
                     if header == self.verify_selector:
                         # LOGGER.info(f"verify entry")
                         ts = self.w3.eth.get_block(tx_event['blockNumber'])['timestamp']
 
-                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=VerifyPayload)
+                        payload = abi.decode_to_model(data=input_payload, model=VerifyPayload)
 
                         dict_payload = payload.dict()
-                        dict_payload.update({"sender":tx_event['args']['sender'],"timestamp":ts,"input_index":tx_event['args']['inputIndex']})
+                        dict_payload.update({"sender":sender,"timestamp":ts,"input_index":tx_event['args']['inputIndex']})
                         extended_payload = ExtendedVerifyPayload.parse_obj(dict_payload)
 
                         yield InputData(type=InputType.verification,data=extended_payload,last_input_block=last_input_block)
                     elif header == self.rule_selector:
                         # LOGGER.info(f"rule entry")
-                        payload: RulePayload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=RulePayload)
+                        payload: RulePayload = abi.decode_to_model(data=input_payload, model=RulePayload)
                         
                         rule_id = generate_rule_id(payload.cartridge_id,str2bytes(payload.name))
 
@@ -614,7 +647,7 @@ class InputFinder:
                             "args":payload.args,
                             "in_card":payload.in_card,
                             "score_function":payload.score_function,
-                            "sender":tx_event['args']['sender'].lower(),
+                            "sender":sender,
                             "start":payload.start,
                             "end":payload.end
                         }
@@ -622,12 +655,12 @@ class InputFinder:
                         yield InputData(type=InputType.rule,data=rule,last_input_block=last_input_block)
                     elif header == self.cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
-                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=InsertCartridgePayload)
+                        payload = abi.decode_to_model(data=input_payload, model=InsertCartridgePayload)
                     
                         yield InputData(type=InputType.cartridge,data=payload,last_input_block=last_input_block)
                     elif header == self.remove_cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
-                        payload = abi.decode_to_model(data=tx_event['args']['input'][4:], model=RemoveCartridgePayload)
+                        payload = abi.decode_to_model(data=input_payload, model=RemoveCartridgePayload)
                     
                         yield InputData(type=InputType.remove_cartridge,data=payload,last_input_block=last_input_block)
                     else:
@@ -706,7 +739,7 @@ def verify_payload(payload: ExtendedVerifyPayload) -> bool:
 
     return status
 
-def add_cartridge(cartridge_id: str,cartridge_data: bytes):
+def add_cartridge(cartridge_id: str,cartridge_data: bytes, tapes: List[bytes]):
     # TODO: fix not evaluated: no info.json and not i format
     # TODO: fix not evaluated: nor cover or can't generate
     # TODO: fix not evaluated: insufficient space

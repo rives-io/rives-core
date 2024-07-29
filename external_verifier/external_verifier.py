@@ -158,7 +158,6 @@ app = typer.Typer(help="Rives External Verifier: Verify Tapes directly from the 
 def run(db: Optional[DbType] = DbType.mem, log_level: Optional[str] = None, config: Annotated[List[str], typer.Option(help="args config in the [ key=value ] format")] = None, 
 disable_enqueuer: Optional[bool] = False, disable_verifier: Optional[bool] = False, disable_submitter: Optional[bool] = False):
 
-    print("heyyy")
     config_dict = {}
     if config is not None:
         import re

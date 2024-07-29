@@ -152,12 +152,12 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
     run_args.append(f"-save-outhash={outhash_temp.name}")
     if get_outhist:
         run_args.append(f"-save-outhist={outhist_temp.name}")
+    run_args.append(f"-no-window")
     if get_screenshot:
         run_args.append(f"-save-screenshot={screenshot_temp.name}")
-        run_args.append(f"-speed=10000")
     else:
-        run_args.append(f"-no-window")
         run_args.append(f"-no-yield")
+    run_args.append(f"-no-audio")
     if in_card is not None and len(in_card):
         run_args.append(f"-load-incard={incard_temp.name}")
     if frame is not None:

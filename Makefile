@@ -4,7 +4,7 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
-RIV_VERSION := 0.3-rc12
+RIV_VERSION := 0.3-rc15
 CARTESI_SDK_RIV_VERSION := 0.6.2-riv
 
 RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
@@ -65,17 +65,9 @@ run-dev-%: ${ENVFILE}.% --check-testnet-envs-% --check-dev-envs-% rivemu ; $(val
 run-reader-%: ${ENVFILE}.% --check-testnet-envs-% ; $(value setup_venv)
 	. $< && cartesapp node --mode reader --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} $(ARGS)
 
-run-frontend-dev:
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	make -C ${FRONTEND_PATH} run-dev
-
-build-frontend:
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	make -C ${FRONTEND_PATH} build
-
 generate-frontend-libs: ; $(value setup_venv)
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	cartesapp generate-frontend-libs --libs-path app/backend-libs --frontend-path ${FRONTEND_PATH}
+	@test ! -z '${FRONTEND_PATH}' || (echo "Must define FRONTEND_PATH in env" && exit 1)
+	cartesapp generate-frontend-libs --libs-path app/backend-libs --frontend-path ${FRONTEND_PATH} $(ARGS)
 
 # Aux env targets
 --load-env: ${ENVFILE}
@@ -94,29 +86,29 @@ ${ENVFILE}.%:
 	test ! -f $@ && $(error "file $@ doesn't exist")
 
 --check-roladdr-env:
-	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || echo "Must define ROLLUP_HTTP_SERVER_URL in env" && test ! -z '${ROLLUP_HTTP_SERVER_URL}'
+	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || (echo "Must define ROLLUP_HTTP_SERVER_URL in env" && exit 1)
 
 
 # custom rives tagets
 
 --check-envs-%: --load-env-%
-	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
+	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
 
 --check-rivemu-env:
-	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'
+	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
 
 --check-opaddr-env:
-	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
+	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
 
 --check-dev-envs-%: --load-env-%
-	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
-	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'
-	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || echo "Must define ROLLUP_HTTP_SERVER_URL in env" && test ! -z '${ROLLUP_HTTP_SERVER_URL}'
+	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
+	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
+	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || (echo "Must define ROLLUP_HTTP_SERVER_URL in env" && exit 1)
 
 --check-testnet-envs-%: --load-env-%
-	@test ! -z '${RPC_URL}' || echo "Must define RPC_URL in env" && test ! -z '${RPC_URL}'
-	@test ! -z '${DAPP_ADDRESS}' || echo "Must define DAPP_ADDRESS in env" && test ! -z '${DAPP_ADDRESS}'
-	@test ! -z '${DAPP_DEPLOY_BLOCK}' || echo "Must define DAPP_DEPLOY_BLOCK in env" && test ! -z '${DAPP_DEPLOY_BLOCK}'
+	@test ! -z '${RPC_URL}' || (echo "Must define RPC_URL in env" && exit 1)
+	@test ! -z '${DAPP_ADDRESS}' || (echo "Must define DAPP_ADDRESS in env" && exit 1)
+	@test ! -z '${DAPP_DEPLOY_BLOCK}' || (echo "Must define DAPP_DEPLOY_BLOCK in env" && exit 1)
 
 cartesi-riv: cartesi-sdk
 cartesi-sdk-riv: cartesi-sdk
@@ -131,11 +123,6 @@ rivemu:
 	rm -rf rivemu
 
 update-rivemu: --remove-rivemu rivemu
-
-update-frontend-rivemu:
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.js -o ${FRONTEND_PATH}/public/rivemu.js
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.wasm -o ${FRONTEND_PATH}/public/rivemu.wasm
 
 build-release:
 	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
