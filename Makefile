@@ -35,8 +35,8 @@ all: cartesi-riv build build-reader-node
 setup-env: ; $(value setup_venv)
 
 # build targets
-build: --load-env --check-opaddr-env ; $(value setup_venv)
-	cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
+build: ${ENVFILE} --check-envs ; $(value setup_venv)
+	. $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
 
 build-reader-node: ; $(value setup_venv)
 	cartesapp build-reader-image $(ARGS)
@@ -45,20 +45,21 @@ build-dev-node: ; $(value setup_venv)
 	cartesapp build-dev-image $(ARGS)
 
 build-%: ${ENVFILE}.% --check-envs-% ; $(value setup_venv)
-	. $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
+	. $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
 
 # Run targets
-run: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ; $(value setup_venv)
+run: ; $(value setup_venv)
 	cartesapp node $(ARGS)
 
-run-dev: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env rivemu ; $(value setup_venv)
-	RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} cartesapp node --mode dev $(ARGS)
+run-dev: ${ENVFILE} rivemu --check-envs --check-dev-envs ; $(value setup_venv)
+	. $< && RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} PROXY_ADDRESS=${PROXY_ADDRESS} \
+	 cartesapp node --mode dev $(ARGS)
 
 run-reader: ; $(value setup_venv)
 	cartesapp node --mode reader $(ARGS)
 
 run-dev-%: ${ENVFILE}.% --check-testnet-envs-% --check-dev-envs-% rivemu ; $(value setup_venv)
-	. $< && RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} \
+	. $< && RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} PROXY_ADDRESS=${PROXY_ADDRESS} \
 	 cartesapp node --mode dev --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} \
 	 $(ARGS)
 
@@ -78,6 +79,7 @@ ${ENVFILE}:
 	echo ROLLUP_HTTP_SERVER_URL=http://localhost:8080/rollup >> $(ENVFILE)
 	echo RIVEMU_PATH=rivemu >> $(ENVFILE)
 	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
+	echo PROXY_ADDRESS=0x00124590193fcd497c0eed517103368113f89258 >> $(ENVFILE)
 
 --load-env-%: ${ENVFILE}.%
 	@$(eval include include $^)
@@ -91,17 +93,22 @@ ${ENVFILE}.%:
 
 # custom rives tagets
 
+--check-envs: --load-env
+	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
+	@test ! -z '${PROXY_ADDRESS}' || (echo "Must define PROXY_ADDRESS in env" && exit 1)
+
 --check-envs-%: --load-env-%
 	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
+	@test ! -z '${PROXY_ADDRESS}' || (echo "Must define PROXY_ADDRESS in env" && exit 1)
 
 --check-rivemu-env:
 	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
 
---check-opaddr-env:
-	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
+--check-dev-envs: --load-env
+	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
+	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || (echo "Must define ROLLUP_HTTP_SERVER_URL in env" && exit 1)
 
 --check-dev-envs-%: --load-env-%
-	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
 	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
 	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || (echo "Must define ROLLUP_HTTP_SERVER_URL in env" && exit 1)
 

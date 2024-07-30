@@ -220,7 +220,7 @@ class TapesOutput(BaseModel):
 ###
 # Mutations
 
-@mutation()
+@mutation(proxy=CoreSettings().proxy_address)
 def create_rule(payload: RulePayload) -> bool:
     payload_cartridge = format_cartridge_id_from_bytes(payload.cartridge_id)
 
@@ -280,9 +280,17 @@ def create_rule(payload: RulePayload) -> bool:
 
     return True
 
-@mutation(msg_sender=CoreSettings().operator_address)
+@mutation(proxy=CoreSettings().proxy_address)
 def verify(payload: VerifyPayload) -> bool:
     metadata = get_metadata()
+
+    # only operator
+    # if metadata.msg_sender.lower() != CoreSettings().operator_address:
+    #     msg = f"sender not allowed"
+    #     LOGGER.error(msg)
+    #     add_output(msg)
+    #     return False
+
     payload_rule = format_rule_id_from_bytes(payload.rule_id)
     # payload_cartridge = format_cartridge_id_from_bytes(payload.cartridge_id)
 
@@ -478,7 +486,7 @@ def verify(payload: VerifyPayload) -> bool:
 
     return True
 
-@mutation()
+@mutation(proxy=CoreSettings().proxy_address)
 def register_external_verification(payload: VerifyPayload) -> bool:
     metadata = get_metadata()
     payload_rule = format_rule_id_from_bytes(payload.rule_id)
@@ -565,7 +573,7 @@ def register_external_verification(payload: VerifyPayload) -> bool:
 
     return True
 
-@mutation(msg_sender=CoreSettings().operator_address)
+@mutation(proxy=CoreSettings().proxy_address)
 def external_verification(payload: ExternalVerificationPayload) -> bool:
     metadata = get_metadata()
     # only operator
@@ -661,7 +669,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
 
     return True
 
-@mutation()
+@mutation(proxy=CoreSettings().proxy_address)
 def award_winners(payload: AwardWinnerTapesPayload) -> bool:
     metadata = get_metadata()
     # only operator
@@ -753,7 +761,7 @@ def award_winners(payload: AwardWinnerTapesPayload) -> bool:
 
     return True
 
-@mutation()
+@mutation(proxy=CoreSettings().proxy_address)
 def clean_tapes(payload: CleanTapesPayload) -> bool:
     metadata = get_metadata()
     # only operator

@@ -14,7 +14,7 @@ from cartesapp.output import event, output, add_output, emit_event, index_input
 from cartesapp.utils import hex2bytes
 
 from .model import Cartridge, CartridgeTag, CartridgeAuthor, InfoCartridge, create_cartridge, delete_cartridge, change_cartridge_user_address, StringList, Bytes32List, format_bytes_list_to_incard
-from .core_settings import get_cartridges_path, get_version, format_cartridge_id_from_bytes
+from .core_settings import CoreSettings, get_cartridges_path, get_version, format_cartridge_id_from_bytes
 
 LOGGER = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ class CartridgeAuthorsOutput(BaseModel):
 ###
 # Mutations
 
-@mutation()
+@mutation(proxy=CoreSettings().proxy_address)
 def insert_cartridge(payload: InsertCartridgePayload) -> bool:
     metadata = get_metadata()
     
@@ -155,7 +155,7 @@ def insert_cartridge(payload: InsertCartridgePayload) -> bool:
 
     return True
 
-@mutation()
+@mutation(proxy=CoreSettings().proxy_address)
 def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
     metadata = get_metadata()
     payload_id = format_cartridge_id_from_bytes(payload.id)
@@ -184,7 +184,7 @@ def remove_cartridge(payload: RemoveCartridgePayload) -> bool:
 
     return True
 
-@mutation()
+@mutation(proxy=CoreSettings().proxy_address)
 def transfer_cartridge(payload: TransferCartridgePayload) -> bool:
     metadata = get_metadata()
     payload_id = format_cartridge_id_from_bytes(payload.id)
