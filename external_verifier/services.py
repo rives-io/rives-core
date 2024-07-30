@@ -231,7 +231,12 @@ def inputs_sensor(context: SensorEvaluationContext):
                 job_name="add_cartridge_job",
                 partition_key=key,
                 run_config=RunConfig(
-                    ops={"add_cartridge":CartridgeConfig(**{"data":bytes2hex(cartridge_data),"cartridge_id":cartridge_id}),}
+                    ops={
+                        "add_cartridge": CartridgeConfig(
+                            data=bytes2hex(cartridge_data),
+                            id=cartridge_id
+                        ),
+                    }
                 )
             ))
         elif new_input.type == InputType.remove_cartridge:
