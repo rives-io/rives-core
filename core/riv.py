@@ -6,9 +6,9 @@ import shutil
 
 from .core_settings import CoreSettings, get_cartridges_path, is_inside_cm
 
-def riv_get_cartridge_info(cartridge_id):
+def riv_get_cartridge_info(cartridge_filepath):
     args = ["sqfscat","-st"]
-    args.append(f"{get_cartridges_path()}/{cartridge_id}")
+    args.append(cartridge_filepath)
     args.append("/info.json")
         
     result = subprocess.run(args, capture_output=True, text=True)
@@ -17,9 +17,9 @@ def riv_get_cartridge_info(cartridge_id):
 
     return result.stdout
 
-def riv_get_cover(cartridge_id):
+def riv_get_cover(cartridge_filepath):
     args = ["sqfscat","-no-exit"]
-    args.append(f"{get_cartridges_path()}/{cartridge_id}")
+    args.append(cartridge_filepath)
     args.append("/cover.png")
         
     result = subprocess.run(args, capture_output=True)
@@ -75,13 +75,14 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
         run_args.extend(["--setenv", "RIV_OUTHASH", outhash_path])
         if get_screenshot:
             run_args.extend(["--setenv", "RIV_SAVE_SCREENSHOT", screenshot_path])
+        else:
+            run_args.extend(["--setenv", "RIV_NO_YIELD", "y"])
         if in_card is not None and len(in_card) > 0:
             run_args.extend(["--setenv", "RIV_INCARD", incard_path])
         if frame is not None:
             run_args.extend(["--setenv", "RIV_STOP_FRAME", f"{frame}"])
         if entropy is not None:
             run_args.extend(["--setenv", "RIV_ENTROPY", f"{entropy}"])
-        run_args.extend(["--setenv", "RIV_NO_YIELD", "y"])
         run_args.append("riv-run")
         if riv_args is not None and len(riv_args) > 0:
             run_args.extend(riv_args.split())

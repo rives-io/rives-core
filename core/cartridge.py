@@ -93,24 +93,6 @@ class CartridgeInfo(BaseModel):
     tapes: Optional[StringList]
     tags:  Optional[StringList]
 
-# class Cartridge(Entity):
-#     id              = helpers.PrimaryKey(str, 64)
-#     name            = helpers.Required(str, index=True)
-#     user_address    = helpers.Required(str, 42)
-#     info            = helpers.Optional(helpers.Json, lazy=True)
-#     original_info   = helpers.Optional(helpers.Json, lazy=True)
-#     created_at      = helpers.Required(int, unsigned=True)
-#     updated_at      = helpers.Required(int, unsigned=True)
-#     input_index     = helpers.Required(int, lazy=True) # -1 means not created by an input (created in genesis)
-#     cover           = helpers.Optional(bytes, lazy=True)
-#     active          = helpers.Optional(bool, lazy=True)
-#     primary         = helpers.Optional(bool)
-#     primary_id      = helpers.Optional(str, 64)
-#     versions        = helpers.Optional(helpers.StrArray)
-#     last_version    = helpers.Optional(str, 64)
-#     tapes           = helpers.Optional(helpers.StrArray, lazy=True)
-#     tags            = helpers.Set("CartridgeTag")
-#     authors         = helpers.Set("CartridgeAuthor")
 @output()
 class CartridgesOutput(BaseModel):
     data:   List[CartridgeInfo]

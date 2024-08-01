@@ -8,7 +8,7 @@ import math
 import traceback
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, \
-    set_envs, initialize_storage_with_genesis_data, add_cartridge, remove_cartridge, add_rule,  push_verification, \
+    set_envs, initialize_storage_with_genesis_data, add_cartridge, remove_cartridge, add_rule, set_operator, push_verification, \
     verify_payload, deserialize_verification, deserialize_output, generate_cartridge_id, VERIFICATIONS_BATCH_SIZE
 
 
@@ -51,11 +51,15 @@ class Enqueuer(Process):
                 LOGGER.info(f"new cartridge entry")
                 cartridge_data = new_input.data.data
                 cartridge_id = generate_cartridge_id(cartridge_data)
-                add_cartridge(cartridge_id,cartridge_data)
+                add_cartridge(cartridge_id,cartridge_data,new_input.data.sender)
             elif new_input.type == InputType.remove_cartridge:
                 LOGGER.info(f"remove cartridge entry")
                 cartridge_id = new_input.data.id
-                remove_cartridge(cartridge_id)
+                remove_cartridge(cartridge_id,new_input.data.sender)
+            elif new_input.type == InputType.set_operator:
+                LOGGER.info(f"set operator cartridge entry")
+                cartridge_id = new_input.data.id
+                set_operator(new_input.data.new_operator_address,new_input.data.sender)
             elif new_input.type == InputType.rule:
                 LOGGER.info(f"new rule entry")
                 rule: Rule = new_input.data
@@ -156,7 +160,7 @@ app = typer.Typer(help="Rives External Verifier: Verify Tapes directly from the 
 
 @app.command()
 def run(db: Optional[DbType] = DbType.mem, log_level: Optional[str] = None, config: Annotated[List[str], typer.Option(help="args config in the [ key=value ] format")] = None, 
-disable_enqueuer: Optional[bool] = False, disable_verifier: Optional[bool] = False, disable_submitter: Optional[bool] = False):
+        disable_enqueuer: Optional[bool] = False, disable_verifier: Optional[bool] = False, disable_submitter: Optional[bool] = False):
 
     config_dict = {}
     if config is not None:
@@ -167,7 +171,7 @@ disable_enqueuer: Optional[bool] = False, disable_verifier: Optional[bool] = Fal
 
     Storage(db)
     # os.chdir('..')
-    set_envs()
+    # set_envs()
     initialize_storage_with_genesis_data()
 
     if log_level is not None:

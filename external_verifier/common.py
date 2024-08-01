@@ -10,6 +10,7 @@ import logging
 from pydantic import BaseModel
 from py_expression_eval import Parser
 from enum import Enum
+import tempfile
 import traceback
 # from dotenv import load_dotenv
 
@@ -20,12 +21,14 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 if os.path.isdir('../core'):
     sys.path.append("..")
 
-from core.model import Bytes32List
+from core.model import Bytes32List, format_incard, format_tape_id_from_bytes
+from core.admin import SetOperatorPayload
 from core.cartridge import InsertCartridgePayload, RemoveCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
-from core.riv import verify_log
-from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id
-
+from core.riv import verify_log, riv_get_cartridge_info
+from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, \
+    generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id, \
+    format_rule_id_from_bytes, format_cartridge_id_from_bytes
 LOGGER = logging.getLogger("external_verifier.common")
 
 # load_dotenv() 
@@ -48,10 +51,11 @@ REDIS_HOST = os.getenv('REDIS_HOST') or "localhost"
 REDIS_PORT = os.getenv('REDIS_PORT') or 6379
 RPC_URL = os.getenv('RPC_URL') or "http://localhost:8545"
 WSS_URL = os.getenv('WSS_URL')
-PROXY_CONTRACT = os.getenv('PROXY_CONTRACT')
+PROXY_ADDRESS = os.getenv('PROXY_ADDRESS')
+WORLD_ADDRESS = os.getenv('WORLD_ADDRESS')
 
 # check likely
-INPUT_BOX_ADDRESS = os.getenv('INPUTBOX_ADDRESS') or "0x59b22D57D4f067708AB0c00552767405926dc768"
+INPUT_BOX_ADDRESS = os.getenv('INPUT_BOX_ADDRESS') or "0x59b22D57D4f067708AB0c00552767405926dc768"
 INPUT_BOX_ABI_FILE = os.getenv('INPUT_BOX_ABI_FILE') or 'InputBox.json'
 TEST_TAPE_PATH = os.getenv('TEST_TAPE_PATH') or '../misc/test.rivlog'
 GENESIS_CARTRIDGES_PATH = os.getenv('GENESIS_CARTRIDGES_PATH') or '../misc'
@@ -62,12 +66,16 @@ VERIFICATIONS_BATCH_SIZE = os.getenv('VERIFICATIONS_BATCH_SIZE') or 10
 REDIS_VERIFY_QUEUE_KEY = f"rives_verify_queue_{RIVES_VERSION}"
 REDIS_VERIFY_PROCESSING_QUEUE_KEY = f"rives_verify_processing_queue_{RIVES_VERSION}"
 REDIS_CARTRIDGES_KEY = f"rives_cartridges_{RIVES_VERSION}"
+REDIS_CARTRIDGE_INFOS_KEY = f"rives_cartridge_infos_{RIVES_VERSION}"
+REDIS_CARTRIDGE_NAMES_MAP_KEY = f"rives_cartridge_names_id_map_{RIVES_VERSION}"
+REDIS_CARTRIDGE_VERSIONS_KEY = f"rives_cartridge_versions_{RIVES_VERSION}"
 REDIS_TAPES_KEY = f"rives_tapes_{RIVES_VERSION}"
 REDIS_RULES_KEY = f"rives_rules_{RIVES_VERSION}"
 REDIS_VERIFY_OUTPUT_QUEUE_KEY = f"rives_verify_output_queue_{RIVES_VERSION}"
 REDIS_VERIFY_OUTPUT_TEMP_QUEUE_KEY = f"rives_verify_output_temp_queue_{RIVES_VERSION}"
 REDIS_ERROR_VERIFICATION_KEY = f"rives_error_verification_{RIVES_VERSION}"
 REDIS_BLOCK_KEY = f"rives_processed_block_{RIVES_VERSION}"
+REDIS_OPERATOR_KEY = f"rives_operator_address_{RIVES_VERSION}"
 MAX_BLOCK_RANGE = 5000
 
 ###
@@ -82,12 +90,14 @@ class InputType(str, Enum):
     cartridge = "cartridge"
     verification = "verification"
     remove_cartridge = "remove_cartridge"
+    set_operator = "set_operator"
     unknown = "unknown"
     error = "error"
     none = "none"
 
 class Rule(BaseModel):
-    id:                 str
+    # id:                 str
+    name:               str
     cartridge_id:       str
     args:               str
     in_card:            bytes
@@ -95,28 +105,40 @@ class Rule(BaseModel):
     sender:             Optional[str]
     start:              int
     end:                int
+    tapes:              List[str]
+    allow_tapes:        bool
+    allow_in_card:      bool
+    save_tapes:         bool
+    save_out_cards:     bool
 
-class ExtendedVerifyPayload(VerifyPayload):
-    cartridge_id:   abi.Bytes32
+class ExtendedVerifyPayload(BaseModel):
     rule_id:        abi.Bytes32
     outcard_hash:   abi.Bytes32
     tape:           abi.Bytes
     claimed_score:  abi.Int
     tapes:          Bytes32List
+    in_card:        abi.Bytes
     sender:         abi.Address
     timestamp:      abi.Int
     input_index:    abi.Int
 
+class ExtendedInsertCartridgePayload(BaseModel):
+    data:           abi.Bytes
+    sender:         abi.Address
+
+class ExtendedRemoveCartridgePayload(BaseModel):
+    id:             abi.Bytes32
+    sender:         abi.Address
+
+class ExtendedSetOperatorPayload(BaseModel):
+    new_operator_address:   abi.Address
+    sender:                 abi.Address
+
 class ExternalVerificationOutput(BaseModel):
-    user_address:       str
-    rule_id:            str
-    tape_hash:          str
-    tape_input_index:   int
-    tape_timestamp:     int
+    tape_id:            str
     score:              int
     error_code:         int
     outcard:            bytes
-    tapes:              List[str]
 
 class InputData(BaseModel):
     type: InputType
@@ -204,6 +226,15 @@ class Storage:
         return cls
 
     @classmethod
+    def get_operator_address(cls) -> Rule:
+        op_addr = cls.store.get(REDIS_OPERATOR_KEY)
+        return op_addr.decode('utf-8') if op_addr is not None else None
+
+    @classmethod
+    def set_operator_address(cls, addr: str) -> Rule:
+        return cls.store.set(REDIS_OPERATOR_KEY, addr.lower())
+
+    @classmethod
     def get_processed_block(cls) -> Rule:
         return cls.store.get(REDIS_BLOCK_KEY)
 
@@ -212,10 +243,14 @@ class Storage:
         return cls.store.set(REDIS_BLOCK_KEY, block)
 
     @classmethod
-    def get_rule(cls,rule_id: str) -> Rule:
-        json_rule = cls.store.hget(REDIS_RULES_KEY,rule_id)
-        return Rule.parse_raw(json_rule) if json_rule is not None else None
+    def add_error(cls,input_index: int, error_msg: str) -> int:
+        cls.store.hset(REDIS_ERROR_VERIFICATION_KEY,input_index,error_msg)
 
+    @classmethod
+    def add_cartridge(cls,cartridge_id,cartridge_data):
+        if not cls.store.hexists(REDIS_CARTRIDGES_KEY,cartridge_id):
+            cls.store.hset(REDIS_CARTRIDGES_KEY,cartridge_id,cartridge_data)
+    
     @classmethod
     def get_cartridge_data(cls,cartridge_id: str) -> bytes:
         return cls.store.hget(REDIS_CARTRIDGES_KEY,cartridge_id)
@@ -225,13 +260,48 @@ class Storage:
         return cls.store.hdel(REDIS_CARTRIDGES_KEY,cartridge_id)
 
     @classmethod
-    def add_error(cls,input_index: int, error_msg: str) -> int:
-        cls.store.hset(REDIS_ERROR_VERIFICATION_KEY,input_index,error_msg)
+    def add_cartridge_info(cls,cartridge_id,cartridge_info):
+        if not cls.store.hexists(REDIS_CARTRIDGE_INFOS_KEY,cartridge_id):
+            cls.store.hset(REDIS_CARTRIDGE_INFOS_KEY,cartridge_id,json.dumps(cartridge_info))
+            primary = cls.get_primary_cartridge_id(cartridge_id)
+            if primary is None:
+                if cartridge_info.get('name') is not None:
+                    cls.store.hset(REDIS_CARTRIDGE_NAMES_MAP_KEY,cartridge_info['name'],cartridge_id)
+                cls.store.hset(REDIS_CARTRIDGE_VERSIONS_KEY,cartridge_id,json.dumps([]))
+            else:
+                versions = json.loads(cls.store.hget(REDIS_CARTRIDGE_VERSIONS_KEY,primary))
+                versions.append(cartridge_id)
+                cls.store.hset(REDIS_CARTRIDGE_VERSIONS_KEY,primary,json.dumps(versions))
+
+    @classmethod
+    def get_cartridge_info(cls,cartridge_id: str) -> bytes:
+        info = cls.store.hget(REDIS_CARTRIDGE_INFOS_KEY,cartridge_id)
+        return json.loads(info) if info is not None else None
+
+    @classmethod
+    def get_primary_cartridge_id(cls,cartridge_id: str) -> bytes:
+        info = cls.store.hget(REDIS_CARTRIDGE_INFOS_KEY,cartridge_id)
+        if info is None: return None
+        info = json.loads(info)
+        if info.get('name') is None: return None
+        primary = cls.store.hget(REDIS_CARTRIDGE_NAMES_MAP_KEY,info.get('name'))
+        return primary.decode('utf-8') if primary is not None else None
+
+    @classmethod
+    def get_cartridge_versions(cls,cartridge_id: str) -> bytes:
+        versions = cls.store.hget(REDIS_CARTRIDGE_VERSIONS_KEY,cartridge_id)
+        if versions is None: return None
+        return json.loads(versions)
 
     # @classmethod
     # def exist_rule(cls,rule_id):
     #     return cls.store.hexists(REDIS_RULES_KEY,rule_id)
     
+    @classmethod
+    def get_rule(cls,rule_id: str) -> Rule:
+        json_rule = cls.store.hget(REDIS_RULES_KEY,rule_id)
+        return Rule.parse_raw(json_rule) if json_rule is not None else None
+
     @classmethod
     def add_rule(cls,rule_id,rule):
         if not cls.store.hexists(REDIS_RULES_KEY,rule_id):
@@ -240,11 +310,6 @@ class Storage:
     # @classmethod
     # def exist_cartridge(cls,cartridge_id):
     #     return cls.store.hexists(REDIS_CARTRIDGES_KEY,cartridge_id)
-    
-    @classmethod
-    def add_cartridge(cls,cartridge_id,cartridge_data):
-        if not cls.store.hexists(REDIS_CARTRIDGES_KEY,cartridge_id):
-            cls.store.hset(REDIS_CARTRIDGES_KEY,cartridge_id,cartridge_data)
     
     @classmethod
     def add_tape(cls,tape_id,outcard):
@@ -301,9 +366,25 @@ def deserialize_output(serialized_data: bytes) -> ExternalVerificationOutput:
 ###
 # Verification/sender functions
 
-def rule_verification(cartridge_data:bytes, rule: Rule):
-    out = cartridge_verification(cartridge_data,rule.args,rule.in_card)
+def riv_verification(cartridge_data:bytes,args:str,in_card:bytes):
+    with open(TEST_TAPE_PATH,'rb') as test_replay_file:
+        test_replay = test_replay_file.read()
+    try:
+        verification_output = verify_log(cartridge_data,test_replay,args,in_card)
+    except Exception as e:
+        LOGGER.warning(e)
+        traceback.print_exc()
+        return None
+    return verification_output
 
+def rule_verification(cartridge_data:bytes, rule: Rule, formatted_in_card: bytes):
+
+    out = riv_verification(cartridge_data,rule.args,formatted_in_card)
+
+    if out is None:
+        LOGGER.error(f"Error verifying log")
+        return None
+    
     outcard_raw = out.get('outcard')
 
     if rule.score_function is not None and len(rule.score_function) > 0:
@@ -329,24 +410,13 @@ def rule_verification(cartridge_data:bytes, rule: Rule):
 
     return rule
 
-def cartridge_verification(cartridge_data:bytes,args:str,in_card:bytes):
-    with open(TEST_TAPE_PATH,'rb') as test_replay_file:
-        test_replay = test_replay_file.read()
-    try:
-        verification_output = verify_log(cartridge_data,test_replay,args,in_card)
-    except Exception as e:
-        LOGGER.warning(e)
-        traceback.print_exc()
-        return None
-    return verification_output
-
-
 def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOutput:
     sender = payload.sender
     timestamp = payload.timestamp
     input_index = payload.input_index
 
-    rule = Storage.get_rule(payload.rule_id.hex())
+    payload_rule = format_rule_id_from_bytes(payload.rule_id)
+    rule = Storage.get_rule(payload_rule)
     if rule is None:
         msg = f"Couldn't find rule"
         LOGGER.error(msg)
@@ -354,15 +424,15 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         return None
 
     cartridge_id = _normalize_hex(rule.cartridge_id)
-
-    if cartridge_id != payload.cartridge_id.hex():
-        msg = f"rule and payload have different cartridge {cartridge_id} != {payload.cartridge_id.hex()}"
+    
+    if not rule.allow_tapes and len(payload.tapes) > 0:
+        msg = f"rule {payload_rule} doesn't allow tapes"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
         return None
     
-    if not rule.allow_tapes and len(payload.tapes) > 0:
-        msg = f"rule {payload.rule_id.hex()} doesn't allow tapes"
+    if not rule.allow_in_card and len(payload.in_card) > 0:
+        msg = f"rule {payload_rule} doesn't allow in cards"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
         return None
@@ -390,11 +460,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
 
     tape_id = generate_tape_id(payload.rule_id,payload.tape)
     out_params = {
-        "user_address": sender,
-        "rule_id": payload.rule_id.hex(),
-        "tape_hash": tape_id,
-        "tape_input_index": input_index,
-        "tape_timestamp": timestamp,
+        "tape_id": tape_id,
         "score": 0,
         "error_code": 0,
         "outcard":b''
@@ -404,12 +470,24 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
     LOGGER.info(f"Verifying tape...")
     try:
 
-        all_tapes = cartridge.tapes or []
-        all_tapes.extend(rule.tapes)
-        all_tapes.extend(map(lambda x: x.hex(), payload.tapes))
-        incard = format_tapes_to_incard(all_tapes, rule.in_card)
+        cartridge_info_json = Storage.get_cartridge_info(cartridge_id)
 
-        verification_output = verify_log(cartridge_data,payload.tape,rule.args,rule.in_card,entropy=entropy)
+        all_tapes = []
+        cartridge_tapes = cartridge_info_json.get("tapes")
+        if cartridge_tapes is not None and len(cartridge_tapes) > 0:
+            all_tapes.extend(cartridge_tapes)
+        all_tapes.extend(rule.tapes)
+        if rule.allow_tapes and len(payload.tapes) > 0:
+            all_tapes.extend(map(lambda x: format_tape_id_from_bytes(x), payload.tapes))
+
+        all_incards = []
+        if rule.in_card is not None and len(rule.in_card) > 0:
+            all_incards.append(rule.in_card)
+        if rule.allow_in_card and len(payload.in_card) > 0:
+           all_incards.append(payload.in_card)
+        incard = format_incard(all_tapes, all_incards)
+
+        verification_output = verify_log(cartridge_data,payload.tape,rule.args,incard,entropy=entropy)
     except Exception as e:
         msg = f"Couldn't verify tape: {e}"
         LOGGER.error(msg)
@@ -462,6 +540,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             out_params["error_code"] = ErrorCode.SCORE_MATCH_ERROR
             return ExternalVerificationOutput.parse_obj(out_params)
 
+    out_params['outcard'] = outcard_raw if rule.save_out_cards else b''
     out_params['score'] = score
     Storage.add_tape(tape_id,outcard_raw)
     return ExternalVerificationOutput.parse_obj(out_params)
@@ -484,26 +563,23 @@ class VerificationSender:
         provider = Web3.WebsocketProvider(WSS_URL) if WSS_URL else Web3.HTTPProvider(RPC_URL)
         self.w3 = Web3(provider)
         self.acct = self.w3.eth.account.from_key(PRIVATE_KEY)
-        self.input_box_contract = self.w3.eth.contract(address=INPUT_BOX_ADDRESS, abi=json.dumps(self.input_box_abi))
+        if WORLD_ADDRESS is None:
+            self.input_box_contract = self.w3.eth.contract(address=INPUT_BOX_ADDRESS, abi=json.dumps(self.input_box_abi))
+        else:
+            self.input_box_contract = self.w3.eth.contract(address=WORLD_ADDRESS, abi=json.dumps(self.input_box_abi))
 
     def submit_external_outputs(self,all_data: List[ExternalVerificationOutput]):
         payload = {
-            "user_addresses":[],
-            "rule_ids":[],
             "tape_ids":[],
-            "tape_input_indexes":[],
-            "tape_timestamps":[],
             "scores":[],
             "error_codes":[],
+            "outcards":[],
         }
         for out in all_data:
-            payload['user_addresses'].append(out.user_address)
-            payload['rule_ids'].append(hex2bytes(out.rule_id))
-            payload['tape_ids'].append(hex2bytes(out.tape_hash))
-            payload['tape_input_indexes'].append(out.tape_input_index)
-            payload['tape_timestamps'].append(out.tape_timestamp)
+            payload['tape_ids'].append(hex2bytes(out.tape_id))
             payload['scores'].append(out.score)
             payload['error_codes'].append(out.error_code)
+            payload['outcards'].append(out.outcard)
 
         model = ExternalVerificationPayload
 
@@ -546,7 +622,8 @@ class InputFinder:
             if j.get('abi') is None:
                 raise Exception(f"Input box abi file doesn't have contract abi")
             self.input_box_abi = j['abi']
-        provider = Web3.WebsocketProvider(WSS_URL) if WSS_URL else Web3.HTTPProvider(RPC_URL)
+        conn_timeout = 60
+        provider = Web3.WebsocketProvider(WSS_URL, websocket_timeout=conn_timeout) if WSS_URL else Web3.HTTPProvider(RPC_URL, request_kwargs={'timeout': conn_timeout})
         self.w3 = Web3(provider)
         self.input_box_contract = self.w3.eth.contract(address=INPUT_BOX_ADDRESS, abi=json.dumps(self.input_box_abi))
         self.starting_block = DAPP_DEPLOY_BLOCK
@@ -579,13 +656,20 @@ class InputFinder:
         )
         self.remove_cartridge_selector = remove_cartridge_header.to_bytes()
 
+        set_operator_abi_types = abi.get_abi_types_from_model(SetOperatorPayload)
+        set_operator_header = ABIFunctionSelectorHeader(
+            function=f"core.set_operator_address",
+            argument_types=set_operator_abi_types
+        )
+        self.set_operator_header = set_operator_header.to_bytes()
+
         self.timeout = timeout
         self.poll_interval = poll_interval
 
-    def get_input(self, block: int | None) -> Generator[InputData,None,None]:
-
+    def get_input(self, block: int | None, max_time_wait: int = -1) -> Generator[InputData,None,None]:
         if block is None: block = self.starting_block
 
+        start_ts = time.time()
         last_input_block = int(block)
         while True:
             try:
@@ -599,6 +683,8 @@ class InputFinder:
                 last_eth_block = self.w3.eth.block_number
                 if params['fromBlock'] > last_eth_block:
                     time.sleep(self.poll_interval)
+                    if max_time_wait >= 0 and time.time() - start_ts > max_time_wait:
+                        yield InputData(type=InputType.none,data=None,last_input_block=last_eth_block)
                     continue
                 to_block = int(last_input_block)+MAX_BLOCK_RANGE-1
                 if to_block < last_eth_block:
@@ -615,12 +701,13 @@ class InputFinder:
 
                     header = tx_event['args']['input'][:4]
 
-                    if PROXY_CONTRACT is None:
+                    if PROXY_ADDRESS is None:
                         input_payload = tx_event['args']['input'][4:]
                         sender = tx_event['args']['sender'].lower()
                     else:
-                        if tx_event['args']['sender'].lower() != PROXY_CONTRACT.lower():
-                            raise Exception(f"Proxy sender doesn't match {tx_event['args']['sender'].lower()=} != {PROXY_CONTRACT.lower()=}")
+                        if tx_event['args']['sender'].lower() != PROXY_ADDRESS.lower():
+                            LOGGER.warning(f"Proxy sender doesn't match {tx_event['args']['sender'].lower()=} != {PROXY_ADDRESS.lower()=}")
+                            continue
                         sender = f"0x{tx_event['args']['input'][4:24].hex().lower()}"
                         input_payload = tx_event['args']['input'][24:]
 
@@ -639,30 +726,55 @@ class InputFinder:
                         # LOGGER.info(f"rule entry")
                         payload: RulePayload = abi.decode_to_model(data=input_payload, model=RulePayload)
                         
-                        rule_id = generate_rule_id(payload.cartridge_id,str2bytes(payload.name))
-
+                        # rule_id = generate_rule_id(
+                        #     payload.cartridge_id,str2bytes(payload.name))
+                        # rule_id = generate_rule_id(
+                        #     hex2bytes(cartridge_ids[genesis_rule_cartridge]),
+                        #     hex2bytes(cartridge_ids[genesis_rule_cartridge]),
+                        #     str2bytes(payload.name)
+                        # )
                         rule_dict = {
-                            "id": rule_id,
-                            "cartridge_id":bytes2hex(payload.cartridge_id),
+                            # "id": rule_id,
+                            "name": payload.name,
+                            "cartridge_id":format_cartridge_id_from_bytes(payload.cartridge_id),
                             "args":payload.args,
                             "in_card":payload.in_card,
                             "score_function":payload.score_function,
                             "sender":sender,
                             "start":payload.start,
-                            "end":payload.end
+                            "end":payload.end,
+                            "tapes": payload.tapes,
+                            "allow_tapes": payload.allow_tapes,
+                            "allow_in_card": payload.allow_in_card,
+                            "save_tapes": payload.save_tapes,
+                            "save_out_cards": payload.save_out_cards,
                         }
                         rule = Rule.parse_obj(rule_dict)
                         yield InputData(type=InputType.rule,data=rule,last_input_block=last_input_block)
                     elif header == self.cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
-                        payload = abi.decode_to_model(data=input_payload, model=InsertCartridgePayload)
+                        payload_dict = abi.decode_to_model(data=input_payload, model=InsertCartridgePayload).dict()
+                        payload_dict['sender'] = sender
+
+                        extended_payload = ExtendedInsertCartridgePayload.parse_obj(payload_dict)
                     
-                        yield InputData(type=InputType.cartridge,data=payload,last_input_block=last_input_block)
+                        yield InputData(type=InputType.cartridge,data=extended_payload,last_input_block=last_input_block)
                     elif header == self.remove_cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
-                        payload = abi.decode_to_model(data=input_payload, model=RemoveCartridgePayload)
+                        payload_dict = abi.decode_to_model(data=input_payload, model=RemoveCartridgePayload).dict()
+                        payload_dict['sender'] = sender
+
+                        extended_payload = ExtendedRemoveCartridgePayload.parse_obj(payload_dict)
                     
-                        yield InputData(type=InputType.remove_cartridge,data=payload,last_input_block=last_input_block)
+                        yield InputData(type=InputType.remove_cartridge,data=extended_payload,last_input_block=last_input_block)
+                    elif header == self.set_operator_header:
+                        # LOGGER.info(f"cartridge entry")
+                        payload_dict = abi.decode_to_model(data=input_payload, model=SetOperatorPayload).dict()
+                        payload_dict['sender'] = sender
+
+                        extended_payload = ExtendedSetOperatorPayload.parse_obj(payload_dict)
+                    
+                        yield InputData(type=InputType.set_operator,data=extended_payload,last_input_block=last_input_block)
                     else:
                         # LOGGER.info(f"non processed entry")
                         yield InputData(type=InputType.unknown,data=None,last_input_block=last_input_block)
@@ -685,10 +797,16 @@ def set_envs():
     if RIVES_VERSION is not None: os.environ["RIVES_VERSION"] = RIVES_VERSION
     if RIVEMU_PATH is not None: os.environ["RIVEMU_PATH"] = RIVEMU_PATH
     if OPERATOR_ADDRESS is not None: os.environ["OPERATOR_ADDRESS"] = OPERATOR_ADDRESS
+    if PROXY_ADDRESS is not None: os.environ["PROXY_ADDRESS"] = PROXY_ADDRESS
     if GENESIS_CARTRIDGES is not None: os.environ["GENESIS_CARTRIDGES"] = GENESIS_CARTRIDGES
+    if INPUT_BOX_ADDRESS is not None: os.environ["INPUT_BOX_ADDRESS"] = INPUT_BOX_ADDRESS
     
 
 def initialize_storage_with_genesis_data():
+    # Set operator address
+    Storage.set_operator_address(OPERATOR_ADDRESS.lower())
+
+    # Add genesis cartridges
     cartridge_ids = {}
     LOGGER.info(f" 0 initialize_storage_with_genesis_data")
     for cartridge_name in CoreSettings().genesis_cartridges:
@@ -697,7 +815,7 @@ def initialize_storage_with_genesis_data():
                 cartridge_data = f.read()
             cartridge_id = generate_cartridge_id(cartridge_data)
             cartridge_ids[cartridge_name] = cartridge_id
-            add_cartridge(cartridge_id,cartridge_data)
+            add_cartridge(cartridge_id,cartridge_data,Storage.get_operator_address())
 
         except Exception as e:
             LOGGER.warning(e)
@@ -705,21 +823,33 @@ def initialize_storage_with_genesis_data():
 
     LOGGER.info(f"{cartridge_ids=}")
 
+    # Add genesis rules
     LOGGER.info(f" 1 initialize_storage_with_genesis_data")
     for genesis_rule_cartridge in CoreSettings().genesis_rules:
         if cartridge_ids.get(genesis_rule_cartridge) is not None:
             try:
-                name = CoreSettings().genesis_rules[genesis_rule_cartridge].get('name')
-                rule_id = generate_rule_id(hex2bytes(cartridge_ids[genesis_rule_cartridge]),str2bytes(name))
+                rule_name = CoreSettings().genesis_rules[genesis_rule_cartridge].get('name')
+                # rule_id = generate_rule_id(
+                #     hex2bytes(cartridge_ids[genesis_rule_cartridge]),
+                #     hex2bytes(cartridge_ids[genesis_rule_cartridge]),
+                #     str2bytes(rule_name)
+                # )
+
                 rule_conf_dict = {
-                    "id": rule_id,
+                    # "id": rule_id,
+                    "name":rule_name,
                     "cartridge_id":cartridge_ids[genesis_rule_cartridge],
                     "args":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("args")),
                     "in_card":bytes.fromhex(str(CoreSettings().genesis_rules[genesis_rule_cartridge].get('in_card') or "")),
                     "score_function":str(CoreSettings().genesis_rules[genesis_rule_cartridge].get("score_function")),
                     "start":int(CoreSettings().genesis_rules[genesis_rule_cartridge].get("start") or 0),
                     "end":  int(CoreSettings().genesis_rules[genesis_rule_cartridge].get("end") or 0),
-                    "sender":OPERATOR_ADDRESS
+                    "sender":OPERATOR_ADDRESS,
+                    "tapes": [],
+                    "allow_tapes": False,
+                    "allow_in_card": False,
+                    "save_tapes": False,
+                    "save_out_cards": False,
                 }
                 rule = Rule.parse_obj(rule_conf_dict)
                 add_rule(rule)
@@ -739,8 +869,7 @@ def verify_payload(payload: ExtendedVerifyPayload) -> bool:
 
     return status
 
-def add_cartridge(cartridge_id: str,cartridge_data: bytes, tapes: List[bytes]):
-    # TODO: fix not evaluated: no info.json and not i format
+def add_cartridge(cartridge_id: str,cartridge_data: bytes, sender: str):
     # TODO: fix not evaluated: nor cover or can't generate
     # TODO: fix not evaluated: insufficient space
 
@@ -748,13 +877,42 @@ def add_cartridge(cartridge_id: str,cartridge_data: bytes, tapes: List[bytes]):
         LOGGER.warning(f"Cartridge already exists")
         return
 
+    info = Storage.get_cartridge_info(cartridge_id)
+    if info is not None:
+        user_address = info.get('user_address')
+        if sender != user_address:
+            LOGGER.warning(f"Sender not allowed")
+            return
+
+    cartridge_temp = tempfile.NamedTemporaryFile()
+    cartridge_file = cartridge_temp.file
+
+    cartridge_file.write(cartridge_data)
+    cartridge_file.flush()
+
+    cartridge_info = riv_get_cartridge_info(cartridge_temp.name)
+    
+    cartridge_temp.close()
+
+    # process in card
+    cartridge_info_json = json.loads(cartridge_info)
+    cartridge_info_json['user_address'] = f"{sender}"
+
     args = ""
     in_card = b''
-    out = cartridge_verification(cartridge_data,args,in_card)
+    cartridge_tapes = cartridge_info_json.get("tapes")
+    if cartridge_tapes is not None and len(cartridge_tapes) > 0:
+        in_card = format_incard(map(lambda x: format_tape_id_from_bytes(hex2bytes(x)), cartridge_tapes),[b''])
+
+    # validate info
+    out = riv_verification(cartridge_data,args,in_card)
     if out is not None and out.get("outcard") is not None:
         Storage.add_cartridge(cartridge_id,cartridge_data)
+        Storage.add_cartridge_info(cartridge_id,cartridge_info_json)
+        primary_id = Storage.get_primary_cartridge_id(cartridge_id)
+
         rule_name = "default"
-        rule_id = generate_rule_id(hex2bytes(cartridge_id),str2bytes(rule_name))
+        rule_id = generate_rule_id(hex2bytes(primary_id),hex2bytes(cartridge_id),str2bytes(rule_name))
 
         score_function = ""
 
@@ -766,31 +924,55 @@ def add_cartridge(cartridge_id: str,cartridge_data: bytes, tapes: List[bytes]):
                 LOGGER.info(f"Couldn't parse json outcard: {e}, ignoring score function")
 
         rule_dict = {
-            "id":rule_id,
+            # "id":rule_id,
+            "name":rule_name,
             "cartridge_id":cartridge_id,
             "args":args,
             "in_card":in_card,
             "score_function":score_function,
             "start":0,
             "end":  0,
+            "tapes": [],
+            "allow_tapes": False,
+            "allow_in_card": False,
+            "save_tapes": False,
+            "save_out_cards": False,
         }
         rule = Rule.parse_obj(rule_dict)
-        Storage.add_rule(rule.id,rule.json())
+        Storage.add_rule(rule_id,rule.json())
     else:
         LOGGER.warning(f"Error validating cartridge")
 
-def remove_cartridge(cartridge_id: str):
-    # TODO: fix not evaluated: no info.json and not i format
-    # TODO: fix not evaluated: nor cover or can't generate
-    # TODO: fix not evaluated: insufficient space
+def remove_cartridge(cartridge_id: str, sender: str):
+
+    info = Storage.get_cartridge_info(cartridge_id)
+    if info is None:
+        LOGGER.warning(f"Couldn't find cartridge info {cartridge_id}")
+        return
+    
+    # user_address = info.get('user_address')
+    # if sender != user_address and sender != Storage.get_operator_address():
+    if sender != Storage.get_operator_address():
+        LOGGER.warning(f"Sender not allowed")
+        return
 
     if Storage.remove_cartridge_data(cartridge_id) == 0:
-        LOGGER.warning(f"Couldn't find cartridge")
+        LOGGER.warning(f"Couldn't find cartridge {cartridge_id}")
+    versions = Storage.get_cartridge_versions(cartridge_id)
+    if versions is not None:
+        for version in versions:
+            if Storage.remove_cartridge_data(version) == 0:
+                LOGGER.warning(f"Couldn't find version {version}")
 
 def add_rule(rule: Rule):
-    if rule.sender.lower() != OPERATOR_ADDRESS.lower():
-        LOGGER.warning(f"Sender has no permission to add rule")
-        return
+    # if rule.sender.lower() != Storage.get_operator_address():
+    #     LOGGER.warning(f"Sender has no permission to add rule")
+    #     return
+
+    # revert hex conversion
+    # if len(rule.in_card) > 0: rule.in_card = hex2bytes(rule.in_card)
+    # rule.cartridge_id = hex2bytes(rule.cartridge_id)
+    # rule_dict.update({"in_card":rule.in_card.hex()})
 
     cartridge_id = _normalize_hex(rule.cartridge_id)
     cartridge_data = Storage.get_cartridge_data(cartridge_id)
@@ -798,17 +980,43 @@ def add_rule(rule: Rule):
     if cartridge_data is None:
         LOGGER.warning(f"Couldn't find cartridge to verify rule")
         return
-    if Storage.get_rule(rule.id) is not None:
+    
+    primary_id = Storage.get_primary_cartridge_id(cartridge_id)
+
+    rule_id = generate_rule_id(
+        hex2bytes(primary_id),
+        hex2bytes(cartridge_id),
+        str2bytes(rule.name))
+
+    if Storage.get_rule(rule_id) is not None:
         LOGGER.warning(f"Rule already exists")
         return
     if rule.start > 0 and rule.end > 0 and rule.start > rule.end:
         LOGGER.warning(f"Inconsistent start and end time")
         return
-    out = rule_verification(cartridge_data,rule)
+    
+
+    # process in card
+    cartridge_info_json = Storage.get_cartridge_info(cartridge_id)
+
+    all_tapes = []
+    cartridge_tapes = cartridge_info_json.get("tapes")
+    if cartridge_tapes is not None and len(cartridge_tapes) > 0:
+        all_tapes.extend(cartridge_tapes)
+    all_tapes.extend(map(lambda x: format_tape_id_from_bytes(x), rule.tapes))
+    in_card = format_incard(all_tapes, [rule.in_card])
+
+    out = rule_verification(cartridge_data,rule,in_card)
     if out is not None:
-       Storage.add_rule(rule.id,rule.json())
+       Storage.add_rule(rule_id,rule.json())
     else:
         LOGGER.warning(f"Error validating rule")
+
+def set_operator(new_addr: str, sender:str):
+    if sender != Storage.get_operator_address():
+        LOGGER.warning(f"Sender not allowe")
+        return
+    Storage.set_operator_address(new_addr)
 
 def push_verification(extended_verification: ExtendedVerifyPayload):
     Storage.push_verification(abi.encode_model(extended_verification))

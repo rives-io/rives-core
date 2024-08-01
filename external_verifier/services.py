@@ -1,5 +1,5 @@
 
-import sys
+import re
 import pickle
 from typing import List
 from pydantic import BaseModel
@@ -13,7 +13,7 @@ from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
-    tape_verification, add_cartridge, remove_cartridge, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id, \
+    tape_verification, add_cartridge, remove_cartridge, set_operator, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id, \
     VERIFICATIONS_BATCH_SIZE
 
 
@@ -28,9 +28,12 @@ class TapeVerificationConfig(Config):
     sender:         str
     timestamp:      int
     input_index:    int
+    in_card:        str
+    tapes:          List[str]
 
 class RuleConfig(Config):
-    id:                 str
+    # id:                 str
+    name:               str
     cartridge_id:       str
     args:               str
     in_card:            str
@@ -38,13 +41,24 @@ class RuleConfig(Config):
     sender:             str
     start:              int
     end:                int
+    tapes:              List[str]
+    allow_tapes:        bool
+    allow_in_card:      bool
+    save_tapes:         bool
+    save_out_cards:     bool
 
 class CartridgeConfig(Config):
     id:                 str
     data:               str
+    sender:             str
 
 class RemoveCartridgeConfig(Config):
     id:                 str
+    sender:             str
+
+class SetOperatorConfig(Config):
+    new_operator_address:   str
+    sender:                 str
 
 class ExternalVerificationOutputsConfig(Config):
     outputs: str
@@ -59,7 +73,7 @@ class ExternalVerificationOutputList(BaseModel):
 @op
 def initialize_storage_op(context: OpExecutionContext):
     context.log.info(f"initializing storage")
-    set_envs()
+    # set_envs()
     initialize_storage_with_genesis_data()
 
 @job
@@ -69,6 +83,8 @@ def initialize_storage_job():
 inputs_partition = DynamicPartitionsDefinition(name="tapes")
 rules_input_partition = DynamicPartitionsDefinition(name="rules")
 cartridges_input_partition = DynamicPartitionsDefinition(name="cartridges")
+remove_cartridges_input_partition = DynamicPartitionsDefinition(name="remove_cartridges")
+set_operators_input_partition = DynamicPartitionsDefinition(name="set_operators")
 
 
 @asset(partitions_def=inputs_partition,key=["verify_input"])
@@ -79,8 +95,10 @@ def verification_output_asset(context: AssetExecutionContext, config: TapeVerifi
     extended_verification_dict.update({
         "tape":hex2bytes(config.tape),
         "outcard_hash":hex2bytes(config.outcard_hash),
-        "rule_id":hex2bytes(config.rule_id)}
-    )
+        "rule_id":hex2bytes(config.rule_id),
+        "in_card":hex2bytes(config.in_card) if config.in_card else b'',
+        "tapes":[hex2bytes(t) for t in config.tapes]
+    })
     extended_verification: ExtendedVerifyPayload = ExtendedVerifyPayload.parse_obj(extended_verification_dict)
     out = tape_verification(extended_verification)
 
@@ -89,7 +107,7 @@ def verification_output_asset(context: AssetExecutionContext, config: TapeVerifi
         context.log.error(msg)
         raise Failure(description="Error verifying tape")
 
-    context.log.info(f"verified tape {out.tape_hash=} with {out.score=}")
+    context.log.info(f"verified tape {out.tape_id=} with {out.score=}")
 
     return Output(
         out,
@@ -103,16 +121,17 @@ def verification_output_asset(context: AssetExecutionContext, config: TapeVerifi
 
 @asset(partitions_def=rules_input_partition, key=["add_rule"])
 def add_rule_asset(context: OpExecutionContext, config: RuleConfig):
-    context.log.info(f"add rule {config.id}")
+    context.log.info(f"add rule {config.name} for cartridge {config.cartridge_id}")
 
     rule_dict = config.dict()
     rule_dict.update({
         "in_card": hex2bytes(config.in_card),
+        "tapes":[hex2bytes(t) for t in config.tapes]
     })
     rule: Rule = Rule.parse_obj(rule_dict)
     context.log.info(rule)
     add_rule(rule)
-    context.log.info(f"added {rule.id} rule")
+    context.log.info(f"added {rule.name} rule")
 
 
 add_rule_job = define_asset_job(
@@ -126,7 +145,7 @@ add_rule_job = define_asset_job(
 def add_cartridge_asset(context: OpExecutionContext, config: CartridgeConfig):
     context.log.info(f"add cartridge {config.id}")
 
-    add_cartridge(config.id, hex2bytes(config.data))
+    add_cartridge(config.id, hex2bytes(config.data), config.sender)
     context.log.info(f"added {config.id} cartridge")
 
 
@@ -137,16 +156,32 @@ add_cartridge_job = define_asset_job(
 )
 
 
-@op
-def remove_cartridge_op(context: OpExecutionContext, config: RemoveCartridgeConfig):
+@asset(partitions_def=remove_cartridges_input_partition, key=["remove_cartridge"])
+def remove_cartridge_asset(context: OpExecutionContext, config: RemoveCartridgeConfig):
     context.log.info(f"remove cartridge {config.id}")
 
-    remove_cartridge(config.id)
+    remove_cartridge(config.id, config.sender)
     context.log.info(f"removed {config.id} cartridge")
 
-@job
-def remove_cartridge_job():
-    remove_cartridge_op()
+remove_cartridge_job = define_asset_job(
+    name="remove_cartridge_job",
+    selection=AssetSelection.assets(remove_cartridge_asset),
+    partitions_def=remove_cartridges_input_partition
+)
+
+@asset(partitions_def=set_operators_input_partition, key=["set_operator"])
+def set_operator_asset(context: OpExecutionContext, config: SetOperatorConfig):
+    context.log.info(f"setting operator {config.new_operator_address}")
+
+    set_operator(config.new_operator_address, config.sender)
+    context.log.info(f"operator set {config.new_operator_address}")
+
+set_operator_job = define_asset_job(
+    name="set_operator_job",
+    selection=AssetSelection.assets(set_operator_asset),
+    partitions_def=set_operators_input_partition
+)
+
 
 @op
 def submit_verification_op(context: OpExecutionContext, config: ExternalVerificationOutputsConfig):
@@ -194,13 +229,13 @@ def initialization_sensor(context: SensorEvaluationContext):
     )
     context.update_cursor(run_key)
 
-@sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job])
+@sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job,remove_cartridge_job,set_operator_job])
 def inputs_sensor(context: SensorEvaluationContext):
     cursor = context.cursor or None
-    if cursor is not None: cursor = int(cursor)
+    if cursor is not None: cursor = int(cursor) + 1
 
     input_finder = InputFinder(timeout=0,poll_interval=1)
-    next_input = input_finder.get_input(cursor)
+    next_input = input_finder.get_input(cursor,10)
     context.log.info(f"looking for new entries in input box from cursor {cursor}")
     new_input = next(next_input)
 
@@ -208,9 +243,13 @@ def inputs_sensor(context: SensorEvaluationContext):
     tapes_partition_keys = []
     rules_partition_keys = []
     cartridges_partition_keys = []
+    remove_cartridges_partition_keys = []
+    set_operators_partition_keys = []
+
 
     blocks = []
     while new_input is not None:
+        context.log.info(f"while {new_input=}")
         if new_input.type == InputType.error:
             context.log.error(new_input.data.msg)
             yield SkipReason("Error while getting inputs")
@@ -234,31 +273,49 @@ def inputs_sensor(context: SensorEvaluationContext):
                     ops={
                         "add_cartridge": CartridgeConfig(
                             data=bytes2hex(cartridge_data),
-                            id=cartridge_id
+                            id=cartridge_id,
+                            sender=new_input.data.sender
                         ),
                     }
                 )
             ))
         elif new_input.type == InputType.remove_cartridge:
-            context.log.info(f"new remove cartridge entry")
+            context.log.info(f"remove cartridge entry")
             cartridge_id = new_input.data.id
             key = f"remove_cartridge_{cartridge_id}"
             # add_cartridge(cartridge_id,cartridge_data)
-            partition_keys.append(key)
+            remove_cartridges_partition_keys.append(key)
             run_requests.append(RunRequest(
                 job_name="remove_cartridge_job",
                 partition_key=key,
                 run_config=RunConfig(
-                    ops={"remove_cartridge":RemoveCartridgeConfig(**{"cartridge_id":cartridge_id}),}
+                    ops={"remove_cartridge":RemoveCartridgeConfig(**{"cartridge_id":cartridge_id,"sender":new_input.data.sender}),}
+                )
+            ))
+        elif new_input.type == InputType.set_operator:
+            context.log.info(f"set operator entry")
+            new_operator_address = new_input.data.new_operator_address
+            key = f"set_operator_{new_operator_address}"
+            # add_cartridge(cartridge_id,cartridge_data)
+            set_operators_partition_keys.append(key)
+            run_requests.append(RunRequest(
+                job_name="set_operator_job",
+                partition_key=key,
+                run_config=RunConfig(
+                    ops={"set_operator":SetOperatorConfig(**{"new_operator_address":new_input.data.new_operator_address,"sender":new_input.data.sender}),}
                 )
             ))
         elif new_input.type == InputType.rule:
             context.log.info(f"new rule entry")
             rule: Rule = new_input.data
             rule_dict = rule.dict()
-            rule_dict.update({"in_card":rule.in_card.hex()})
+            rule_dict.update({
+                "in_card":rule.in_card.hex(),
+                "tapes":[t.hex() for t in extended_verification.tapes]
+            })
             # add_rule(rule)
-            key = f"add_rule_{rule.id}"
+            rule_name_key = re.sub(r'\s','_',rule.name.lower())
+            key = f"add_rule_{rule.cartridge_id}_{rule_name_key}"
             rules_partition_keys.append(key)
             run_requests.append(RunRequest(
                 job_name="add_rule_job",
@@ -274,8 +331,10 @@ def inputs_sensor(context: SensorEvaluationContext):
             extended_verification_dict.update({
                 "tape":extended_verification.tape.hex(),
                 "outcard_hash":extended_verification.outcard_hash.hex(),
-                "rule_id":extended_verification.rule_id.hex()}
-            )
+                "rule_id":extended_verification.rule_id.hex(),
+                "in_card":extended_verification.in_card.hex(),
+                "tapes":[t.hex() for t in extended_verification.tapes]
+            })
             key = f"verify_input_{extended_verification.input_index}"
             tapes_partition_keys.append(key)
             run_requests.append(RunRequest(
@@ -292,7 +351,7 @@ def inputs_sensor(context: SensorEvaluationContext):
         new_input = next(next_input)
     
     context.log.info(f"Got {len(run_requests)} run requests until block {max(blocks)} ({tapes_partition_keys=} {rules_partition_keys=} {cartridges_partition_keys=})")
-    context.update_cursor(str(max(blocks) + 1))
+    context.update_cursor(str(max(blocks)))
     if len(run_requests) == 0:
         yield SkipReason("No inputs")
         return
@@ -311,6 +370,11 @@ def inputs_sensor(context: SensorEvaluationContext):
     if rules_partition_keys:
         dynamic_partition_requests.append(
             rules_input_partition.build_add_request(rules_partition_keys)
+        )
+
+    if remove_cartridges_partition_keys:
+        dynamic_partition_requests.append(
+            remove_cartridges_input_partition.build_add_request(remove_cartridges_partition_keys)
         )
 
     return SensorResult(

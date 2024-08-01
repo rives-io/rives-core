@@ -4,7 +4,7 @@ ARG CARTESI_SDK_RIV_VERSION=0.6.2-riv
 ARG MACHINE_EMULATOR_TOOLS_VERSION=0.14.1
 ARG OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 ARG KERNEL_VERSION=0.19.1-riv1
-ARG RIV_VERSION=0.3-rc15
+ARG RIV_VERSION=0.3-rc16
 ARG ROLLUPS_NODE_VERSION=1.5.0
 ARG CM_CALLER_VERSION=0.1.4
 ARG NONODO_VERSION=1.1.1
@@ -77,7 +77,7 @@ RUN uv pip install \
 
 RUN <<EOF
 apt-get update && \
-apt-get install -y --no-install-recommends git wget && \
+apt-get install -y --no-install-recommends git wget squashfs-tools && \
 rm -rf /var/lib/apt/lists/* /var/log/* /var/cache/*
 EOF
 

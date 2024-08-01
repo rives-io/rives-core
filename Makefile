@@ -4,7 +4,7 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
-RIV_VERSION := 0.3-rc15
+RIV_VERSION := 0.3-rc16
 CARTESI_SDK_RIV_VERSION := 0.6.2-riv
 
 RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
@@ -36,7 +36,7 @@ setup-env: ; $(value setup_venv)
 
 # build targets
 build: ${ENVFILE} --check-envs ; $(value setup_venv)
-	. $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
+	set -a && source $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
 
 build-reader-node: ; $(value setup_venv)
 	cartesapp build-reader-image $(ARGS)
@@ -45,26 +45,26 @@ build-dev-node: ; $(value setup_venv)
 	cartesapp build-dev-image $(ARGS)
 
 build-%: ${ENVFILE}.% --check-envs-% ; $(value setup_venv)
-	. $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
+	set -a && source $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
 
 # Run targets
 run: ; $(value setup_venv)
 	cartesapp node $(ARGS)
 
 run-dev: ${ENVFILE} rivemu --check-envs --check-dev-envs ; $(value setup_venv)
-	. $< && RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} PROXY_ADDRESS=${PROXY_ADDRESS} \
+	set -a && source $< && \
 	 cartesapp node --mode dev $(ARGS)
 
 run-reader: ; $(value setup_venv)
 	cartesapp node --mode reader $(ARGS)
 
 run-dev-%: ${ENVFILE}.% --check-testnet-envs-% --check-dev-envs-% rivemu ; $(value setup_venv)
-	. $< && RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} PROXY_ADDRESS=${PROXY_ADDRESS} \
+	set -a && source $< && \
 	 cartesapp node --mode dev --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} \
 	 $(ARGS)
 
 run-reader-%: ${ENVFILE}.% --check-testnet-envs-% ; $(value setup_venv)
-	. $< && cartesapp node --mode reader --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} $(ARGS)
+	set -a && source $< && cartesapp node --mode reader --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} $(ARGS)
 
 generate-frontend-libs: ; $(value setup_venv)
 	@test ! -z '${FRONTEND_PATH}' || (echo "Must define FRONTEND_PATH in env" && exit 1)

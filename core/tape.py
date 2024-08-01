@@ -83,7 +83,6 @@ class ExternalVerificationPayload(BaseModel):
     scores:             Int256List
     error_codes:        UInt256List
     outcards:           BytesList
-    tapes:              Bytes32ListList
 
 class AwardWinnerTapesPayload(BaseModel):
     rule_id:        Bytes32
@@ -284,12 +283,12 @@ def create_rule(payload: RulePayload) -> bool:
 def verify(payload: VerifyPayload) -> bool:
     metadata = get_metadata()
 
-    # only operator
-    # if metadata.msg_sender.lower() != CoreSettings().operator_address:
-    #     msg = f"sender not allowed"
-    #     LOGGER.error(msg)
-    #     add_output(msg)
-    #     return False
+    # Check internal verification lock
+    if CoreSettings().internal_verify_lock:
+        msg = f"Internal verification locked"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
 
     payload_rule = format_rule_id_from_bytes(payload.rule_id)
     # payload_cartridge = format_cartridge_id_from_bytes(payload.cartridge_id)
@@ -588,7 +587,6 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
         len(payload.scores),
         len(payload.error_codes),
         len(payload.outcards),
-        len(payload.tapes),
     ]
     if len(set(payload_lens)) != 1:
         msg = f"payload have distinct sizes"
@@ -641,7 +639,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             cartridge_id = hex2bytes(cartridge.id),
             cartridge_input_index = cartridge.input_index,
             cartridge_user_address = cartridge.user_address,
-            user_address = tape.user_addresses,
+            user_address = tape.user_address,
             timestamp = tape.timestamp,
             score = payload.scores[ind],
             rule_id = hex2bytes(rule.id),
@@ -649,7 +647,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             tape_id = hex2bytes(tape_id),
             tape_input_index = tape.input_index,
             error_code = payload.error_codes[ind],
-            tapes=payload.tapes[ind]
+            tapes=[hex2bytes(t) for t in tape.tapes] if tape.tapes else []
         )
 
         LOGGER.info(f"Sending tape verification output")

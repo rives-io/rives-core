@@ -17,27 +17,14 @@ class CoreSettings:
         cls.version = os.getenv('RIVES_VERSION') or '0'
         cls.rivemu_path = os.getenv('RIVEMU_PATH')
         cls.operator_address = (os.getenv('OPERATOR_ADDRESS') or "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266").lower()
-        cls.proxy_address = os.getenv('PROXY_ADDRESS').lower() if os.getenv('PROXY_ADDRESS') else "0x7d2c859FFA85E1165C0EC3fFEe14BB7B8A482777"
+        cls.proxy_address = os.getenv('PROXY_ADDRESS').lower() if os.getenv('PROXY_ADDRESS') else None #"0x7d2c859FFA85E1165C0EC3fFEe14BB7B8A482777"
         cls.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
             if os.getenv('GENESIS_CARTRIDGES') is not None else \
                 ['tetrix','antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
         cls.genesis_rules = json.loads(os.getenv('GENESIS_RULES')) \
             if os.getenv('GENESIS_RULES') is not None else {}
+        cls.internal_verify_lock = True
         return cls
-    
-# class CoreSettings:
-#     cartridges_path = "cartridges"
-#     scoreboard_ttl = 7776000 # 90 days
-#     test_tape_path = 'misc/test.rivlog'
-#     version = os.getenv('RIVES_VERSION') or '0'
-#     rivemu_path = os.getenv('RIVEMU_PATH')
-#     operator_address = os.getenv('OPERATOR_ADDRESS') or "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-#     genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
-#         if os.getenv('GENESIS_CARTRIDGES') is not None else \
-#             ['tetrix','antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
-#     genesis_rules = json.loads(os.getenv('GENESIS_RULES')) \
-#         if os.getenv('GENESIS_RULES') is not None else \
-#             {"tetrix":{"name":"Easy till it isn't","description":"Oh, this is so easy, wait, help! Get ready to prove your worth on a classic, sharpest mind scores the most!","score_function":"score","start":1715569200,"end":1716174000}}
 
 ###
 # Helpers

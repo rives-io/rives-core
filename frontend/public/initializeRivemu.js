@@ -1,1 +1,0 @@
-var Module=typeof Module!="undefined"?Module:{};var moduleOverrides=Object.assign({},Module);Module.onRuntimeInitialized = () => {window.dispatchEvent(new Event('rivemu_on_runtime_initialized'));};Object.assign(Module,moduleOverrides);

@@ -92,7 +92,7 @@ class Tape(Entity):
     user_address    = helpers.Required(str, 42, index=True)
     timestamp       = helpers.Required(int, unsigned=True, index=True)
     input_index     = helpers.Required(int, lazy=True)
-    score           = helpers.Required(int, lazy=True)
+    score           = helpers.Optional(int, lazy=True)
     verified        = helpers.Optional(bool, lazy=True)
     rank            = helpers.Optional(int, lazy=True)
     out_card        = helpers.Optional(bytes, lazy=True)
@@ -375,10 +375,12 @@ def create_cartridge(cartridge_data, **metadata):
     cartridges_path = get_cartridges_path()
     if not os.path.exists(cartridges_path):
         os.makedirs(cartridges_path)
-    with open(f"{cartridges_path}/{data_hash}",'wb') as cartridge_file:
+    cartridge_filepath = f"{cartridges_path}/{data_hash}"
+
+    with open(cartridge_filepath,'wb') as cartridge_file:
         cartridge_file.write(cartridge_data)
 
-    cartridge_info = riv_get_cartridge_info(data_hash)
+    cartridge_info = riv_get_cartridge_info(cartridge_filepath)
     
     # validate info
     cartridge_info_json = json.loads(cartridge_info)
@@ -404,7 +406,7 @@ def create_cartridge(cartridge_data, **metadata):
     verification_output = verify_log(cartridge_data,test_replay,'',incard,get_screenshot=True)
     screenshot = verification_output.get("screenshot")
 
-    cartridge_cover = riv_get_cover(data_hash)
+    cartridge_cover = riv_get_cover(cartridge_filepath)
     if cartridge_cover is None or len(cartridge_cover) == 0:
         #cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
         cartridge_cover = screenshot
@@ -486,8 +488,9 @@ def delete_cartridge(cartridge_id,**metadata):
     if cartridge is None:
         raise Exception(f"Cartridge doesn't exist")
 
-    if cartridge.user_address != metadata['msg_sender'].lower() and \
-            metadata['msg_sender'].lower() != CoreSettings().operator_address.lower():
+    # if cartridge.user_address != metadata['msg_sender'].lower() and \
+    #         metadata['msg_sender'].lower() != CoreSettings().operator_address.lower():
+    if metadata['msg_sender'].lower() != CoreSettings().operator_address:
         raise Exception(f"Sender not allowed")
     
     cartridges_deleted = []
