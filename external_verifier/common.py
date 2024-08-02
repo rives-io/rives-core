@@ -1043,7 +1043,6 @@ def _normalize_hex(orig: str) -> str:
 
 def format_incard(tape_ids: List[str],incards: List[bytes]) -> bytes:
     incard_data_list = []
-    print(f"=== debug === {tape_ids=} {incards=}")
     for incard in incards:
         if len(incard) > 0: incard_data_list.append(incard)
     incard_data_list.extend(format_tapes_to_byte_list(tape_ids))
@@ -1052,7 +1051,6 @@ def format_incard(tape_ids: List[str],incards: List[bytes]) -> bytes:
 def format_tapes_to_byte_list(tape_ids: List[str]) -> List[bytes]:
     tapes_data_list = []
     for t in tape_ids:
-        print(f"=== debug === {t=}")
         tape_id = t[2:] if t.startswith('0x') else t
         outcard = Storage.get_tape(tape_id)
         if outcard is None or len(outcard) == 0: continue
