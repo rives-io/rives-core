@@ -436,6 +436,14 @@ def verify(payload: VerifyPayload) -> bool:
 
     LOGGER.info(f"Tape {tape_id} verified in input {metadata.input_index}")
 
+    all_tapes = []
+    if cartridge.tapes is not None and len(cartridge.tapes) > 0:
+        all_tapes.extend([hex2bytes(t) for t in cartridge.tapes])
+    if rule.tapes is not None and len(rule.tapes) > 0:
+        all_tapes.extend([hex2bytes(t) for t in rule.tapes])
+    if rule.allow_tapes and len(tape.tapes) > 0:
+        all_tapes.extend([hex2bytes(t) for t in tape.tapes])
+
     out_ev = VerificationOutput(
         version=get_version(),
         cartridge_id = hex2bytes(cartridge.id),
@@ -449,7 +457,7 @@ def verify(payload: VerifyPayload) -> bool:
         tape_id = hex2bytes(tape_id),
         tape_input_index = metadata.input_index,
         error_code=0,
-        tapes=payload.tapes
+        tapes=all_tapes
     )
     common_tags = [rule.cartridge_id,payload_rule,tape_id]
     common_tags.extend(list(rule.tags.name.distinct().keys()))
@@ -634,6 +642,14 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             # return False
             continue
 
+        all_tapes = []
+        if cartridge.tapes is not None and len(cartridge.tapes) > 0:
+            all_tapes.extend([hex2bytes(t) for t in cartridge.tapes])
+        if rule.tapes is not None and len(rule.tapes) > 0:
+            all_tapes.extend([hex2bytes(t) for t in rule.tapes])
+        if rule.allow_tapes and len(tape.tapes) > 0:
+            all_tapes.extend([hex2bytes(t) for t in tape.tapes])
+
         out_ev = VerificationOutput(
             version=get_version(),
             cartridge_id = hex2bytes(cartridge.id),
@@ -647,7 +663,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             tape_id = hex2bytes(tape_id),
             tape_input_index = tape.input_index,
             error_code = payload.error_codes[ind],
-            tapes=[hex2bytes(t) for t in tape.tapes] if tape.tapes else []
+            tapes=all_tapes
         )
 
         LOGGER.info(f"Sending tape verification output")

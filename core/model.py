@@ -552,7 +552,7 @@ def format_tapes_to_byte_list(tape_ids: List[str]) -> List[bytes]:
     for t in tape_ids:
         tape_id = t[2:] if t.startswith('0x') else t
         tape = Tape.get(lambda r: r.id == tape_id)
-        if tape is None or len(tape.out_card) == 0: continue
+        if tape is None or tape.out_card is None or len(tape.out_card) == 0: continue
         tapes_data_list.append(tape.out_card)
         # outcard = TapeHash.get_outcard(tape_id)
         # if outcard is None or len(outcard) == 0: continue

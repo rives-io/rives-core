@@ -21,14 +21,14 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 if os.path.isdir('../core'):
     sys.path.append("..")
 
-from core.model import Bytes32List, format_incard, format_tape_id_from_bytes
+from core.model import Bytes32List, format_bytes_list_to_incard
 from core.admin import SetOperatorPayload
 from core.cartridge import InsertCartridgePayload, RemoveCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log, riv_get_cartridge_info
 from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, \
     generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id, \
-    format_rule_id_from_bytes, format_cartridge_id_from_bytes
+    format_rule_id_from_bytes, format_cartridge_id_from_bytes, format_tape_id_from_bytes
 LOGGER = logging.getLogger("external_verifier.common")
 
 # load_dotenv() 
@@ -105,7 +105,7 @@ class Rule(BaseModel):
     sender:             Optional[str]
     start:              int
     end:                int
-    tapes:              List[str]
+    tapes:              List[bytes]
     allow_tapes:        bool
     allow_in_card:      bool
     save_tapes:         bool
@@ -300,12 +300,23 @@ class Storage:
     @classmethod
     def get_rule(cls,rule_id: str) -> Rule:
         json_rule = cls.store.hget(REDIS_RULES_KEY,rule_id)
-        return Rule.parse_raw(json_rule) if json_rule is not None else None
+        if json_rule is None: return None
+        rule_dict = json.loads(json_rule)
+        rule_dict.update({
+            "in_card": hex2bytes(rule_dict['in_card']),
+            "tapes":[hex2bytes(t) for t in rule_dict['tapes']]
+        })
+        return Rule.parse_obj(rule_dict)
 
     @classmethod
     def add_rule(cls,rule_id,rule):
         if not cls.store.hexists(REDIS_RULES_KEY,rule_id):
-            cls.store.hset(REDIS_RULES_KEY,rule_id,rule)
+            rule_dict = rule.dict()
+            rule_dict.update({
+                "in_card":rule.in_card.hex(),
+                "tapes":[t.hex() for t in rule.tapes]
+            })
+            cls.store.hset(REDIS_RULES_KEY,rule_id,json.dumps(rule_dict))
 
     # @classmethod
     # def exist_cartridge(cls,cartridge_id):
@@ -476,7 +487,8 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         cartridge_tapes = cartridge_info_json.get("tapes")
         if cartridge_tapes is not None and len(cartridge_tapes) > 0:
             all_tapes.extend(cartridge_tapes)
-        all_tapes.extend(rule.tapes)
+        if rule.tapes is not None and len(rule.tapes) > 0:
+            all_tapes.extend(map(lambda x: format_tape_id_from_bytes(x), rule.tapes))
         if rule.allow_tapes and len(payload.tapes) > 0:
             all_tapes.extend(map(lambda x: format_tape_id_from_bytes(x), payload.tapes))
 
@@ -939,7 +951,7 @@ def add_cartridge(cartridge_id: str,cartridge_data: bytes, sender: str):
             "save_out_cards": False,
         }
         rule = Rule.parse_obj(rule_dict)
-        Storage.add_rule(rule_id,rule.json())
+        Storage.add_rule(rule_id,rule)
     else:
         LOGGER.warning(f"Error validating cartridge")
 
@@ -1008,7 +1020,7 @@ def add_rule(rule: Rule):
 
     out = rule_verification(cartridge_data,rule,in_card)
     if out is not None:
-       Storage.add_rule(rule_id,rule.json())
+       Storage.add_rule(rule_id,rule)
     else:
         LOGGER.warning(f"Error validating rule")
 
@@ -1028,3 +1040,24 @@ def _normalize_hex(orig: str) -> str:
     if result.startswith('0x'):
         result = result[2:]
     return result
+
+def format_incard(tape_ids: List[str],incards: List[bytes]) -> bytes:
+    incard_data_list = []
+    print(f"=== debug === {tape_ids=} {incards=}")
+    for incard in incards:
+        if len(incard) > 0: incard_data_list.append(incard)
+    incard_data_list.extend(format_tapes_to_byte_list(tape_ids))
+    return format_bytes_list_to_incard(incard_data_list)
+    
+def format_tapes_to_byte_list(tape_ids: List[str]) -> List[bytes]:
+    tapes_data_list = []
+    for t in tape_ids:
+        print(f"=== debug === {t=}")
+        tape_id = t[2:] if t.startswith('0x') else t
+        outcard = Storage.get_tape(tape_id)
+        if outcard is None or len(outcard) == 0: continue
+        tapes_data_list.append(outcard)
+        # outcard = TapeHash.get_outcard(tape_id)
+        # if outcard is None or len(outcard) == 0: continue
+        # tapes_data_list.append(outcard)
+    return tapes_data_list

@@ -311,7 +311,7 @@ def inputs_sensor(context: SensorEvaluationContext):
             rule_dict = rule.dict()
             rule_dict.update({
                 "in_card":rule.in_card.hex(),
-                "tapes":[t.hex() for t in extended_verification.tapes]
+                "tapes":[t.hex() for t in rule.tapes]
             })
             # add_rule(rule)
             rule_name_key = re.sub(r'\s','_',rule.name.lower())
