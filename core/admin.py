@@ -1,14 +1,14 @@
 import logging
 from pydantic import BaseModel
 
-from cartesi.abi import Address, Bool
+from cartesi.abi import Address, Bool, Bytes
 
 from cartesapp.context import get_metadata
 from cartesapp.input import query, mutation
 from cartesapp.output import add_output
 
 from .core_settings import CoreSettings
-
+from .riv import install_riv_version
 LOGGER = logging.getLogger(__name__)
 
 
@@ -21,34 +21,35 @@ class SetOperatorPayload(BaseModel):
 class SetInternalVerifyLock(BaseModel):
     lock: Bool
 
+class UpdateRivosPayload(BaseModel):
+    data: Bytes
+
 
 ###
 # Mutations
 
-@mutation(proxy=CoreSettings().proxy_address)
+@mutation(msg_sender=CoreSettings().admin_address)
 def set_operator_address(payload: SetOperatorPayload) -> bool:
-    metadata = get_metadata()
-    # only operator
-    if metadata.msg_sender.lower() != CoreSettings().operator_address:
-        msg = f"sender not allowed"
-        LOGGER.error(msg)
-        add_output(msg)
-        return False
-
     CoreSettings().operator_address = payload.new_operator_address.lower()
     return True
 
-@mutation(proxy=CoreSettings().proxy_address)
+@mutation(msg_sender=CoreSettings().admin_address)
 def set_internal_verify_lock(payload: SetInternalVerifyLock) -> bool:
-    metadata = get_metadata()
-    # only operator
-    if metadata.msg_sender.lower() != CoreSettings().operator_address:
-        msg = f"sender not allowed"
+    CoreSettings().internal_verify_lock = payload.lock
+    return True
+
+@mutation(msg_sender=CoreSettings().admin_address)
+def update_rivos(payload: UpdateRivosPayload) -> bool:
+
+    LOGGER.info(f"updating riv...")
+    try:
+        install_riv_version(payload.data)
+    except Exception as e:
+        msg = f"Couldn't update riv: {e}"
         LOGGER.error(msg)
         add_output(msg)
         return False
 
-    CoreSettings().internal_verify_lock = payload.lock
     return True
 
 
@@ -58,6 +59,11 @@ def set_internal_verify_lock(payload: SetInternalVerifyLock) -> bool:
 @query()
 def operator_address() -> bool:
     add_output(CoreSettings().operator_address)
+    return True
+
+@query()
+def admin_address() -> bool:
+    add_output(CoreSettings().admin_address)
     return True
 
 @query()

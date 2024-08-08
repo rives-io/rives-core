@@ -13,7 +13,8 @@ from cartesapp.input import query, mutation
 from cartesapp.output import event, output, add_output, emit_event, index_input
 from cartesapp.utils import hex2bytes
 
-from .model import Cartridge, CartridgeTag, CartridgeAuthor, InfoCartridge, create_cartridge, delete_cartridge, change_cartridge_user_address, StringList, Bytes32List, format_bytes_list_to_incard
+from .model import Cartridge, CartridgeTag, CartridgeAuthor, InfoCartridge, Bytes32List, BoolList, \
+    create_cartridge, delete_cartridge, change_cartridge_user_address, StringList, unlock_and_test_cartridge
 from .core_settings import CoreSettings, get_cartridges_path, get_version, format_cartridge_id_from_bytes
 
 LOGGER = logging.getLogger(__name__)
@@ -23,6 +24,10 @@ LOGGER = logging.getLogger(__name__)
 
 class InsertCartridgePayload(BaseModel):
     data: Bytes
+
+class SetUnlockedCartridgePayload(BaseModel):
+    ids: Bytes32List
+    unlocks: BoolList
 
 class RemoveCartridgePayload(BaseModel):
     id: Bytes32
@@ -50,6 +55,7 @@ class CartridgesPayload(BaseModel):
     full:           Optional[bool]
     enable_inactive:Optional[bool]
     enable_non_primary:Optional[bool]
+    locked:         Optional[bool]
 
 class GetCartridgeTagsPayload(BaseModel):
     name:           Optional[str]
@@ -86,6 +92,7 @@ class CartridgeInfo(BaseModel):
     updated_at: UInt
     cover: Optional[str] # encode to base64
     active: Optional[Bool]
+    unlocked: Optional[Bool]
     primary: Optional[Bool]
     primary_id: Optional[String]
     last_version: Optional[String]
@@ -124,16 +131,80 @@ def insert_cartridge(payload: InsertCartridgePayload) -> bool:
         add_output(msg)
         return False
 
-    cartridge_event = CartridgeEvent(
-        version=get_version(),
-        cartridge_id = hex2bytes(cartridge.id),
-        cartridge_user_address = metadata.msg_sender,
-        cartridge_input_index = metadata.input_index,
-        timestamp = metadata.timestamp
-    )
+    # cartridge_event = CartridgeEvent(
+    #     version=get_version(),
+    #     cartridge_id = hex2bytes(cartridge.id),
+    #     cartridge_user_address = metadata.msg_sender,
+    #     cartridge_input_index = metadata.input_index,
+    #     timestamp = metadata.timestamp
+    # )
     tags = ['cartridge','cartridge_inserted',cartridge.id]
     index_input(tags=tags)
-    emit_event(cartridge_event,tags=tags)
+    # emit_event(cartridge_event,tags=tags)
+
+    return True
+
+@mutation(proxy=CoreSettings().proxy_address)
+def set_unlock_cartridge(payload: SetUnlockedCartridgePayload) -> bool:
+    metadata = get_metadata()
+
+    if metadata.msg_sender.lower() != CoreSettings().operator_address:
+        msg = f"sender not allowed"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    payload_lens = [
+        len(payload.ids),
+        len(payload.unlocks),
+    ]
+    if len(set(payload_lens)) != 1:
+        msg = f"payload have distinct sizes"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
+    LOGGER.info(f"Received batch of cartridge unlocks")
+    for ind in range(len(payload.ids)):
+        payload_id = format_cartridge_id_from_bytes(payload.ids[ind])
+
+        LOGGER.info("Unlocking cartridge...")
+        
+        try:
+            if payload.unlocks[ind]:
+                cartridge = unlock_and_test_cartridge(payload_id,**metadata.dict())
+
+                if cartridge is not None:
+                    cartridge_event = CartridgeEvent(
+                        version=get_version(),
+                        cartridge_id = hex2bytes(cartridge.id),
+                        cartridge_user_address = cartridge.user_address,
+                        cartridge_input_index = cartridge.input_index,
+                        timestamp = cartridge.created_at
+                    )
+                    tags = ['cartridge','cartridge_inserted',cartridge.id]
+                    emit_event(cartridge_event,tags=tags)
+            else:
+                cartridges_deleted = delete_cartridge(payload_id,**metadata.dict())
+                for cart in cartridges_deleted:
+                    cartridge = cart[0]
+                    cartridge.unlocked = False
+                    cartridge.name = f"rejected_{payload_id}"
+        except Exception as e:
+            msg = f"Error while trying to unlock cartridge: {e}"
+            LOGGER.error(msg)
+            add_output(msg)
+            LOGGER.info("Removing cartridge...")
+            try:
+                cartridges_deleted = delete_cartridge(payload_id,**metadata.dict())
+                for cart in cartridges_deleted:
+                    cartridge = cart[0]
+                    cartridge.unlocked = False
+                    cartridge.name = f"rejected_{payload_id}"
+            except Exception as e:
+                msg = f"Couldn't remove cartridge (id={payload_id}): {e}"
+                LOGGER.error(msg)
+                add_output(msg)
 
     return True
 
@@ -212,7 +283,7 @@ def cartridge(payload: CartridgePayload) -> bool:
 
 @query()
 def cartridge_info(payload: CartridgePayload) -> bool:
-    cartridge = helpers.select(c for c in Cartridge if c.id == payload.id).first()
+    cartridge = Cartridge.get(lambda c: c.id == payload.id)
 
     if cartridge is not None:
         cartridge_dict = cartridge.to_dict(with_lazy=True, with_collections=True)
@@ -238,6 +309,14 @@ def cartridges(payload: CartridgesPayload) -> bool:
 
     if payload.enable_non_primary is None or not payload.enable_non_primary:
         cartridges_query = cartridges_query.filter(lambda c: c.primary)
+
+    if payload.locked is not None:
+        if payload.locked:
+            cartridges_query = cartridges_query.filter(lambda c: not c.unlocked)
+        else:
+            cartridges_query = cartridges_query.filter(lambda c: c.unlocked)
+    else:
+        cartridges_query = cartridges_query.filter(lambda c: c.unlocked)
 
     if payload.name is not None:
         cartridges_query = cartridges_query.filter(lambda c: payload.name in c.name)
@@ -296,7 +375,8 @@ def cartridges(payload: CartridgesPayload) -> bool:
     dict_list_result = []
     for cartridge in cartridges:
         cartridge_dict = cartridge.to_dict(with_lazy=full, with_collections=full)
-        if full or payload.get_cover is not None and payload.get_cover and cartridge.cover is not None and len(cartridge.cover) > 0:
+        if (full or payload.get_cover is not None and payload.get_cover) and \
+                cartridge.cover is not None and len(cartridge.cover) > 0:
             cartridge_dict['cover'] = base64.b64encode(cartridge.cover)
         dict_list_result.append(cartridge_dict)
 

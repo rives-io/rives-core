@@ -21,9 +21,9 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 if os.path.isdir('../core'):
     sys.path.append("..")
 
-from core.model import Bytes32List, format_bytes_list_to_incard
+from core.model import Bytes32List, format_bytes_list_to_incard, BoolList
 from core.admin import SetOperatorPayload
-from core.cartridge import InsertCartridgePayload, RemoveCartridgePayload
+from core.cartridge import InsertCartridgePayload, RemoveCartridgePayload, SetUnlockedCartridgePayload
 from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
 from core.riv import verify_log, riv_get_cartridge_info
 from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, \
@@ -66,6 +66,7 @@ VERIFICATIONS_BATCH_SIZE = os.getenv('VERIFICATIONS_BATCH_SIZE') or 10
 REDIS_VERIFY_QUEUE_KEY = f"rives_verify_queue_{RIVES_VERSION}"
 REDIS_VERIFY_PROCESSING_QUEUE_KEY = f"rives_verify_processing_queue_{RIVES_VERSION}"
 REDIS_CARTRIDGES_KEY = f"rives_cartridges_{RIVES_VERSION}"
+REDIS_LOCKED_CARTRIDGES_KEY = f"rives_cartridges_locked_{RIVES_VERSION}"
 REDIS_CARTRIDGE_INFOS_KEY = f"rives_cartridge_infos_{RIVES_VERSION}"
 REDIS_CARTRIDGE_NAMES_MAP_KEY = f"rives_cartridge_names_id_map_{RIVES_VERSION}"
 REDIS_CARTRIDGE_VERSIONS_KEY = f"rives_cartridge_versions_{RIVES_VERSION}"
@@ -88,6 +89,7 @@ class DbType(str, Enum):
 class InputType(str, Enum):
     rule = "rule"
     cartridge = "cartridge"
+    cartridge_set_unlock = "cartridge_set_unlock"
     verification = "verification"
     remove_cartridge = "remove_cartridge"
     set_operator = "set_operator"
@@ -124,6 +126,11 @@ class ExtendedVerifyPayload(BaseModel):
 
 class ExtendedInsertCartridgePayload(BaseModel):
     data:           abi.Bytes
+    sender:         abi.Address
+
+class ExtendedSetUnlockedCartridgePayload(BaseModel):
+    ids:            Bytes32List
+    unlocks:        BoolList
     sender:         abi.Address
 
 class ExtendedRemoveCartridgePayload(BaseModel):
@@ -258,6 +265,19 @@ class Storage:
     @classmethod
     def remove_cartridge_data(cls,cartridge_id: str) -> bytes:
         return cls.store.hdel(REDIS_CARTRIDGES_KEY,cartridge_id)
+
+    @classmethod
+    def add_cartridge_locked(cls,cartridge_id,data):
+        if not cls.store.hexists(REDIS_LOCKED_CARTRIDGES_KEY,cartridge_id):
+            cls.store.hset(REDIS_LOCKED_CARTRIDGES_KEY,cartridge_id,data)
+    
+    @classmethod
+    def get_cartridge_locked_data(cls,cartridge_id: str) -> bytes:
+        return cls.store.hget(REDIS_LOCKED_CARTRIDGES_KEY,cartridge_id)
+
+    @classmethod
+    def remove_cartridge_locked_data(cls,cartridge_id: str) -> bytes:
+        return cls.store.hdel(REDIS_LOCKED_CARTRIDGES_KEY,cartridge_id)
 
     @classmethod
     def add_cartridge_info(cls,cartridge_id,cartridge_info):
@@ -661,6 +681,13 @@ class InputFinder:
         )
         self.cartridge_selector = cartridge_header.to_bytes()
 
+        cartridge_set_unlock_abi_types = abi.get_abi_types_from_model(SetUnlockedCartridgePayload)
+        cartridge_set_unlock_header = ABIFunctionSelectorHeader(
+            function=f"core.set_unlock_cartridge",
+            argument_types=cartridge_set_unlock_abi_types
+        )
+        self.cartridge_set_unlock_selector = cartridge_set_unlock_header.to_bytes()
+
         remove_cartridge_abi_types = abi.get_abi_types_from_model(RemoveCartridgePayload)
         remove_cartridge_header = ABIFunctionSelectorHeader(
             function=f"core.remove_cartridge",
@@ -708,7 +735,7 @@ class InputFinder:
                     time.sleep(self.poll_interval)
                 # LOGGER.info(f"got {len(new_entries)} new entries")
                 while len(new_entries) > 0:
-                    tx_event = new_entries.pop()
+                    tx_event = new_entries.pop(0)
                     last_input_block = tx_event['blockNumber']
 
                     header = tx_event['args']['input'][:4]
@@ -717,11 +744,13 @@ class InputFinder:
                         input_payload = tx_event['args']['input'][4:]
                         sender = tx_event['args']['sender'].lower()
                     else:
-                        if tx_event['args']['sender'].lower() != PROXY_ADDRESS.lower():
-                            LOGGER.warning(f"Proxy sender doesn't match {tx_event['args']['sender'].lower()=} != {PROXY_ADDRESS.lower()=}")
-                            continue
-                        sender = f"0x{tx_event['args']['input'][4:24].hex().lower()}"
-                        input_payload = tx_event['args']['input'][24:]
+                        if tx_event['args']['sender'].lower() == PROXY_ADDRESS.lower():
+                            sender = f"0x{tx_event['args']['input'][4:24].hex().lower()}"
+                            input_payload = tx_event['args']['input'][24:]
+                        else:
+                            LOGGER.warning(f"Proxy sender doesn't match {tx_event['args']['sender'].lower()=} != {PROXY_ADDRESS.lower()=} using ")
+                            input_payload = tx_event['args']['input'][4:]
+                            sender = tx_event['args']['sender'].lower()
 
                     if header == self.verify_selector:
                         # LOGGER.info(f"verify entry")
@@ -771,6 +800,18 @@ class InputFinder:
                         extended_payload = ExtendedInsertCartridgePayload.parse_obj(payload_dict)
                     
                         yield InputData(type=InputType.cartridge,data=extended_payload,last_input_block=last_input_block)
+                    elif header == self.cartridge_set_unlock_selector:
+                        # LOGGER.info(f"cartridge entry")
+                        payload_dict = abi.decode_to_model(data=input_payload, model=SetUnlockedCartridgePayload).dict()
+                        payload_dict['sender'] = sender
+                        new_ids = []
+                        for id in payload_dict["ids"]:
+                            new_ids.append(format_cartridge_id_from_bytes(id))
+
+                        extended_payload = ExtendedSetUnlockedCartridgePayload.parse_obj(payload_dict)
+                        extended_payload.ids = new_ids
+                    
+                        yield InputData(type=InputType.cartridge_set_unlock,data=extended_payload,last_input_block=last_input_block)
                     elif header == self.remove_cartridge_selector:
                         # LOGGER.info(f"cartridge entry")
                         payload_dict = abi.decode_to_model(data=input_payload, model=RemoveCartridgePayload).dict()
@@ -880,6 +921,45 @@ def verify_payload(payload: ExtendedVerifyPayload) -> bool:
         status = True
 
     return status
+
+def add_locked_cartridge(cartridge_id: str,cartridge_data: bytes, sender: str):
+
+    if Storage.get_cartridge_locked_data(cartridge_id) is not None:
+        LOGGER.warning(f"Cartridge already exists")
+        return
+
+    extended_data = ExtendedInsertCartridgePayload.parse_obj({
+        "data":cartridge_data,
+        "sender":sender
+    })
+    Storage.add_cartridge_locked(cartridge_id,abi.encode_model(extended_data))
+
+
+def set_unlocked_cartridges(cartridge_ids: List[str], unlocks: List[bool], sender: str):
+
+    if sender != Storage.get_operator_address():
+        LOGGER.warning(f"Sender not allowed")
+        return
+
+    payload_lens = [
+        len(cartridge_ids),
+        len(unlocks),
+    ]
+    if len(set(payload_lens)) != 1:
+        msg = f"payload have distinct sizes"
+        LOGGER.error(msg)
+        return 
+    
+    for ind in range(len(cartridge_ids)):
+        extended_data_raw = Storage.get_cartridge_locked_data(cartridge_ids[ind])
+        extended_data = abi.decode_to_model(
+            data=extended_data_raw,
+            model=ExtendedInsertCartridgePayload
+        )
+        if unlocks[ind]:
+            add_cartridge(cartridge_ids[ind],extended_data.data,extended_data.sender)
+        Storage.remove_cartridge_locked_data(cartridge_ids[ind])
+
 
 def add_cartridge(cartridge_id: str,cartridge_data: bytes, sender: str):
     # TODO: fix not evaluated: nor cover or can't generate

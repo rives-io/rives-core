@@ -8,8 +8,8 @@ import math
 import traceback
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, \
-    set_envs, initialize_storage_with_genesis_data, add_cartridge, remove_cartridge, add_rule, set_operator, push_verification, \
-    verify_payload, deserialize_verification, deserialize_output, generate_cartridge_id, VERIFICATIONS_BATCH_SIZE
+    initialize_storage_with_genesis_data, add_cartridge, remove_cartridge, add_rule, set_operator, push_verification, \
+    add_locked_cartridge, set_unlocked_cartridges, verify_payload, deserialize_verification, deserialize_output, generate_cartridge_id, VERIFICATIONS_BATCH_SIZE
 
 
 LOGGER = logging.getLogger("external_verifier")
@@ -51,7 +51,10 @@ class Enqueuer(Process):
                 LOGGER.info(f"new cartridge entry")
                 cartridge_data = new_input.data.data
                 cartridge_id = generate_cartridge_id(cartridge_data)
-                add_cartridge(cartridge_id,cartridge_data,new_input.data.sender)
+                add_locked_cartridge(cartridge_id,cartridge_data,new_input.data.sender)
+            elif new_input.type == InputType.cartridge_set_unlock:
+                LOGGER.info(f"set unlock cartridges entry")
+                set_unlocked_cartridges(new_input.data.ids,new_input.data.unlocks,new_input.data.sender)
             elif new_input.type == InputType.remove_cartridge:
                 LOGGER.info(f"remove cartridge entry")
                 cartridge_id = new_input.data.id

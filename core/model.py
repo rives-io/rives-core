@@ -30,6 +30,7 @@ StringList = Annotated[List[str], ABIType('string[]')]
 AddressList = Annotated[List[str], ABIType('address[]')]
 BytesList = Annotated[List[bytes], ABIType('bytes[]')]
 Bytes32ListList = Annotated[List[bytes], ABIType('bytes32[][]')]
+BoolList = Annotated[List[bool], ABIType('bool[]')]
 
 # TODO: TypeError: unhashable type: 'ABIType' allow python cartesi types
 class Cartridge(Entity):
@@ -43,6 +44,7 @@ class Cartridge(Entity):
     input_index     = helpers.Required(int, lazy=True) # -1 means not created by an input (created in genesis)
     cover           = helpers.Optional(bytes, lazy=True)
     active          = helpers.Optional(bool, lazy=True, index=True)
+    unlocked        = helpers.Optional(bool, lazy=True, index=True)
     primary         = helpers.Optional(bool, index=True)
     primary_id      = helpers.Optional(str, 64, lazy=True)
     versions        = helpers.Optional(helpers.StrArray, lazy=True)
@@ -121,12 +123,12 @@ class Author(BaseModel):
     link:           str
 
 class InfoCartridge(BaseModel):
-    name:           str
+    name:           Optional[str]
     summary:        Optional[str]
     description:    Optional[str]
     version:        Optional[str]
     status:         Optional[str]
-    tags:           List[str]
+    tags:           Optional[List[str]]
     authors:        Optional[List[Author]]
     links:          Optional[List[str]]
     tapes:          Optional[List[str]]
@@ -199,7 +201,7 @@ def initialize_data():
                 cartridge_example_data = cartridge_example_file.read()
                 cartridge_ids[cartridge] = generate_cartridge_id(cartridge_example_data)
                 cartridge_data[cartridge] = cartridge_example_data
-                create_cartridge(cartridge_example_data,msg_sender=CoreSettings().operator_address)
+                create_and_unlock_cartridge(cartridge_example_data,msg_sender=CoreSettings().operator_address)
                 if is_inside_cm(): os.remove(cartridge_path)
         except Exception as e:
             LOGGER.warning(e)
@@ -335,7 +337,7 @@ def insert_rule_db(rule_id:str, rule_conf: RuleData,**metadata):
         description = rule_conf.description,
         created_by = user_address,
         created_at = metadata.get('timestamp') or 0,
-        input_index = metadata.get('input_index') or -1, # not created by an input (genesis or default rule)
+        input_index = metadata['input_index'] if metadata.get('input_index') is not None else -1, # not created by an input (genesis or default rule)
         args = rule_conf.args,
         in_card = rule_conf.in_card,
         score_function = rule_conf.score_function,
@@ -360,38 +362,78 @@ def insert_rule_db(rule_id:str, rule_conf: RuleData,**metadata):
 
     return new_rule
 
+def create_and_unlock_cartridge(cartridge_data, **metadata):
+    cartridge = create_cartridge(cartridge_data, **metadata)
+    return unlock_and_test_cartridge(cartridge.id, **metadata)
 
 def create_cartridge(cartridge_data, **metadata):
-    data_hash = generate_cartridge_id(cartridge_data)
+    cartridge_id = generate_cartridge_id(cartridge_data)
     
     if metadata.get('timestamp') is None: metadata['timestamp'] = 0
 
     user_address = metadata.get('msg_sender')
     if user_address is not None: user_address = user_address.lower()
 
-    if helpers.count(c for c in Cartridge if c.id == data_hash) > 0:
+    if helpers.count(c for c in Cartridge if c.id == CoreSettings().max_locked_cartridges) > 0:
+        raise Exception(f"Max locked cartridge reached")
+
+    if helpers.count(c for c in Cartridge if c.id == cartridge_id) > 0:
         raise Exception(f"Cartridge hash already exists")
 
     cartridges_path = get_cartridges_path()
     if not os.path.exists(cartridges_path):
         os.makedirs(cartridges_path)
-    cartridge_filepath = f"{cartridges_path}/{data_hash}"
+    cartridge_filepath = f"{cartridges_path}/{cartridge_id}"
 
     with open(cartridge_filepath,'wb') as cartridge_file:
         cartridge_file.write(cartridge_data)
+
+    LOGGER.info(f"Storing cartridge (id={cartridge_id})")
+
+    cartridge = Cartridge(
+        id = cartridge_id,
+        name = f"locked_{cartridge_id}",
+        user_address = user_address,
+        created_at = metadata.get('timestamp') or 0,
+        input_index = metadata['input_index'] if metadata.get('input_index') is not None else -1, # genesis input index
+        updated_at = metadata.get('timestamp') or 0,
+        active = True
+    )
+    
+    return cartridge
+
+def unlock_and_test_cartridge(cartridge_id,**metadata):
+    cartridge = Cartridge.get(lambda c: c.id == cartridge_id)
+    if cartridge is None:
+        raise Exception(f"Cartridge doesn't exist")
+
+    if cartridge.unlocked:
+        LOGGER.info(f"Cartridge (id={cartridge_id}) already unlocked")
+        return
+
+    if metadata['msg_sender'].lower() != CoreSettings().operator_address:
+        raise Exception(f"Sender not allowed")
+    
+    cartridges_path = get_cartridges_path()
+    cartridge_filepath = f"{cartridges_path}/{cartridge_id}"
 
     cartridge_info = riv_get_cartridge_info(cartridge_filepath)
     
     # validate info
     cartridge_info_json = json.loads(cartridge_info)
     InfoCartridge(**cartridge_info_json)
+    if cartridge_info_json.get('name') is None:
+        raise Exception(f"Cartridge has no name")
 
     # check if cartridge already exists
-    cartridge = Cartridge.get(lambda r: r.name == cartridge_info_json['name'] and r.primary)
-    if cartridge is not None:
+    primary_cartridge = Cartridge.get(lambda r: r.name == cartridge_info_json['name'] and r.primary)
+    if primary_cartridge is not None:
         # check user
-        if cartridge.user_address != user_address:
-            raise Exception(f"Not the same user")
+        if cartridge.user_address != primary_cartridge.user_address:
+            raise Exception(f"Primary cartridge and new version with different users")
+
+    with open(cartridge_filepath,'rb') as cartridge_file:
+        cartridge_data = cartridge_file.read()
 
     # check if cartridge runs
     test_replay_file = open(CoreSettings().test_tape_path,'rb')
@@ -400,19 +442,16 @@ def create_cartridge(cartridge_data, **metadata):
 
     # parse tapes to incard
     incard = b""
-    if cartridge_info_json.get("tapes") is not None:
-        incard = format_incard(map(lambda x: format_tape_id_from_bytes(hex2bytes(x)), cartridge_info_json["tapes"]),[b''])
+    if cartridge.info.get("tapes") is not None:
+        incard = format_incard(map(lambda x: format_tape_id_from_bytes(hex2bytes(x)), cartridge.info["tapes"]),[b''])
 
     verification_output = verify_log(cartridge_data,test_replay,'',incard,get_screenshot=True)
-    screenshot = verification_output.get("screenshot")
 
     cartridge_cover = riv_get_cover(cartridge_filepath)
     if cartridge_cover is None or len(cartridge_cover) == 0:
-        #cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
-        cartridge_cover = screenshot
+        cartridge_cover = verification_output.get("screenshot")
 
-    LOGGER.info(f"Creating cartridge {cartridge_info_json['name']} (id={data_hash})")
-
+    LOGGER.info(f"Creating cartridge {cartridge_info_json['name']} (id={cartridge_id})")
 
     tapes = []
     if cartridge_info_json.get("tapes") is not None:
@@ -425,63 +464,179 @@ def create_cartridge(cartridge_data, **metadata):
                 if author is None: author = CartridgeAuthor(name=author_json['name'])
                 authors.append(author)
 
-    if cartridge is None:
-        cartridge = Cartridge(
-            id = data_hash,
-            name = cartridge_info_json['name'],
-            authors = authors,
-            user_address = user_address,
-            created_at = metadata.get('timestamp') or 0,
-            input_index = metadata.get('input_index') or -1, # genesis input index
-            updated_at = metadata.get('timestamp') or 0,
-            info = cartridge_info_json,
-            original_info = cartridge_info_json,
-            cover = cartridge_cover,
-            active = True,
-            primary = True,
-            tapes = tapes,
-            versions = [data_hash],
-            last_version = data_hash
-        )
-        new_cartridge = cartridge
-    else:
-        cartridge.authors = authors if cartridge_info_json.get('authors') else cartridge.authors
-        cartridge.updated_at = metadata.get('timestamp') or 0
-        cartridge.info = cartridge_info_json
-        cartridge.cover = cartridge_cover
-        cartridge.active = True
-        cartridge.versions.append(data_hash)
-        cartridge.last_version = data_hash
-
-        new_cartridge = Cartridge(
-            id = data_hash,
-            name = cartridge_info_json['name'],
-            authors = authors,
-            user_address = user_address,
-            created_at = metadata.get('timestamp') or 0,
-            input_index = metadata.get('input_index') or -1, # genesis input index
-            updated_at = metadata.get('timestamp') or 0,
-            info = cartridge_info_json,
-            active = True,
-            primary = False,
-            primary_id = cartridge.id,
-            tapes = tapes
-        )
+    cartridge_tags = []
     if cartridge_info_json.get("tags") is not None and len(cartridge_info_json['tags']) > 0:
         tags = list(cartridge_info_json['tags'])
         for tag in tags:
             cartridge_tag = CartridgeTag.get(lambda r: r.name == tag)
             if cartridge_tag is None:
                 cartridge_tag = CartridgeTag(name = tag)
-            cartridge_tag.cartridges.add(new_cartridge)
+            cartridge_tags.append(cartridge_tag)
 
-    metadata['input_index'] = -1 # not created by an input
+    cartridge.name = cartridge_info_json['name']
+    cartridge.authors = authors
+    cartridge.info = cartridge_info_json
+    cartridge.unlocked = True
+
+    if primary_cartridge is None:
+        cartridge.original_info = cartridge_info_json
+        cartridge.cover = cartridge_cover
+        cartridge.primary = True
+        cartridge.tapes = tapes
+        cartridge.versions = [cartridge_id]
+        cartridge.last_version = cartridge_id
+        cartridge.tags = cartridge_tags
+
+    else:
+        if cartridge_info_json.get('authors') is not None:
+            primary_cartridge.authors = authors
+        primary_cartridge.updated_at = cartridge.updated_at
+        primary_cartridge.info = cartridge_info_json
+        primary_cartridge.cover = cartridge_cover
+        primary_cartridge.active = True
+        primary_cartridge.versions.append(cartridge_id)
+        primary_cartridge.last_version = cartridge_id
+        primary_cartridge.tags = cartridge_tags
+
+        cartridge.primary = False
+        cartridge.primary_id = primary_cartridge.id
+        cartridge.tapes = tapes
+
+    rule_metadata = {
+        'input_index': -1,# not created by an input
+        'timestamp': cartridge.updated_at,
+        'msg_sender': cartridge.user_address,
+    }
     # LOGGER.info(f"{new_cartridge=}")
 
     # create default rule with no arguments, incard, score
-    create_default_rule(new_cartridge, verification_output.get("outcard"), **metadata)
+    create_default_rule(cartridge, verification_output.get("outcard"), **rule_metadata)
 
-    return new_cartridge
+    return cartridge
+
+
+
+# def create_cartridge(cartridge_data, **metadata):
+#     data_hash = generate_cartridge_id(cartridge_data)
+    
+#     if metadata.get('timestamp') is None: metadata['timestamp'] = 0
+
+#     user_address = metadata.get('msg_sender')
+#     if user_address is not None: user_address = user_address.lower()
+
+#     if helpers.count(c for c in Cartridge if c.id == data_hash) > 0:
+#         raise Exception(f"Cartridge hash already exists")
+
+#     cartridges_path = get_cartridges_path()
+#     if not os.path.exists(cartridges_path):
+#         os.makedirs(cartridges_path)
+#     cartridge_filepath = f"{cartridges_path}/{data_hash}"
+
+#     with open(cartridge_filepath,'wb') as cartridge_file:
+#         cartridge_file.write(cartridge_data)
+
+#     cartridge_info = riv_get_cartridge_info(cartridge_filepath)
+    
+#     # validate info
+#     cartridge_info_json = json.loads(cartridge_info)
+#     InfoCartridge(**cartridge_info_json)
+
+#     # check if cartridge already exists
+#     cartridge = Cartridge.get(lambda r: r.name == cartridge_info_json['name'] and r.primary)
+#     if cartridge is not None:
+#         # check user
+#         if cartridge.user_address != user_address:
+#             raise Exception(f"Not the same user")
+
+#     # check if cartridge runs
+#     test_replay_file = open(CoreSettings().test_tape_path,'rb')
+#     test_replay = test_replay_file.read()
+#     test_replay_file.close()
+
+#     # parse tapes to incard
+#     incard = b""
+#     if cartridge_info_json.get("tapes") is not None:
+#         incard = format_incard(map(lambda x: format_tape_id_from_bytes(hex2bytes(x)), cartridge_info_json["tapes"]),[b''])
+
+#     verification_output = verify_log(cartridge_data,test_replay,'',incard,get_screenshot=True)
+#     screenshot = verification_output.get("screenshot")
+
+#     cartridge_cover = riv_get_cover(cartridge_filepath)
+#     if cartridge_cover is None or len(cartridge_cover) == 0:
+#         #cartridge_cover = riv_get_cartridge_screenshot(data_hash,0)
+#         cartridge_cover = screenshot
+
+#     LOGGER.info(f"Creating cartridge {cartridge_info_json['name']} (id={data_hash})")
+
+
+#     tapes = []
+#     if cartridge_info_json.get("tapes") is not None:
+#         tapes = cartridge_info_json["tapes"]
+#     authors = []
+#     if cartridge_info_json.get('authors') is not None:
+#         for author_json in cartridge_info_json['authors']:
+#             if author_json.get('name') is not None:
+#                 author = CartridgeAuthor.get(lambda r: r.name == author_json['name'])
+#                 if author is None: author = CartridgeAuthor(name=author_json['name'])
+#                 authors.append(author)
+
+#     if cartridge is None:
+#         cartridge = Cartridge(
+#             id = data_hash,
+#             name = cartridge_info_json['name'],
+#             authors = authors,
+#             user_address = user_address,
+#             created_at = metadata.get('timestamp') or 0,
+#             input_index = metadata.get('input_index') or -1, # genesis input index
+#             updated_at = metadata.get('timestamp') or 0,
+#             info = cartridge_info_json,
+#             original_info = cartridge_info_json,
+#             cover = cartridge_cover,
+#             active = True,
+#             primary = True,
+#             tapes = tapes,
+#             versions = [data_hash],
+#             last_version = data_hash
+#         )
+#         new_cartridge = cartridge
+#     else:
+#         cartridge.authors = authors if cartridge_info_json.get('authors') else cartridge.authors
+#         cartridge.updated_at = metadata.get('timestamp') or 0
+#         cartridge.info = cartridge_info_json
+#         cartridge.cover = cartridge_cover
+#         cartridge.active = True
+#         cartridge.versions.append(data_hash)
+#         cartridge.last_version = data_hash
+
+#         new_cartridge = Cartridge(
+#             id = data_hash,
+#             name = cartridge_info_json['name'],
+#             authors = authors,
+#             user_address = user_address,
+#             created_at = metadata.get('timestamp') or 0,
+#             input_index = metadata.get('input_index') or -1, # genesis input index
+#             updated_at = metadata.get('timestamp') or 0,
+#             info = cartridge_info_json,
+#             active = True,
+#             primary = False,
+#             primary_id = cartridge.id,
+#             tapes = tapes
+#         )
+#     if cartridge_info_json.get("tags") is not None and len(cartridge_info_json['tags']) > 0:
+#         tags = list(cartridge_info_json['tags'])
+#         for tag in tags:
+#             cartridge_tag = CartridgeTag.get(lambda r: r.name == tag)
+#             if cartridge_tag is None:
+#                 cartridge_tag = CartridgeTag(name = tag)
+#             cartridge_tag.cartridges.add(new_cartridge)
+
+#     metadata['input_index'] = -1 # not created by an input
+#     # LOGGER.info(f"{new_cartridge=}")
+
+#     # create default rule with no arguments, incard, score
+#     create_default_rule(new_cartridge, verification_output.get("outcard"), **metadata)
+
+#     return new_cartridge
 
 def delete_cartridge(cartridge_id,**metadata):
     cartridge = Cartridge.get(lambda c: c.id == cartridge_id and c.active)
@@ -502,13 +657,14 @@ def delete_cartridge(cartridge_id,**metadata):
     else: 
         primary_cartridge = Cartridge.get(lambda c: c.id == cartridge.primary_id and c.active)
 
-    primary_cartridge.versions.remove(cartridge_id)
-    if (primary_cartridge.last_version == cartridge_id):
-        if len(primary_cartridge.versions) > 0:
-            primary_cartridge.last_version = primary_cartridge.versions[-1]
-        else:
-            primary_cartridge.last_version = ''
-            primary_cartridge.active = False
+    if primary_cartridge is not None:
+        primary_cartridge.versions.remove(cartridge_id)
+        if (primary_cartridge.last_version == cartridge_id):
+            if len(primary_cartridge.versions) > 0:
+                primary_cartridge.last_version = primary_cartridge.versions[-1]
+            else:
+                primary_cartridge.last_version = ''
+                primary_cartridge.active = False
 
     with open(f"{get_cartridges_path()}/{cartridge_id}",'rb')as cartridge_file:
         cartridge_data = cartridge_file.read()
@@ -522,7 +678,7 @@ def delete_cartridge(cartridge_id,**metadata):
     return cartridges_deleted
 
 def change_cartridge_user_address(cartridge_id,new_user_address, internal_call=False, **metadata):
-    cartridge = Cartridge.get(lambda c: c.id == cartridge_id and c.active)
+    cartridge = Cartridge.get(lambda c: c.id == cartridge_id and c.active and c.unlocked)
     if cartridge is None:
         raise Exception(f"Cartridge doesn't exist")
 

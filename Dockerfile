@@ -124,7 +124,7 @@ ARG CARTESI_SDK_RIV_VERSION
 LABEL io.cartesi.sdk_version=${CARTESI_SDK_RIV_VERSION}
 LABEL io.cartesi.rollups.ram_size=128Mi
 LABEL io.cartesi.rollups.data_size=32Mb
-LABEL io.cartesi.rollups.flashdrive_size=128Mb
+LABEL io.cartesi.rollups.flashdrive_size=1024Mb
 
 # Install tools
 ARG MACHINE_EMULATOR_TOOLS_VERSION
@@ -159,9 +159,14 @@ ADD --chmod=755 https://raw.githubusercontent.com/rives-io/riv/v${RIV_VERSION}/r
 RUN <<EOF
 set -e
 mkdir -p /rivos /cartridges
-echo "mount -o ro,noatime,nosuid -t ext2 /rivos.ext2 /rivos" > /etc/cartesi-init.d/riv-mount
-echo "mount --bind /cartridges /rivos/cartridges" >> /etc/cartesi-init.d/riv-mount
-chmod 755 /etc/cartesi-init.d/riv-mount
+echo 'if [ -f /rivos-$1.ext2 ]; then rivos="/rivos-$1.ext2";' > /usr/sbin/riv-mount
+echo 'else rivos="/rivos.ext2"; fi' >> /usr/sbin/riv-mount
+echo 'mount -o ro,noatime,nosuid -t ext2 $rivos /rivos' >> /usr/sbin/riv-mount
+echo "mount --bind /cartridges /rivos/cartridges" >> /usr/sbin/riv-mount
+chmod 755 /usr/sbin/riv-mount
+echo "umount /rivos/cartridges" > /usr/sbin/riv-umount
+echo "umount /rivos" >> /usr/sbin/riv-umount
+chmod 755 /usr/sbin/riv-umount
 EOF
 
 # Clean tools

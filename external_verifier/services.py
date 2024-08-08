@@ -13,8 +13,8 @@ from cartesi import abi
 from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
-    tape_verification, add_cartridge, remove_cartridge, set_operator, add_rule, set_envs, initialize_storage_with_genesis_data, generate_cartridge_id, \
-    VERIFICATIONS_BATCH_SIZE
+    tape_verification, add_cartridge, remove_cartridge, set_operator, add_rule, initialize_storage_with_genesis_data, generate_cartridge_id, \
+    set_unlocked_cartridges, add_locked_cartridge, VERIFICATIONS_BATCH_SIZE
 
 
 ###
@@ -52,6 +52,11 @@ class CartridgeConfig(Config):
     data:               str
     sender:             str
 
+class SetCartridgeUnlocksConfig(Config):
+    ids:                List[str]
+    unlocks:            List[bool]
+    sender:             str
+
 class RemoveCartridgeConfig(Config):
     id:                 str
     sender:             str
@@ -83,6 +88,7 @@ def initialize_storage_job():
 inputs_partition = DynamicPartitionsDefinition(name="tapes")
 rules_input_partition = DynamicPartitionsDefinition(name="rules")
 cartridges_input_partition = DynamicPartitionsDefinition(name="cartridges")
+set_cartridge_unlocks_input_partition = DynamicPartitionsDefinition(name="cartridge_unlocks")
 remove_cartridges_input_partition = DynamicPartitionsDefinition(name="remove_cartridges")
 set_operators_input_partition = DynamicPartitionsDefinition(name="set_operators")
 
@@ -145,7 +151,7 @@ add_rule_job = define_asset_job(
 def add_cartridge_asset(context: OpExecutionContext, config: CartridgeConfig):
     context.log.info(f"add cartridge {config.id}")
 
-    add_cartridge(config.id, hex2bytes(config.data), config.sender)
+    add_locked_cartridge(config.id, hex2bytes(config.data), config.sender)
     context.log.info(f"added {config.id} cartridge")
 
 
@@ -153,6 +159,20 @@ add_cartridge_job = define_asset_job(
     name="add_cartridge_job",
     selection=AssetSelection.assets(add_cartridge_asset),
     partitions_def=cartridges_input_partition
+)
+
+@asset(partitions_def=set_cartridge_unlocks_input_partition, key=["set_cartridge_unlocks"])
+def set_cartridge_unlocks_asset(context: OpExecutionContext, config: SetCartridgeUnlocksConfig):
+    context.log.info(f"set cartridge unlocks {config.ids}")
+
+    set_unlocked_cartridges(config.ids, config.unlocks, config.sender)
+    context.log.info(f"unlocks of {config.ids} cartridges set")
+
+
+set_cartridge_unlocks_job = define_asset_job(
+    name="set_cartridge_unlocks_job",
+    selection=AssetSelection.assets(set_cartridge_unlocks_asset),
+    partitions_def=set_cartridge_unlocks_input_partition
 )
 
 
@@ -229,7 +249,7 @@ def initialization_sensor(context: SensorEvaluationContext):
     )
     context.update_cursor(run_key)
 
-@sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job,remove_cartridge_job,set_operator_job])
+@sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job,remove_cartridge_job,set_operator_job,set_cartridge_unlocks_job])
 def inputs_sensor(context: SensorEvaluationContext):
     cursor = context.cursor or None
     if cursor is not None: cursor = int(cursor) + 1
@@ -243,6 +263,7 @@ def inputs_sensor(context: SensorEvaluationContext):
     tapes_partition_keys = []
     rules_partition_keys = []
     cartridges_partition_keys = []
+    set_cartridge_unlocks_partition_keys = []
     remove_cartridges_partition_keys = []
     set_operators_partition_keys = []
 
@@ -274,6 +295,24 @@ def inputs_sensor(context: SensorEvaluationContext):
                         "add_cartridge": CartridgeConfig(
                             data=bytes2hex(cartridge_data),
                             id=cartridge_id,
+                            sender=new_input.data.sender
+                        ),
+                    }
+                )
+            ))
+        elif new_input.type == InputType.cartridge_set_unlock:
+            context.log.info(f"set unlock  cartridge entry")
+            key = f"set_cartridge_unlocks_{'_'.join(new_input.data.ids)}"
+            # add_cartridge(cartridge_id,cartridge_data)
+            set_cartridge_unlocks_partition_keys.append(key)
+            run_requests.append(RunRequest(
+                job_name="set_cartridge_unlocks_job",
+                partition_key=key,
+                run_config=RunConfig(
+                    ops={
+                        "set_cartridge_unlocks": SetCartridgeUnlocksConfig(
+                            unlocks=new_input.data.unlocks,
+                            ids=new_input.data.ids,
                             sender=new_input.data.sender
                         ),
                     }
@@ -361,12 +400,21 @@ def inputs_sensor(context: SensorEvaluationContext):
         dynamic_partition_requests.append(
             inputs_partition.build_add_request(tapes_partition_keys)
         )
+
     if cartridges_partition_keys:
         dynamic_partition_requests.append(
             cartridges_input_partition.build_add_request(
                 cartridges_partition_keys
             )
         )
+
+    if set_cartridge_unlocks_partition_keys:
+        dynamic_partition_requests.append(
+            set_cartridge_unlocks_input_partition.build_add_request(
+                set_cartridge_unlocks_partition_keys
+            )
+        )
+
     if rules_partition_keys:
         dynamic_partition_requests.append(
             rules_input_partition.build_add_request(rules_partition_keys)

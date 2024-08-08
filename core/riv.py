@@ -28,6 +28,17 @@ def riv_get_cover(cartridge_filepath):
 
     return result.stdout
 
+def riv_get_cartridge_riv_version(cartridge_filepath):
+    args = ["sqfscat","-st"]
+    args.append(cartridge_filepath)
+    args.append("/.riv")
+        
+    result = subprocess.run(args, capture_output=True, text=True)
+    if result.returncode > 0:
+        raise Exception(f"Error getting info: {str(result.stderr)}")
+
+    return result.stdout.strip()
+
 
 def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, entropy: str = None,
                frame: int =None,get_outhist=False,get_screenshot=False) -> dict[str,bytes]:
@@ -64,6 +75,13 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
             incard_file.write(in_card)
             incard_file.close()
 
+        version = riv_get_cartridge_riv_version(rivos_cartridge_path)
+        result = subprocess.run(["sh","/usr/sbin/riv-mount",version],capture_output=True)
+        if result.returncode != 0:
+            raise Exception(f"Error reading version: {str(result.stderr)}")
+
+        result = subprocess.run(["ls","/rivos"],capture_output=True)
+        
         run_args = []
         run_args.append("/rivos/usr/sbin/riv-chroot")
         run_args.append("/rivos")
@@ -113,6 +131,11 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
         os.remove(log_path)
         os.remove(rivos_cartridge_path)
 
+        result = subprocess.run(["sh","/usr/sbin/riv-umount"])
+        if result.returncode != 0:
+            raise Exception(f"Error reading version: {str(result.stderr)}")
+
+        result = subprocess.run(["ls","/rivos"],capture_output=True)
         return {"outhist":outhist_raw, "outhash":outhash,"screenshot":screenshot,"outcard":outcard_raw}
 
     # use rivemu
@@ -141,9 +164,16 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
 
     absolute_cartridge_path = cartridge_temp.name # os.path.abspath(f"{get_cartridges_path()}/{cartridge_id}")
 
-    rivemu_path = CoreSettings().rivemu_path
+    version = riv_get_cartridge_riv_version(absolute_cartridge_path)
+    
+    rivemu_path = f"{CoreSettings().rivemu_path}-{version}"
     if not os.path.isabs(rivemu_path):
         rivemu_path = f"{os.getcwd()}/{rivemu_path}"
+    if not os.path.isfile(rivemu_path):
+        rivemu_path = CoreSettings().rivemu_path
+        if not os.path.isabs(rivemu_path):
+            rivemu_path = f"{os.getcwd()}/{rivemu_path}"
+
     run_args = []
     run_args.append(rivemu_path)
     run_args.append(f"-cartridge={absolute_cartridge_path}")
@@ -192,3 +222,28 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
     screenshot_temp.close()
 
     return {"outhist":outhist_raw, "outhash":outhash,"screenshot":screenshot,"outcard":outcard_raw}
+
+def install_riv_version(rivos_data: bytes):
+    if is_inside_cm(): # use riv os
+        rivos_version_path = tempfile.mkdtemp()
+
+        rivos_sqfs_temp = tempfile.NamedTemporaryFile()
+        rivos_sqfs_file = rivos_sqfs_temp.file
+
+        rivos_sqfs_file.write(rivos_data)
+        rivos_sqfs_file.flush()
+
+        result = subprocess.run(["unsquashfs","-d",rivos_version_path,rivos_sqfs_temp.name])
+        if result.returncode != 0:
+            raise Exception(f"Error unsquashfsing: {str(result)}")
+        
+        result = subprocess.run(["sh",f"{rivos_version_path}/install.sh"])
+        if result.returncode != 0:
+            raise Exception(f"Error installing new version: {str(result)}")
+        
+        # rivos_versions=os.listdir(rivos_version_path)
+        # for rivos_version in rivos_versions:
+        #     shutil.copy2(os.path.join(rivos_version_path,rivos_version), "/")
+
+        rivos_sqfs_temp.close()
+        shutil.rmtree(rivos_version_path)

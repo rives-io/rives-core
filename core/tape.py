@@ -224,7 +224,7 @@ def create_rule(payload: RulePayload) -> bool:
     payload_cartridge = format_cartridge_id_from_bytes(payload.cartridge_id)
 
     # check if Cartridge exists
-    cartridge = Cartridge.get(lambda r: r.active and r.id == payload_cartridge)
+    cartridge = Cartridge.get(lambda r: r.active and r.unlocked and r.id == payload_cartridge)
     if cartridge is None:
         msg = f"Cartridge {payload_cartridge} doesn't exist"
         LOGGER.error(msg)
@@ -245,7 +245,7 @@ def create_rule(payload: RulePayload) -> bool:
         test_replay = test_replay_file.read()
         test_replay_file.close()
 
-        with open(f"{get_cartridges_path()}/{payload_cartridge}",'rb')as cartridge_file:
+        with open(f"{get_cartridges_path()}/{payload_cartridge}",'rb') as cartridge_file:
             cartridge_data = cartridge_file.read()
 
         all_tapes = []
@@ -341,7 +341,7 @@ def verify(payload: VerifyPayload) -> bool:
         add_output(msg)
         return False
 
-    cartridge = helpers.select(c for c in Cartridge if c.active and c.id == rule.cartridge_id).first()
+    cartridge = Cartridge.get(lambda c: c.active and c.unlocked and c.id == rule.cartridge_id)
 
     if cartridge is None:
         msg = f"Cartridge not found"
@@ -547,7 +547,7 @@ def register_external_verification(payload: VerifyPayload) -> bool:
         add_output(msg)
         return False
 
-    cartridge = helpers.select(c for c in Cartridge if c.id == rule.cartridge_id).first()
+    cartridge = Cartridge.get(lambda c: c.active and c.unlocked and c.id == rule.cartridge_id)
 
     if cartridge is None:
         msg = f"Cartridge not found"
@@ -633,7 +633,7 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
             # return False
             continue
         
-        cartridge = helpers.select(c for c in Cartridge if c.active and c.id == rule.cartridge_id).first()
+        cartridge = Cartridge.get(lambda c: c.active and c.unlocked and c.id == rule.cartridge_id)
 
         if cartridge is None:
             msg = f"Cartridge not found"
@@ -710,7 +710,7 @@ def award_winners(payload: AwardWinnerTapesPayload) -> bool:
         add_output(msg)
         return False
 
-    cartridge = helpers.select(c for c in Cartridge if c.active and c.id == rule.cartridge_id).first()
+    cartridge = Cartridge.get(lambda c: c.id == rule.cartridge_id)
 
     if cartridge is None:
         msg = f"Cartridge not found"
@@ -989,7 +989,7 @@ def format_in_card(payload: FormatInCardPayload) -> bool:
             add_output(msg)
             return False
 
-        cartridge = helpers.select(c for c in Cartridge if c.id == rule.cartridge_id).first()
+        cartridge = Cartridge.get(lambda c: c.id == rule.cartridge_id)
 
         if cartridge is None:
             msg = f"Cartridge not found"
@@ -1009,7 +1009,7 @@ def format_in_card(payload: FormatInCardPayload) -> bool:
             all_incards.append(hex2bytes(payload.in_card))
     elif payload.cartridge_id is not None:
 
-        cartridge = helpers.select(c for c in Cartridge if c.id == payload.cartridge_id).first()
+        cartridge = Cartridge.get(lambda c: c.id == payload.cartridge_id)
 
         if cartridge is None:
             msg = f"Cartridge not found"
