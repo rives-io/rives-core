@@ -225,7 +225,7 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
 
 def install_riv_version(rivos_data: bytes):
     if is_inside_cm(): # use riv os
-        rivos_version_path = tempfile.mkdtemp()
+        rivos_version_path = tempfile.mktemp()
 
         rivos_sqfs_temp = tempfile.NamedTemporaryFile()
         rivos_sqfs_file = rivos_sqfs_temp.file

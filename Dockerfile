@@ -135,7 +135,8 @@ RUN dpkg -i /machine-emulator-tools-v${MACHINE_EMULATOR_TOOLS_VERSION}.deb \
 RUN <<EOF
 apt-get update && \
 apt-get install -y --no-install-recommends busybox-static=1:1.30.1-7ubuntu3 \
-    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.11 squashfs-tools=1:4.5-3build1 && \
+    build-essential=12.9ubuntu3 sqlite3=3.37.2-2ubuntu0.3 git=1:2.34.1-1ubuntu1.11 \
+    squashfs-tools=1:4.5-3build1 xdelta3=3.0.11-dfsg-1.2 && \
 rm -rf /var/lib/apt/lists/* /var/log/* /var/cache/* && \
 useradd --create-home --user-group dapp
 EOF
