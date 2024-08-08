@@ -1,4 +1,0 @@
-[profile.default]
-src = "contracts"
-out = "app/contracts"
-libs = ["node_modules"]
