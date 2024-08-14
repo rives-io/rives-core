@@ -21,7 +21,7 @@ class CoreSettings:
         cls.proxy_address = os.getenv('PROXY_ADDRESS').lower() if os.getenv('PROXY_ADDRESS') else None #"0x7d2c859FFA85E1165C0EC3fFEe14BB7B8A482777"
         cls.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
             if os.getenv('GENESIS_CARTRIDGES') is not None else \
-                ['tetrix','antcopter','freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
+                ['freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']
         cls.genesis_rules = json.loads(os.getenv('GENESIS_RULES')) \
             if os.getenv('GENESIS_RULES') is not None else {}
         cls.internal_verify_lock = True

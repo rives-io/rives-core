@@ -79,7 +79,7 @@ ${ENVFILE}:
 	echo ROLLUP_HTTP_SERVER_URL=http://localhost:8080/rollup >> $(ENVFILE)
 	echo RIVEMU_PATH=rivemu >> $(ENVFILE)
 	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
-	echo PROXY_ADDRESS=0x00124590193fcd497c0eed517103368113f89258 >> $(ENVFILE)
+	echo PROXY_ADDRESS=0x0a701256c817b340DdDA81011bEf0FbEF32e601d >> $(ENVFILE)
 
 --load-env-%: ${ENVFILE}.%
 	@$(eval include include $^)
@@ -158,7 +158,7 @@ run-external-verifier-cloud-services:
 	make -C external_verifier run-cloud-services ARGS='$(ARGS)'
 
 build-external-verifier-cloud:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-b
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
 	IMAGE_TAG=ghcr.io/rives-io/rives-exteral-verifier:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .external-verifier-cloud.tag
 	docker build --target external-verifier-cloud . \

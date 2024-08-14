@@ -702,6 +702,8 @@ class InputFinder:
         )
         self.set_operator_header = set_operator_header.to_bytes()
 
+        # TODO: check for normal verification to process and store the outcard without sending the results
+
         self.timeout = timeout
         self.poll_interval = poll_interval
 
