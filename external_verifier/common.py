@@ -487,7 +487,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         Storage.add_error(input_index,msg)
         return None
 
-    entropy = generate_entropy(sender, payload.rule_id.hex())
+    entropy = generate_entropy(sender, payload_rule)
 
     tape_id = generate_tape_id(payload.rule_id,payload.tape)
     out_params = {
@@ -524,7 +524,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         msg = f"Couldn't verify tape: {e}"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
-        out_params["error_code"] = ErrorCode.VERIFICATION_ERROR
+        out_params["error_code"] = ErrorCode.VERIFICATION_ERROR.value
         return ExternalVerificationOutput.parse_obj(out_params)
 
     outcard_raw = verification_output.get('outcard')
@@ -542,7 +542,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
         msg = f"Out card hash doesn't match"
         LOGGER.error(msg)
         Storage.add_error(input_index,msg)
-        out_params["error_code"] = ErrorCode.OUTHASH_MATCH_ERROR
+        out_params["error_code"] = ErrorCode.OUTHASH_MATCH_ERROR.value
         return ExternalVerificationOutput.parse_obj(out_params)
 
     score = 0
@@ -555,7 +555,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             msg = f"Couldn't load/parse score from json: {e}"
             LOGGER.error(msg)
             Storage.add_error(input_index,msg)
-            out_params["error_code"] = ErrorCode.SCORE_ERROR
+            out_params["error_code"] = ErrorCode.SCORE_ERROR.value
             return ExternalVerificationOutput.parse_obj(out_params)
 
         # compare claimed score
@@ -569,7 +569,7 @@ def tape_verification(payload: ExtendedVerifyPayload) -> ExternalVerificationOut
             msg = f"Score doesn't match"
             LOGGER.error(msg)
             Storage.add_error(input_index,msg)
-            out_params["error_code"] = ErrorCode.SCORE_MATCH_ERROR
+            out_params["error_code"] = ErrorCode.SCORE_MATCH_ERROR.value
             return ExternalVerificationOutput.parse_obj(out_params)
 
     out_params['outcard'] = outcard_raw if rule.save_out_cards else b''

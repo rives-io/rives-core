@@ -189,5 +189,15 @@ ENV ROLLUP_HTTP_SERVER_URL="http://127.0.0.1:5004"
 
 FROM base as dapp
 
-ENTRYPOINT ["rollup-init"]
-CMD ["cartesapp","run","--log-level","info"]
+RUN <<EOF
+echo '#!/bin/bash
+while : ; do
+	echo "Initializing Dapp"
+	rollup-init cartesapp run --log-level debug
+done
+' > entrypoint.sh
+chmod +x entrypoint.sh
+EOF
+
+ENTRYPOINT ["bash"]
+CMD ["entrypoint.sh"]

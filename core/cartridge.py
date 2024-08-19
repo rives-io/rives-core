@@ -14,7 +14,7 @@ from cartesapp.output import event, output, add_output, emit_event, index_input
 from cartesapp.utils import hex2bytes
 
 from .model import Cartridge, CartridgeTag, CartridgeAuthor, InfoCartridge, Bytes32List, BoolList, \
-    create_cartridge, delete_cartridge, change_cartridge_user_address, StringList, unlock_and_test_cartridge
+    create_cartridge, delete_cartridge, change_cartridge_user_address, StringList, unlock_and_test_cartridge, create_and_unlock_cartridge
 from .core_settings import CoreSettings, get_cartridges_path, get_version, format_cartridge_id_from_bytes
 
 LOGGER = logging.getLogger(__name__)
@@ -205,6 +205,40 @@ def set_unlock_cartridge(payload: SetUnlockedCartridgePayload) -> bool:
                 msg = f"Couldn't remove cartridge (id={payload_id}): {e}"
                 LOGGER.error(msg)
                 add_output(msg)
+
+    return True
+
+@mutation(proxy=CoreSettings().proxy_address)
+def insert_and_unlock_cartridge(payload: InsertCartridgePayload) -> bool:
+    metadata = get_metadata()
+    
+    # Check internal verification lock
+    if CoreSettings().cartridge_moderation_lock:
+        msg = f"Direct cartridge insertion locked"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+
+    LOGGER.info("Saving cartridge...")
+    try:
+        cartridge = create_and_unlock_cartridge(payload.data,**metadata.dict())
+    except Exception as e:
+        msg = f"Couldn't insert cartridge: {e}"
+        LOGGER.error(msg)
+        traceback.print_exc()
+        add_output(msg)
+        return False
+
+    cartridge_event = CartridgeEvent(
+        version=get_version(),
+        cartridge_id = hex2bytes(cartridge.id),
+        cartridge_user_address = metadata.msg_sender,
+        cartridge_input_index = metadata.input_index,
+        timestamp = metadata.timestamp
+    )
+    tags = ['cartridge','cartridge_inserted',cartridge.id]
+    index_input(tags=tags)
+    emit_event(cartridge_event,tags=tags)
 
     return True
 

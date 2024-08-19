@@ -1,7 +1,7 @@
 import logging
 from pydantic import BaseModel
 
-from cartesi.abi import Address, Bool, Bytes
+from cartesi.abi import Address, Bool, Bytes, UInt
 
 from cartesapp.context import get_metadata
 from cartesapp.input import query, mutation
@@ -18,11 +18,14 @@ LOGGER = logging.getLogger(__name__)
 class SetOperatorPayload(BaseModel):
     new_operator_address: Address
 
-class SetInternalVerifyLock(BaseModel):
+class SetLock(BaseModel):
     lock: Bool
 
 class UpdateRivosPayload(BaseModel):
     data: Bytes
+
+class SetMaxLockedCartridges(BaseModel):
+    max_locked_cartridges: UInt
 
 
 ###
@@ -30,12 +33,26 @@ class UpdateRivosPayload(BaseModel):
 
 @mutation(msg_sender=CoreSettings().admin_address)
 def set_operator_address(payload: SetOperatorPayload) -> bool:
+    LOGGER.info(f"updating operator address to {payload.new_operator_address}...")
     CoreSettings().operator_address = payload.new_operator_address.lower()
     return True
 
 @mutation(msg_sender=CoreSettings().admin_address)
-def set_internal_verify_lock(payload: SetInternalVerifyLock) -> bool:
+def set_internal_verify_lock(payload: SetLock) -> bool:
+    LOGGER.info(f"updating internal verify lock to {payload.lock}...")
     CoreSettings().internal_verify_lock = payload.lock
+    return True
+
+@mutation(msg_sender=CoreSettings().admin_address)
+def set_cartridge_moderation_lock(payload: SetLock) -> bool:
+    LOGGER.info(f"updating cartridge moderation lock to {payload.lock}...")
+    CoreSettings().cartridge_moderation_lock = payload.lock
+    return True
+
+@mutation(msg_sender=CoreSettings().admin_address)
+def set_max_locked_cartridges(payload: SetMaxLockedCartridges) -> bool:
+    LOGGER.info(f"updating max locked cartridges to {payload.lock}...")
+    CoreSettings().max_locked_cartridges = payload.max_locked_cartridges
     return True
 
 @mutation(msg_sender=CoreSettings().admin_address)
@@ -69,4 +86,15 @@ def admin_address() -> bool:
 @query()
 def proxy_address() -> bool:
     add_output(CoreSettings().proxy_address)
+    return True
+
+@query()
+def config() -> bool:
+    config = {
+        "version": CoreSettings().version,
+        "internal_verify_lock": CoreSettings().internal_verify_lock,
+        "cartridge_moderation_lock": CoreSettings().cartridge_moderation_lock,
+        "max_locked_cartridges": CoreSettings().max_locked_cartridges,
+    }
+    add_output(config)
     return True
