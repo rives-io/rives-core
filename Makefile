@@ -1,6 +1,7 @@
 # Makefile
 
 ENVFILE := .env
+CHAIN_ENVFILE := .chain.env
 
 SHELL := /bin/bash
 
@@ -69,6 +70,9 @@ run-reader-%: ${ENVFILE}.% --check-testnet-envs-% ; $(value setup_venv)
 generate-frontend-libs: ; $(value setup_venv)
 	@test ! -z '${FRONTEND_PATH}' || (echo "Must define FRONTEND_PATH in env" && exit 1)
 	cartesapp generate-frontend-libs --libs-path app/backend-libs --frontend-path ${FRONTEND_PATH} $(ARGS)
+
+deploy-dapp-%: 
+	@make -f deploy.mk $@
 
 # Aux env targets
 --load-env: ${ENVFILE}
