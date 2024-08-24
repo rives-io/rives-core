@@ -136,10 +136,10 @@ rivemu:
 update-rivemu: --remove-rivemu rivemu
 
 build-release:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-b
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
 	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .rives-core.tag
-	docker build -f Dockerfile --target node .cartesi/ \
+	docker build -f Dockerfile --target node . \
 		-t $$IMAGE_TAG \
 		--label "org.opencontainers.image.title=rives-core" \
 		--label "org.opencontainers.image.description=RIVES Core Node" \
@@ -162,7 +162,7 @@ run-external-verifier-cloud-services:
 	make -C external_verifier run-cloud-services ARGS='$(ARGS)'
 
 build-external-verifier-cloud:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-b
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
 	IMAGE_TAG=ghcr.io/rives-io/rives-exteral-verifier:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .external-verifier-cloud.tag
 	docker build --target external-verifier-cloud . \
@@ -177,7 +177,7 @@ build-external-verifier-cloud:
 		--label "org.opencontainers.image.version=$$IMAGE_VERSION"
 
 build-reader-release:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-b
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
 	IMAGE_TAG=ghcr.io/rives-io/rives-reader:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .rives-reader.tag
 	docker build --target reader-node . \
