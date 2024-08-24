@@ -79,6 +79,7 @@ class Rule(Entity):
     allow_in_card   = helpers.Optional(bool, lazy=True)
     save_tapes      = helpers.Optional(bool, lazy=True)
     save_out_cards  = helpers.Optional(bool, lazy=True)
+    deactivated     = helpers.Optional(bool)
     tags            = helpers.Set("RuleTag")
 
 class RuleTag(Entity):
@@ -254,14 +255,14 @@ def initialize_data():
 def create_default_rule(cartridge: Cartridge, outcard_raw: bytes, **metadata):
     rule_conf_dict = {
         "cartridge_id":hex2bytes(cartridge.id),
-        "name":"default",
+        "name":CoreSettings().default_rule_name,
         "description":"",
         "args":"",
         "in_card":b"",
         "score_function":"",
         "start":0,
         "end":0,
-        "tags":["default"],
+        "tags":[CoreSettings().default_rule_name],
         "tapes": [],
         "allow_tapes": False,
         "allow_in_card": False,

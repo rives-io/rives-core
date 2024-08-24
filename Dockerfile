@@ -6,41 +6,10 @@ ARG OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 ARG KERNEL_VERSION=0.19.1-riv1
 ARG RIV_VERSION=0.3-rc16
 ARG ROLLUPS_NODE_VERSION=1.5.0
-ARG CM_CALLER_VERSION=0.1.4
+ARG CM_CALLER_VERSION=0.1.5
 ARG NONODO_VERSION=1.1.1
 ARG RIVES_VERSION=0
 ARG DAGSTER_VERSION=1.7.2
-
-FROM cartesi/sdk:${CARTESI_SDK_VERSION} as cartesi-riv-sdk
-
-ARG KERNEL_VERSION
-
-RUN curl -s -L https://github.com/rives-io/kernel/releases/download/v${KERNEL_VERSION}/linux-6.5.9-ctsi-1-v${KERNEL_VERSION}.bin \
-    -o /usr/share/cartesi-machine/images/linux.bin
-
-
-# make build-release
-FROM cartesi/rollups-node:${ROLLUPS_NODE_VERSION} as node
-
-USER root
-
-COPY ./image_0 /tmp/machine-snapshots/0
-COPY ./image /tmp/machine-snapshots/0_0
-
-ARG NONODO_VERSION
-RUN curl -s -L https://github.com/Calindra/nonodo/releases/download/v${NONODO_VERSION}/nonodo-v${NONODO_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
-    tar xzf - -C /usr/local/bin nonodo
-
-ARG CM_CALLER_VERSION
-RUN curl -s -L https://github.com/lynoferraz/cm-caller/releases/download/v${CM_CALLER_VERSION}/cm-caller-v${CM_CALLER_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
-    tar xzf - -C /usr/local/bin cm-caller
-
-USER cartesi
-
-# TODO: make deploy here too, but don't do a second deploy for same cm
-
-
-FROM --platform=linux/riscv64 riv/toolchain:devel as riv-toolchain
 
 FROM debian:11-slim as base-files
 
@@ -56,6 +25,78 @@ COPY misc/freedoom.sqfs misc/freedoom.sqfs
 # COPY misc/tetrix.sqfs misc/tetrix.sqfs
 COPY misc/test.rivlog misc/test.rivlog
 
+
+FROM cartesi/sdk:${CARTESI_SDK_VERSION} as cartesi-riv-sdk
+
+ARG KERNEL_VERSION
+
+RUN curl -s -L https://github.com/rives-io/kernel/releases/download/v${KERNEL_VERSION}/linux-6.5.9-ctsi-1-v${KERNEL_VERSION}.bin \
+    -o /usr/share/cartesi-machine/images/linux.bin
+
+
+# make build-release
+FROM cartesi/rollups-node:${ROLLUPS_NODE_VERSION} as node
+
+USER root
+
+COPY .cartesi/image_0 /tmp/machine-snapshots/0
+COPY .cartesi/image /tmp/machine-snapshots/0_0
+
+ARG NONODO_VERSION
+RUN curl -s -L https://github.com/Calindra/nonodo/releases/download/v${NONODO_VERSION}/nonodo-v${NONODO_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
+    tar xzf - -C /usr/local/bin nonodo
+
+ARG CM_CALLER_VERSION
+RUN curl -s -L https://github.com/lynoferraz/cm-caller/releases/download/v${CM_CALLER_VERSION}/cm-caller-v${CM_CALLER_VERSION}-linux-$(dpkg --print-architecture).tar.gz | \
+    tar xzf - -C /usr/local/bin cm-caller
+
+USER cartesi
+
+# TODO: make deploy here too, but don't do a second deploy for same cm
+
+FROM node as reader-node
+
+USER root
+
+COPY misc/cartesi-machine-v0.16.1_amd64.deb .
+RUN dpkg -i cartesi-machine-v0.16.1_amd64.deb
+RUN rm cartesi-machine-v0.16.1_amd64.deb
+
+RUN <<EOF
+apt-get update && \
+apt-get install -y --no-install-recommends python3=3.11.2-1+b1 \
+    python3-pip=23.0.1+dfsg-1 python3-venv=3.11.2-1+b1 \
+    e2tools=0.1.0-3 git wget
+EOF
+
+COPY requirements.txt .
+
+ENV VIRTUAL_ENV=/usr/local
+RUN python3 -m venv $VIRTUAL_ENV
+RUN pip install -U uv
+RUN uv pip install -r requirements.txt --no-cache && rm requirements.txt
+
+ARG RIV_VERSION
+RUN curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu-linux-$(dpkg --print-architecture) -o /usr/local/bin/rivemu \
+    && chmod +x /usr/local/bin/rivemu
+
+RUN apt remove -y python3-pip git && apt -y autoremove
+RUN find /usr/local/lib -type d -name __pycache__ -exec rm -r {} + \
+    && find /var/log \( -name '*.log' -o -name '*.log.*' \) -exec truncate -s 0 {} \;
+
+USER cartesi
+
+WORKDIR /opt/cartesi/dapp
+
+COPY --from=base-files misc misc
+COPY --from=base-files core core
+
+ENV RIVEMU_PATH=rivemu
+
+ARG RIVES_VERSION
+ENV RIVES_VERSION=${RIVES_VERSION}
+
+FROM --platform=linux/riscv64 riv/toolchain:devel as riv-toolchain
 
 WORKDIR /opt/cartesi/dapp
 

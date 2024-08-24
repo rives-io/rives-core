@@ -14,7 +14,7 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
     tape_verification, add_cartridge, remove_cartridge, set_operator, add_rule, initialize_storage_with_genesis_data, generate_cartridge_id, \
-    set_unlocked_cartridges, add_locked_cartridge, VERIFICATIONS_BATCH_SIZE
+    set_unlocked_cartridges, add_locked_cartridge, deactivate_rule, VERIFICATIONS_BATCH_SIZE
 
 
 ###
@@ -65,6 +65,10 @@ class SetOperatorConfig(Config):
     new_operator_address:   str
     sender:                 str
 
+class DeactivateRuleConfig(Config):
+    rule_id:                str
+    sender:                 str
+
 class ExternalVerificationOutputsConfig(Config):
     outputs: str
 
@@ -91,6 +95,7 @@ cartridges_input_partition = DynamicPartitionsDefinition(name="cartridges")
 set_cartridge_unlocks_input_partition = DynamicPartitionsDefinition(name="cartridge_unlocks")
 remove_cartridges_input_partition = DynamicPartitionsDefinition(name="remove_cartridges")
 set_operators_input_partition = DynamicPartitionsDefinition(name="set_operators")
+deactivate_rules_input_partition = DynamicPartitionsDefinition(name="deactivate_rules")
 
 
 @asset(partitions_def=inputs_partition,key=["verify_input"])
@@ -202,6 +207,19 @@ set_operator_job = define_asset_job(
     partitions_def=set_operators_input_partition
 )
 
+@asset(partitions_def=deactivate_rules_input_partition, key=["deactivate_rule"])
+def deactivate_rule_asset(context: OpExecutionContext, config: DeactivateRuleConfig):
+    context.log.info(f"Deactivating rule {config.rule_id}")
+
+    deactivate_rule(config.rule_id, config.sender)
+    context.log.info(f"rule {config.rule_id} deactivated")
+
+deactivate_rule_job = define_asset_job(
+    name="deactivate_rule_job",
+    selection=AssetSelection.assets(deactivate_rule_asset),
+    partitions_def=deactivate_rules_input_partition
+)
+
 
 @op
 def submit_verification_op(context: OpExecutionContext, config: ExternalVerificationOutputsConfig):
@@ -249,7 +267,7 @@ def initialization_sensor(context: SensorEvaluationContext):
     )
     context.update_cursor(run_key)
 
-@sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job,remove_cartridge_job,set_operator_job,set_cartridge_unlocks_job])
+@sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job,remove_cartridge_job,set_operator_job,set_cartridge_unlocks_job,deactivate_rule_job])
 def inputs_sensor(context: SensorEvaluationContext):
     cursor = context.cursor or None
     if cursor is not None: cursor = int(cursor) + 1
@@ -266,6 +284,7 @@ def inputs_sensor(context: SensorEvaluationContext):
     set_cartridge_unlocks_partition_keys = []
     remove_cartridges_partition_keys = []
     set_operators_partition_keys = []
+    deactivate_rules_partition_keys = []
 
 
     blocks = []
@@ -284,7 +303,7 @@ def inputs_sensor(context: SensorEvaluationContext):
             context.log.info(f"new cartridge entry")
             cartridge_data = new_input.data.data
             cartridge_id = generate_cartridge_id(cartridge_data)
-            key = f"add_cartridge_{cartridge_id}"
+            key = f"add_cartridge_{cartridge_id}_{new_input.last_input_block}"
             # add_cartridge(cartridge_id,cartridge_data)
             cartridges_partition_keys.append(key)
             run_requests.append(RunRequest(
@@ -302,7 +321,7 @@ def inputs_sensor(context: SensorEvaluationContext):
             ))
         elif new_input.type == InputType.cartridge_set_unlock:
             context.log.info(f"set unlock  cartridge entry")
-            key = f"set_cartridge_unlocks_{'_'.join(new_input.data.ids)}"
+            key = f"set_cartridge_unlocks_{'_'.join(new_input.data.ids)}_{new_input.last_input_block}"
             # add_cartridge(cartridge_id,cartridge_data)
             set_cartridge_unlocks_partition_keys.append(key)
             run_requests.append(RunRequest(
@@ -321,7 +340,7 @@ def inputs_sensor(context: SensorEvaluationContext):
         elif new_input.type == InputType.remove_cartridge:
             context.log.info(f"remove cartridge entry")
             cartridge_id = new_input.data.id
-            key = f"remove_cartridge_{cartridge_id}"
+            key = f"remove_cartridge_{cartridge_id}_{new_input.last_input_block}"
             # add_cartridge(cartridge_id,cartridge_data)
             remove_cartridges_partition_keys.append(key)
             run_requests.append(RunRequest(
@@ -334,7 +353,7 @@ def inputs_sensor(context: SensorEvaluationContext):
         elif new_input.type == InputType.set_operator:
             context.log.info(f"set operator entry")
             new_operator_address = new_input.data.new_operator_address
-            key = f"set_operator_{new_operator_address}"
+            key = f"set_operator_{new_operator_address}_{new_input.last_input_block}"
             # add_cartridge(cartridge_id,cartridge_data)
             set_operators_partition_keys.append(key)
             run_requests.append(RunRequest(
@@ -342,6 +361,19 @@ def inputs_sensor(context: SensorEvaluationContext):
                 partition_key=key,
                 run_config=RunConfig(
                     ops={"set_operator":SetOperatorConfig(**{"new_operator_address":new_input.data.new_operator_address,"sender":new_input.data.sender}),}
+                )
+            ))
+        elif new_input.type == InputType.deactivate_rule:
+            context.log.info(f"deactivate entry")
+            rule_id = new_input.data.rule_id
+            key = f"deactivate_rule_{rule_id}_{new_input.last_input_block}"
+            # add_cartridge(cartridge_id,cartridge_data)
+            deactivate_rules_partition_keys.append(key)
+            run_requests.append(RunRequest(
+                job_name="deactivate_rule_job",
+                partition_key=key,
+                run_config=RunConfig(
+                    ops={"deactivate_rule":DeactivateRuleConfig(**{"rule_id":rule_id,"sender":new_input.data.sender}),}
                 )
             ))
         elif new_input.type == InputType.rule:
@@ -354,7 +386,7 @@ def inputs_sensor(context: SensorEvaluationContext):
             })
             # add_rule(rule)
             rule_name_key = re.sub(r'\s','_',rule.name.lower())
-            key = f"add_rule_{rule.cartridge_id}_{rule_name_key}"
+            key = f"add_rule_{rule.cartridge_id}_{rule_name_key}_{new_input.last_input_block}"
             rules_partition_keys.append(key)
             run_requests.append(RunRequest(
                 job_name="add_rule_job",
@@ -374,7 +406,7 @@ def inputs_sensor(context: SensorEvaluationContext):
                 "in_card":extended_verification.in_card.hex(),
                 "tapes":[t.hex() for t in extended_verification.tapes]
             })
-            key = f"verify_input_{extended_verification.input_index}"
+            key = f"verify_input_{extended_verification.input_index}_{new_input.last_input_block}"
             tapes_partition_keys.append(key)
             run_requests.append(RunRequest(
                 job_name="verify_asset_job",
@@ -423,6 +455,16 @@ def inputs_sensor(context: SensorEvaluationContext):
     if remove_cartridges_partition_keys:
         dynamic_partition_requests.append(
             remove_cartridges_input_partition.build_add_request(remove_cartridges_partition_keys)
+        )
+
+    if set_operators_partition_keys:
+        dynamic_partition_requests.append(
+            set_operators_input_partition.build_add_request(set_operators_partition_keys)
+        )
+
+    if deactivate_rules_partition_keys:
+        dynamic_partition_requests.append(
+            deactivate_rules_input_partition.build_add_request(deactivate_rules_partition_keys)
         )
 
     return SensorResult(

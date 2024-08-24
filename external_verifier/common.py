@@ -24,7 +24,7 @@ if os.path.isdir('../core'):
 from core.model import Bytes32List, format_bytes_list_to_incard, BoolList
 from core.admin import SetOperatorPayload
 from core.cartridge import InsertCartridgePayload, RemoveCartridgePayload, SetUnlockedCartridgePayload
-from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode
+from core.tape import VerifyPayload, RulePayload, ExternalVerificationPayload, ErrorCode, DeactivateRulePayload
 from core.riv import verify_log, riv_get_cartridge_info
 from core.core_settings import CoreSettings, generate_entropy, generate_rule_id, \
     generate_tape_id, generate_cartridge_id, generate_cartridge_id as core_generate_cartridge_id, \
@@ -93,6 +93,7 @@ class InputType(str, Enum):
     verification = "verification"
     remove_cartridge = "remove_cartridge"
     set_operator = "set_operator"
+    deactivate_rule = "deactivate_rule"
     unknown = "unknown"
     error = "error"
     none = "none"
@@ -139,6 +140,10 @@ class ExtendedRemoveCartridgePayload(BaseModel):
 
 class ExtendedSetOperatorPayload(BaseModel):
     new_operator_address:   abi.Address
+    sender:                 abi.Address
+
+class ExtendedDeactivateRulePayload(BaseModel):
+    rule_id:                abi.Bytes32
     sender:                 abi.Address
 
 class ExternalVerificationOutput(BaseModel):
@@ -337,6 +342,10 @@ class Storage:
                 "tapes":[t.hex() for t in rule.tapes]
             })
             cls.store.hset(REDIS_RULES_KEY,rule_id,json.dumps(rule_dict))
+
+    @classmethod
+    def remove_rule(cls,rule_id: str) -> bytes:
+        return cls.store.hdel(REDIS_RULES_KEY,rule_id)
 
     # @classmethod
     # def exist_cartridge(cls,cartridge_id):
@@ -702,6 +711,13 @@ class InputFinder:
         )
         self.set_operator_header = set_operator_header.to_bytes()
 
+        deactivate_rule_abi_types = abi.get_abi_types_from_model(DeactivateRulePayload)
+        deactivate_rule_header = ABIFunctionSelectorHeader(
+            function=f"core.deactivate_rule",
+            argument_types=deactivate_rule_abi_types
+        )
+        self.deactivate_rule_header = deactivate_rule_header.to_bytes()
+
         # TODO: check for normal verification to process and store the outcard without sending the results
 
         self.timeout = timeout
@@ -803,7 +819,7 @@ class InputFinder:
                     
                         yield InputData(type=InputType.cartridge,data=extended_payload,last_input_block=last_input_block)
                     elif header == self.cartridge_set_unlock_selector:
-                        # LOGGER.info(f"cartridge entry")
+                        # LOGGER.info(f"cartridge unlock entry")
                         payload_dict = abi.decode_to_model(data=input_payload, model=SetUnlockedCartridgePayload).dict()
                         payload_dict['sender'] = sender
                         new_ids = []
@@ -815,21 +831,31 @@ class InputFinder:
                     
                         yield InputData(type=InputType.cartridge_set_unlock,data=extended_payload,last_input_block=last_input_block)
                     elif header == self.remove_cartridge_selector:
-                        # LOGGER.info(f"cartridge entry")
+                        # LOGGER.info(f"cartridge remove entry")
                         payload_dict = abi.decode_to_model(data=input_payload, model=RemoveCartridgePayload).dict()
                         payload_dict['sender'] = sender
 
                         extended_payload = ExtendedRemoveCartridgePayload.parse_obj(payload_dict)
+                        extended_payload.id = format_cartridge_id_from_bytes(extended_payload.id)
                     
                         yield InputData(type=InputType.remove_cartridge,data=extended_payload,last_input_block=last_input_block)
                     elif header == self.set_operator_header:
-                        # LOGGER.info(f"cartridge entry")
+                        # LOGGER.info(f"set operator entry")
                         payload_dict = abi.decode_to_model(data=input_payload, model=SetOperatorPayload).dict()
                         payload_dict['sender'] = sender
 
                         extended_payload = ExtendedSetOperatorPayload.parse_obj(payload_dict)
                     
                         yield InputData(type=InputType.set_operator,data=extended_payload,last_input_block=last_input_block)
+                    elif header == self.deactivate_rule_header:
+                        # LOGGER.info(f"deactivate rule entry")
+                        payload_dict = abi.decode_to_model(data=input_payload, model=DeactivateRulePayload).dict()
+                        payload_dict['sender'] = sender
+
+                        extended_payload = ExtendedDeactivateRulePayload.parse_obj(payload_dict)
+                        extended_payload.rule_id = format_rule_id_from_bytes(extended_payload.rule_id)
+                    
+                        yield InputData(type=InputType.deactivate_rule,data=extended_payload,last_input_block=last_input_block)
                     else:
                         # LOGGER.info(f"non processed entry")
                         yield InputData(type=InputType.unknown,data=None,last_input_block=last_input_block)
@@ -1005,7 +1031,7 @@ def add_cartridge(cartridge_id: str,cartridge_data: bytes, sender: str):
         Storage.add_cartridge_info(cartridge_id,cartridge_info_json)
         primary_id = Storage.get_primary_cartridge_id(cartridge_id)
 
-        rule_name = "default"
+        rule_name = CoreSettings().default_rule_name
         rule_id = generate_rule_id(hex2bytes(primary_id),hex2bytes(cartridge_id),str2bytes(rule_name))
 
         score_function = ""
@@ -1031,6 +1057,7 @@ def add_cartridge(cartridge_id: str,cartridge_data: bytes, sender: str):
             "allow_in_card": False,
             "save_tapes": False,
             "save_out_cards": False,
+            "sender":sender
         }
         rule = Rule.parse_obj(rule_dict)
         Storage.add_rule(rule_id,rule)
@@ -1108,9 +1135,26 @@ def add_rule(rule: Rule):
 
 def set_operator(new_addr: str, sender:str):
     if sender != Storage.get_operator_address():
-        LOGGER.warning(f"Sender not allowe")
+        LOGGER.warning(f"Sender not allowed")
         return
     Storage.set_operator_address(new_addr)
+
+def deactivate_rule(rule_id: str, sender:str):
+    rule = Storage.get_rule(rule_id)
+    if rule is None:
+        LOGGER.warning(f"Couldn't find rule")
+        return
+
+    if rule.name == CoreSettings().default_rule_name:
+        msg = f"Can't deactivate default rule {rule_id}"
+        LOGGER.warning(msg)
+        return 
+    
+    if sender != rule.sender and sender != Storage.get_operator_address():
+        LOGGER.warning(f"Sender not allowed")
+        return
+    
+    Storage.remove_rule(rule_id)
 
 def push_verification(extended_verification: ExtendedVerifyPayload):
     Storage.push_verification(abi.encode_model(extended_verification))

@@ -2,8 +2,11 @@ import os
 from hashlib import sha256
 from Crypto.Hash import keccak
 import json
+import inspect
+import pickle
 
 from cartesapp.storage import Storage
+from cartesapp.setup import post_setup
 from cartesapp.utils import hex2bytes, str2bytes
 
 ###
@@ -11,9 +14,12 @@ from cartesapp.utils import hex2bytes, str2bytes
 
 class CoreSettings:
     initialized = False
+    configs_to_store = ['operator_address','internal_verify_lock','cartridge_moderation_lock','max_locked_cartridges']
     def __new__(cls):
+        # load configuration on reder node
         if not cls.initialized:
             cls.cartridges_path = "cartridges"
+            cls.default_rule_name = "default"
             cls.test_tape_path = 'misc/test.rivlog'
             cls.version = os.getenv('RIVES_VERSION') or '0'
             cls.rivemu_path = os.getenv('RIVEMU_PATH')
@@ -30,6 +36,29 @@ class CoreSettings:
             cls.max_locked_cartridges = os.getenv('MAX_LOCKED_CARTRIDGES') or 100
             cls.initialized = True
         return cls
+    def store_config():
+        if Storage.STORAGE_PATH is not None:
+            config = dict(
+                [a for a in 
+                    inspect.getmembers(CoreSettings(), lambda a:not(inspect.isroutine(a))) 
+                    if a[0] in CoreSettings().configs_to_store
+                    # not(a[0].startswith('__') and a[0].endswith('__'))
+                    ])
+            with open(get_config_filename(), 'wb') as f:
+                pickle.dump(config, f)
+    def load_config():
+        if Storage.STORAGE_PATH is not None:
+            if os.path.exists(get_config_filename()):
+                f = open(get_config_filename(), 'rb')
+                config = pickle.load(f)
+                f.close()
+                for k in config:
+                    setattr(CoreSettings(), k, config[k])
+
+@post_setup()
+def store_core_settings():
+    CoreSettings().load_config()
+    CoreSettings().store_config()
 
 ###
 # Helpers
@@ -89,6 +118,9 @@ def is_inside_cm() -> bool:
 
 def get_cartridge_tapes_filename() -> str:
     return f"{Storage.STORAGE_PATH}/cartridge_tapes.pkl"
+
+def get_config_filename() -> str:
+    return f"{Storage.STORAGE_PATH}/config.pkl"
 
 def generate_entropy(user_address: str, rule_id: str) -> str:
     return sha256(hex2bytes(user_address) + hex2bytes(rule_id)).hexdigest()

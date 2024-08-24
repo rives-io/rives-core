@@ -35,24 +35,28 @@ class SetMaxLockedCartridges(BaseModel):
 def set_operator_address(payload: SetOperatorPayload) -> bool:
     LOGGER.info(f"updating operator address to {payload.new_operator_address}...")
     CoreSettings().operator_address = payload.new_operator_address.lower()
+    CoreSettings().store_config()
     return True
 
 @mutation(msg_sender=CoreSettings().admin_address)
 def set_internal_verify_lock(payload: SetLock) -> bool:
     LOGGER.info(f"updating internal verify lock to {payload.lock}...")
     CoreSettings().internal_verify_lock = payload.lock
+    CoreSettings().store_config()
     return True
 
 @mutation(msg_sender=CoreSettings().admin_address)
 def set_cartridge_moderation_lock(payload: SetLock) -> bool:
     LOGGER.info(f"updating cartridge moderation lock to {payload.lock}...")
     CoreSettings().cartridge_moderation_lock = payload.lock
+    CoreSettings().store_config()
     return True
 
 @mutation(msg_sender=CoreSettings().admin_address)
 def set_max_locked_cartridges(payload: SetMaxLockedCartridges) -> bool:
     LOGGER.info(f"updating max locked cartridges to {payload.lock}...")
     CoreSettings().max_locked_cartridges = payload.max_locked_cartridges
+    CoreSettings().store_config()
     return True
 
 @mutation(msg_sender=CoreSettings().admin_address)

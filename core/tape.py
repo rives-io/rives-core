@@ -36,6 +36,9 @@ class ErrorCode(Enum):
 
 RulePayload = RuleData
 
+class DeactivateRulePayload(BaseModel):
+    rule_id:        Bytes32
+
 class VerifyPayload(BaseModel):
     # cartridge_id:   Bytes32
     rule_id:        Bytes32
@@ -61,6 +64,7 @@ class GetRulesPayload(BaseModel):
     tags:           Optional[List[str]]
     tags_or:        Optional[bool]
     full:           Optional[bool]
+    enable_deactivated:Optional[bool]
 
 class GetTapesPayload(BaseModel):
     cartridge_id:   Optional[str]
@@ -182,6 +186,7 @@ class RuleInfo(BaseModel):
     save_tapes: Optional[bool]
     save_out_cards: Optional[bool]
     tapes: Optional[List[str]]
+    deactivated: Optional[bool]
     
 @output()
 class RulesOutput(BaseModel):
@@ -280,6 +285,43 @@ def create_rule(payload: RulePayload) -> bool:
     return True
 
 @mutation(proxy=CoreSettings().proxy_address)
+def deactivate_rule(payload: DeactivateRulePayload) -> bool:
+    metadata = get_metadata()
+
+    payload_rule = format_rule_id_from_bytes(payload.rule_id)
+
+    # get Rule
+    rule = Rule.get(lambda r: r.id == payload_rule)
+    if rule is None:
+        msg = f"rule {payload_rule} doesn't exist"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
+    if rule.deactivated:
+        msg = f"rule {payload_rule} already deactivated"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
+    if rule.name == CoreSettings().default_rule_name:
+        msg = f"Can't deactivate default rule {payload_rule}"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
+    if rule.created_by != metadata['msg_sender'].lower() and \
+            metadata['msg_sender'].lower() != CoreSettings().operator_address.lower():
+        msg = f"Sender not allowed"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
+    rule.deactivated = True
+
+    return True
+
+@mutation(proxy=CoreSettings().proxy_address)
 def verify(payload: VerifyPayload) -> bool:
     metadata = get_metadata()
 
@@ -301,6 +343,12 @@ def verify(payload: VerifyPayload) -> bool:
         add_output(msg)
         return False
 
+    if rule.deactivated:
+        msg = f"rule {payload_rule} deactivated"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
     # if rule.cartridge_id != payload_cartridge:
     #     msg = f"rule and payload have different cartridge {rule.cartridge_id} != {payload_cartridge}"
     #     LOGGER.error(msg)
@@ -507,6 +555,12 @@ def register_external_verification(payload: VerifyPayload) -> bool:
         add_output(msg)
         return False
 
+    if rule.deactivated:
+        msg = f"rule {payload_rule} deactivated"
+        LOGGER.error(msg)
+        add_output(msg)
+        return False
+    
     # if rule.cartridge_id != payload_cartridge:
     #     msg = f"rule and payload have different cartridge {rule.cartridge_id} != {payload_cartridge}"
     #     LOGGER.error(msg)
@@ -628,6 +682,13 @@ def external_verification(payload: ExternalVerificationPayload) -> bool:
         rule = Rule.get(lambda r: r.id == tape.rule_id)
         if rule is None:
             msg = f"rule {tape.rule_id} doesn't exist"
+            LOGGER.warning(msg)
+            # add_output(msg)
+            # return False
+            continue
+        
+        if rule.deactivated:
+            msg = f"rule {tape.rule_id} deactivated"
             LOGGER.warning(msg)
             # add_output(msg)
             # return False
@@ -816,6 +877,8 @@ def clean_tapes(payload: CleanTapesPayload) -> bool:
 def rules(payload: GetRulesPayload) -> bool:
     rules_query = Rule.select()
     
+    if payload.enable_deactivated is None or not payload.enable_deactivated:
+        rules_query = rules_query.filter(lambda c: not c.deactivated)
     if payload.id is not None:
         rules_query = rules_query.filter(lambda r: payload.id == r.id)
     if payload.ids is not None:
