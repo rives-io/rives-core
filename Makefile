@@ -177,8 +177,8 @@ build-external-verifier-cloud:
 		--label "org.opencontainers.image.version=$$IMAGE_VERSION"
 
 build-reader-release:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
-	IMAGE_TAG=ghcr.io/rives-io/rives-reader:$$IMAGE_VERSION
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-reader
+	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .rives-reader.tag
 	docker build --target reader-node . \
 		-t $$IMAGE_TAG \

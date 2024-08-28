@@ -6,7 +6,7 @@ ARG OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 ARG KERNEL_VERSION=0.19.1-riv1
 ARG RIV_VERSION=0.3-rc16
 ARG ROLLUPS_NODE_VERSION=1.5.0
-ARG CM_CALLER_VERSION=0.1.5
+ARG CM_CALLER_VERSION=0.1.6
 ARG NONODO_VERSION=1.1.1
 ARG RIVES_VERSION=0
 ARG DAGSTER_VERSION=1.7.2
@@ -66,7 +66,8 @@ RUN <<EOF
 apt-get update && \
 apt-get install -y --no-install-recommends python3=3.11.2-1+b1 \
     python3-pip=23.0.1+dfsg-1 python3-venv=3.11.2-1+b1 \
-    e2tools=0.1.0-3 git wget
+    e2tools=0.1.0-3 squashfs-tools=1:4.5.1-1 nginx=1.22.1-9 \
+    git wget
 EOF
 
 COPY requirements.txt .
@@ -84,6 +85,47 @@ RUN apt remove -y python3-pip git && apt -y autoremove
 RUN find /usr/local/lib -type d -name __pycache__ -exec rm -r {} + \
     && find /var/log \( -name '*.log' -o -name '*.log.*' \) -exec truncate -s 0 {} \;
 
+
+RUN <<EOF
+echo '
+server {
+    listen 8080;
+    root /var/www;
+
+    location / {
+        autoindex   on;
+        sendfile    on;
+        sendfile_max_chunk  10m;
+        tcp_nopush  on;
+        tcp_nodelay       on;
+        keepalive_timeout 65;
+        if ($request_method ~* "(GET|POST)") {
+            add_header "Access-Control-Allow-Origin" "*";
+        }
+        if ($request_method = OPTIONS ) {
+            add_header "Access-Control-Allow-Origin"  *;
+            add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS, HEAD";
+            add_header "Access-Control-Allow-Headers" "Authorization, Origin, X-Requested-With, Content-Type, Accept";
+            return 200;
+        }
+    }
+}
+' > /etc/nginx/sites-available/cartridges.conf
+rm /etc/nginx/sites-enabled/*
+ln -sr /etc/nginx/sites-available/cartridges.conf /etc/nginx/sites-enabled/cartridges.conf
+#sed -i 's/www-data/cartesi/' /etc/nginx/nginx.conf
+mkdir -p /var/www
+usermod -a -G adm cartesi
+chmod -R g+w /run
+chmod -R g+w /var/lib/nginx
+chmod -R g+w /var/log/nginx
+chmod -R g+w /var/www
+chown -R root:adm /run
+chown -R www-data:adm /var/lib/nginx
+chown -R www-data:adm /var/log/nginx
+chown -R www-data:adm /var/www
+EOF
+
 USER cartesi
 
 WORKDIR /opt/cartesi/dapp
@@ -91,7 +133,7 @@ WORKDIR /opt/cartesi/dapp
 COPY --from=base-files misc misc
 COPY --from=base-files core core
 
-ENV RIVEMU_PATH=rivemu
+ENV RIVEMU_PATH=/usr/local/bin/rivemu
 
 ARG RIVES_VERSION
 ENV RIVES_VERSION=${RIVES_VERSION}
