@@ -25,7 +25,7 @@ class CoreSettings:
             cls.rivemu_path = os.getenv('RIVEMU_PATH')
             cls.operator_address = (os.getenv('OPERATOR_ADDRESS') or "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266").lower()
             cls.admin_address = cls.operator_address
-            cls.proxy_address = os.getenv('PROXY_ADDRESS').lower() if os.getenv('PROXY_ADDRESS') else None #"0x0a701256c817b340DdDA81011bEf0FbEF32e601d"
+            cls.proxy_address = os.getenv('PROXY_ADDRESS').lower() if os.getenv('PROXY_ADDRESS') else None #"0xeFF4b7fACd2f3041184BB7Bf3A0E2bB63e452fd6"
             cls.genesis_cartridges = list(map(lambda s: s.strip(), os.getenv('GENESIS_CARTRIDGES').split(','))) \
                 if os.getenv('GENESIS_CARTRIDGES') is not None else \
                     ['freedoom'] #['snake','freedoom','antcopter','monky','tetrix','particles']

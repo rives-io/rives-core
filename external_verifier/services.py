@@ -291,9 +291,11 @@ def inputs_sensor(context: SensorEvaluationContext):
     while new_input is not None:
         context.log.info(f"while {new_input=}")
         if new_input.type == InputType.error:
-            context.log.error(new_input.data.msg)
-            yield SkipReason("Error while getting inputs")
-            return
+            msg = f"Error while getting inputs (last input block = {new_input.last_input_block}): {new_input.data.msg}"
+            context.log.error(msg)
+            continue
+            # yield SkipReason("Error while getting inputs")
+            # return
         elif new_input.type == InputType.unknown:
             context.log.info(f"new non-processable entry")
         elif new_input.type == InputType.none:

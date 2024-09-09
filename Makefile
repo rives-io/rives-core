@@ -83,7 +83,7 @@ ${ENVFILE}:
 	echo ROLLUP_HTTP_SERVER_URL=http://localhost:8080/rollup >> $(ENVFILE)
 	echo RIVEMU_PATH=rivemu >> $(ENVFILE)
 	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
-	echo PROXY_ADDRESS=0x0a701256c817b340DdDA81011bEf0FbEF32e601d >> $(ENVFILE)
+	echo PROXY_ADDRESS=0xeFF4b7fACd2f3041184BB7Bf3A0E2bB63e452fd6 >> $(ENVFILE)
 
 --load-env-%: ${ENVFILE}.%
 	@$(eval include include $^)

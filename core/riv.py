@@ -76,12 +76,10 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
             incard_file.close()
 
         version = riv_get_cartridge_riv_version(rivos_cartridge_path)
-        result = subprocess.run(["sh","/usr/sbin/riv-mount",version],capture_output=True)
+        result = subprocess.run(["sh","/usr/sbin/riv-mount",version])
         if result.returncode != 0:
             raise Exception(f"Error reading version: {str(result.stderr)}")
 
-        result = subprocess.run(["ls","/rivos"],capture_output=True)
-        
         run_args = []
         run_args.append("/rivos/usr/sbin/riv-chroot")
         run_args.append("/rivos")
@@ -135,7 +133,6 @@ def verify_log(cartridge_data: bytes, log: bytes,riv_args: str,in_card: bytes, e
         if result.returncode != 0:
             raise Exception(f"Error reading version: {str(result.stderr)}")
 
-        result = subprocess.run(["ls","/rivos"],capture_output=True)
         return {"outhist":outhist_raw, "outhash":outhash,"screenshot":screenshot,"outcard":outcard_raw}
 
     # use rivemu
