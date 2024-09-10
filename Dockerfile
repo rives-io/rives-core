@@ -276,7 +276,7 @@ RUN <<EOF
 echo '#!/bin/bash
 while : ; do
 	echo "Initializing Dapp"
-	rollup-init cartesapp run --log-level debug
+	rollup-init cartesapp run --log-level info
 done
 ' > entrypoint.sh
 chmod +x entrypoint.sh
