@@ -6,7 +6,7 @@ CHAIN_ENVFILE := .chain.env
 SHELL := /bin/bash
 
 RIV_VERSION := 0.3-rc16
-CARTESI_SDK_RIV_VERSION := 0.6.2-riv
+CARTESI_SDK_RIV_VERSION := 0.9.0-riv
 
 RELEASE_SUFFIX ?= ''
 

@@ -4,7 +4,7 @@ ENVFILE := .env
 
 SHELL := /bin/bash
 
-SUNODO_DEVNET_VERSION := 1.4.0
+CARTESI_SDK_VERSION := 0.9.0
 
 define setup_venv =
 @if [ ! -d .venv ]; then python3 -m venv .venv; fi
@@ -80,7 +80,7 @@ ${ENVFILE}.%:
 rivemu: ../rivemu
 
 InputBox.json:
-	docker run --rm sunodo/devnet:$(SUNODO_DEVNET_VERSION) bash -c "cat localhost.json | jq '.contracts.InputBox' " | sed  "/^0x/d" > InputBox.json
+	docker run --rm cartesi/sdk:$(CARTESI_SDK_VERSION) bash -c "cat localhost.json | jq '.contracts.InputBox' " | sed  "/^0x/d" > InputBox.json
 
 ../rivemu:
 	make -C .. rivemu
