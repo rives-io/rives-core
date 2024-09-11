@@ -5,7 +5,7 @@ alembic==1.13.1
 async-timeout==4.0.3
 attrs==23.2.0
 bitarray==2.9.2
-cartesapp @ git+https://github.com/prototyp3-dev/cartesapp@3edb5e4a304f9b713e958e321df61117543ebb0a
+cartesapp @ git+https://github.com/prototyp3-dev/cartesapp@ed75cbd72d5ae27ac5cbba697fcd761a9fab3ce3
 certifi==2024.2.2
 charset-normalizer==3.3.2
 ckzg==1.0.1

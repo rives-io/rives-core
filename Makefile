@@ -1,11 +1,14 @@
 # Makefile
 
 ENVFILE := .env
+CHAIN_ENVFILE := .chain.env
 
 SHELL := /bin/bash
 
-RIV_VERSION := 0.3-rc12
-CARTESI_SDK_RIV_VERSION := 0.6.2-riv
+RIV_VERSION := 0.3-rc16
+CARTESI_SDK_RIV_VERSION := 0.9.0-riv
+
+RELEASE_SUFFIX ?= ''
 
 RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
 
@@ -35,8 +38,8 @@ all: cartesi-riv build build-reader-node
 setup-env: ; $(value setup_venv)
 
 # build targets
-build: --load-env --check-opaddr-env ; $(value setup_venv)
-	cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
+build: ${ENVFILE} --check-envs ; $(value setup_venv)
+	set -a && source $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
 
 build-reader-node: ; $(value setup_venv)
 	cartesapp build-reader-image $(ARGS)
@@ -45,37 +48,33 @@ build-dev-node: ; $(value setup_venv)
 	cartesapp build-dev-image $(ARGS)
 
 build-%: ${ENVFILE}.% --check-envs-% ; $(value setup_venv)
-	. $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION} $(ARGS)
+	set -a && source $< && cartesapp build --config user=root --config envs=OPERATOR_ADDRESS=${OPERATOR_ADDRESS},RIVES_VERSION=${RIVES_VERSION},PROXY_ADDRESS=${PROXY_ADDRESS} $(ARGS)
 
 # Run targets
-run: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env ; $(value setup_venv)
+run: ; $(value setup_venv)
 	cartesapp node $(ARGS)
 
-run-dev: --load-env --check-rivemu-env --check-opaddr-env --check-roladdr-env rivemu ; $(value setup_venv)
-	RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} cartesapp node --mode dev $(ARGS)
+run-dev: ${ENVFILE} rivemu --check-envs --check-dev-envs ; $(value setup_venv)
+	set -a && source $< && \
+	 cartesapp node --mode dev $(ARGS)
 
 run-reader: ; $(value setup_venv)
 	cartesapp node --mode reader $(ARGS)
 
 run-dev-%: ${ENVFILE}.% --check-testnet-envs-% --check-dev-envs-% rivemu ; $(value setup_venv)
-	. $< && RIVEMU_PATH=${RIVEMU_PATH} OPERATOR_ADDRESS=${OPERATOR_ADDRESS} ROLLUP_HTTP_SERVER_URL=${ROLLUP_HTTP_SERVER_URL} \
+	set -a && source $< && \
 	 cartesapp node --mode dev --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} \
 	 $(ARGS)
 
 run-reader-%: ${ENVFILE}.% --check-testnet-envs-% ; $(value setup_venv)
-	. $< && cartesapp node --mode reader --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} $(ARGS)
-
-run-frontend-dev:
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	make -C ${FRONTEND_PATH} run-dev
-
-build-frontend:
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	make -C ${FRONTEND_PATH} build
+	set -a && source $< && cartesapp node --mode reader --config rpc-url=${RPC_URL} --config contracts-application-address=${DAPP_ADDRESS} --config contracts-input-box-block=${DAPP_DEPLOY_BLOCK} $(ARGS)
 
 generate-frontend-libs: ; $(value setup_venv)
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	cartesapp generate-frontend-libs --libs-path app/backend-libs --frontend-path ${FRONTEND_PATH}
+	@test ! -z '${FRONTEND_PATH}' || (echo "Must define FRONTEND_PATH in env" && exit 1)
+	cartesapp generate-frontend-libs --libs-path app/backend-libs --frontend-path ${FRONTEND_PATH} $(ARGS)
+
+deploy-dapp-%: 
+	@make -f deploy.mk $@
 
 # Aux env targets
 --load-env: ${ENVFILE}
@@ -86,6 +85,7 @@ ${ENVFILE}:
 	echo ROLLUP_HTTP_SERVER_URL=http://localhost:8080/rollup >> $(ENVFILE)
 	echo RIVEMU_PATH=rivemu >> $(ENVFILE)
 	echo OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 >> $(ENVFILE)
+	echo PROXY_ADDRESS=0xeFF4b7fACd2f3041184BB7Bf3A0E2bB63e452fd6 >> $(ENVFILE)
 
 --load-env-%: ${ENVFILE}.%
 	@$(eval include include $^)
@@ -94,29 +94,34 @@ ${ENVFILE}.%:
 	test ! -f $@ && $(error "file $@ doesn't exist")
 
 --check-roladdr-env:
-	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || echo "Must define ROLLUP_HTTP_SERVER_URL in env" && test ! -z '${ROLLUP_HTTP_SERVER_URL}'
+	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || (echo "Must define ROLLUP_HTTP_SERVER_URL in env" && exit 1)
 
 
 # custom rives tagets
 
+--check-envs: --load-env
+	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
+	@test ! -z '${PROXY_ADDRESS}' || (echo "Must define PROXY_ADDRESS in env" && exit 1)
+
 --check-envs-%: --load-env-%
-	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
+	@test ! -z '${OPERATOR_ADDRESS}' || (echo "Must define OPERATOR_ADDRESS in env" && exit 1)
+	@test ! -z '${PROXY_ADDRESS}' || (echo "Must define PROXY_ADDRESS in env" && exit 1)
 
 --check-rivemu-env:
-	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'
+	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
 
---check-opaddr-env:
-	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
+--check-dev-envs: --load-env
+	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
+	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || (echo "Must define ROLLUP_HTTP_SERVER_URL in env" && exit 1)
 
 --check-dev-envs-%: --load-env-%
-	@test ! -z '${OPERATOR_ADDRESS}' || echo "Must define OPERATOR_ADDRESS in env" && test ! -z '${OPERATOR_ADDRESS}'
-	@test ! -z '${RIVEMU_PATH}' || echo "Must define RIVEMU_PATH in env" && test ! -z '${RIVEMU_PATH}'
-	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || echo "Must define ROLLUP_HTTP_SERVER_URL in env" && test ! -z '${ROLLUP_HTTP_SERVER_URL}'
+	@test ! -z '${RIVEMU_PATH}' || (echo "Must define RIVEMU_PATH in env" && exit 1)
+	@test ! -z '${ROLLUP_HTTP_SERVER_URL}' || (echo "Must define ROLLUP_HTTP_SERVER_URL in env" && exit 1)
 
 --check-testnet-envs-%: --load-env-%
-	@test ! -z '${RPC_URL}' || echo "Must define RPC_URL in env" && test ! -z '${RPC_URL}'
-	@test ! -z '${DAPP_ADDRESS}' || echo "Must define DAPP_ADDRESS in env" && test ! -z '${DAPP_ADDRESS}'
-	@test ! -z '${DAPP_DEPLOY_BLOCK}' || echo "Must define DAPP_DEPLOY_BLOCK in env" && test ! -z '${DAPP_DEPLOY_BLOCK}'
+	@test ! -z '${RPC_URL}' || (echo "Must define RPC_URL in env" && exit 1)
+	@test ! -z '${DAPP_ADDRESS}' || (echo "Must define DAPP_ADDRESS in env" && exit 1)
+	@test ! -z '${DAPP_DEPLOY_BLOCK}' || (echo "Must define DAPP_DEPLOY_BLOCK in env" && exit 1)
 
 cartesi-riv: cartesi-sdk
 cartesi-sdk-riv: cartesi-sdk
@@ -132,16 +137,11 @@ rivemu:
 
 update-rivemu: --remove-rivemu rivemu
 
-update-frontend-rivemu:
-	@test ! -z '${FRONTEND_PATH}' || echo "Must define FRONTEND_PATH in env" && test ! -z '${FRONTEND_PATH}'
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.js -o ${FRONTEND_PATH}/public/rivemu.js
-	curl -s -L https://github.com/rives-io/riv/releases/download/v${RIV_VERSION}/rivemu.wasm -o ${FRONTEND_PATH}/public/rivemu.wasm
-
 build-release:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)${RELEASE_SUFFIX}
 	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .rives-core.tag
-	docker build -f Dockerfile --target node .cartesi/ \
+	docker build -f Dockerfile --target node . \
 		-t $$IMAGE_TAG \
 		--label "org.opencontainers.image.title=rives-core" \
 		--label "org.opencontainers.image.description=RIVES Core Node" \
@@ -164,10 +164,25 @@ run-external-verifier-cloud-services:
 	make -C external_verifier run-cloud-services ARGS='$(ARGS)'
 
 build-external-verifier-cloud:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)${RELEASE_SUFFIX}
 	IMAGE_TAG=ghcr.io/rives-io/rives-exteral-verifier:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .external-verifier-cloud.tag
 	docker build --target external-verifier-cloud . \
+		-t $$IMAGE_TAG \
+		--label "org.opencontainers.image.title=rives-external-verifier" \
+		--label "org.opencontainers.image.description=RIVES External Verifier" \
+		--label "org.opencontainers.image.source=https://github.com/rives-io/rives-core" \
+		--label "org.opencontainers.image.revision=$$(git rev-parse HEAD)" \
+		--label "org.opencontainers.image.created=$$(date -Iseconds --utc)" \
+		--label "org.opencontainers.image.licenses=Apache-2.0" \
+		--label "org.opencontainers.image.url=https://rives.io" \
+		--label "org.opencontainers.image.version=$$IMAGE_VERSION"
+
+build-reader-release:
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-reader${RELEASE_SUFFIX}
+	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
+	echo $$IMAGE_TAG > .rives-reader.tag
+	docker build --target reader-node . \
 		-t $$IMAGE_TAG \
 		--label "org.opencontainers.image.title=rives-external-verifier" \
 		--label "org.opencontainers.image.description=RIVES External Verifier" \

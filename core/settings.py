@@ -1,13 +1,16 @@
 # App Framework settings
 
 # Files with definitions to import
-FILES = ['core_settings','cartridge','tape','admin']
+FILES = ['model','cartridge','tape','admin']
 
 # Index outputs in inspect indexer queries
 INDEX_OUTPUTS = True
 
 # Index inputs in inspect indexer queries
 INDEX_INPUTS = True
+
+# Enable endpoint to get address from Dapp relay contract
+ENABLE_DAPP_RELAY = True
 
 # Path dir to database
 STORAGE_PATH = 'data'

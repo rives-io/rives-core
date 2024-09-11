@@ -1,7 +1,7 @@
 # RIVES CORE
 
 ```
-Cartesi Rollups Node version: 1.2.x (sunodo version 0.10.x)
+Cartesi Rollups Node version: 1.5.x (cartesi cli version 0.15.x)
 ```
 
 The RiscV Entertainment System (RIVES) CORE allows users to play riscv-binaries of games on a RISC-v Cartesi Machine on the browser, submit the game moves onchain so the session will be replayed a Cartesi Rollups App to generate a provable score. Naturally you can upload you own games.
@@ -13,24 +13,24 @@ For now, this is not a final product and should not be used as one.
 ## Requirements
 
 - [npm](https://docs.npmjs.com/cli/v9/configuring-npm/install) to install dependencies and run the frontend
-- [Sunodo](https://github.com/sunodo/sunodo) to build and run the DApp backend
+- [cartesi-cli](https://github.com/cartesi/cli) to build and run the DApp backend
 - [Metamask](https://metamask.io/) to sign transactions in the frontend
 - [json-schema-to-typescript](https://www.npmjs.com/package/json-schema-to-typescript) to generate typescript interfaces`npm install -g json-schema-to-typescript --save`
 - [cartesi-client](https://github.com/prototyp3-dev/cartesi-client/), an interface to cartesi rollups framework
 - [cartesapp](https://github.com/prototyp3-dev/cartesapp/), an high level framwork for python cartesi rollup app
 
-To build the DApp, two images are also required: `riv/toolchain` and `sunodo/sdk:0.2.0-riv`.
+To build the DApp, two images are also required: `riv/toolchain` and `castesi/sdk:<version>-riv`.
 
-- To generate `riv/toolchain`, clone [RIV repository](https://github.com/edubart/riv) and in its directory do:
+- To generate `riv/toolchain`, clone [RIV repository](https://github.com/rives-io/riv) and in its directory do:
 
 ```shell
 make toolchain
 ```
 
-- To generate `sunodo/sdk:0.2.0-riv`, in the `rives-core` project directory do:
+- To generate `castesi/sdk:<version>-riv`, in the `rives-core` project directory do:
 
 ```shell
-make sunodo-sdk-riv
+make cartesi-riv
 ```
 
 You should also install the frontend dependencies. First install [cartesi client](https://github.com/prototyp3-dev/cartesi-client), then run:
@@ -63,7 +63,7 @@ make build-[ENV]
 
 ## Running
 
-Run the DApp environment with (this command runs `sunodo run`):
+Run the DApp environment with (this command runs `cartesi run`):
 
 ```shell
 make run
