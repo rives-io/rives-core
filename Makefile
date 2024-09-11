@@ -8,6 +8,8 @@ SHELL := /bin/bash
 RIV_VERSION := 0.3-rc16
 CARTESI_SDK_RIV_VERSION := 0.6.2-riv
 
+RELEASE_SUFFIX ?= ''
+
 RIVES_VERSION := $(shell git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$(shell git rev-parse --short HEAD)
 
 define setup_venv =
@@ -136,7 +138,7 @@ rivemu:
 update-rivemu: --remove-rivemu rivemu
 
 build-release:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)${RELEASE_SUFFIX}
 	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .rives-core.tag
 	docker build -f Dockerfile --target node . \
@@ -162,7 +164,7 @@ run-external-verifier-cloud-services:
 	make -C external_verifier run-cloud-services ARGS='$(ARGS)'
 
 build-external-verifier-cloud:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)${RELEASE_SUFFIX}
 	IMAGE_TAG=ghcr.io/rives-io/rives-exteral-verifier:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .external-verifier-cloud.tag
 	docker build --target external-verifier-cloud . \
@@ -177,7 +179,7 @@ build-external-verifier-cloud:
 		--label "org.opencontainers.image.version=$$IMAGE_VERSION"
 
 build-reader-release:
-	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-reader
+	IMAGE_VERSION=$$(git log -1 --format="%at" | xargs -I{} date -d @{} +%Y%m%d.%H%M).$$(git rev-parse --short HEAD)-reader${RELEASE_SUFFIX}
 	IMAGE_TAG=ghcr.io/rives-io/rives-core:$$IMAGE_VERSION
 	echo $$IMAGE_TAG > .rives-reader.tag
 	docker build --target reader-node . \
