@@ -95,4 +95,4 @@ make run-dev
 
 Obs: you should define the following variables in `.env` file: RIVEMU_PATH, OPERATOR_ADDRESS, and ROLLUP_HTTP_SERVER_URL
 
-Obs: you can find the sources for rivemu [here](https://github.com/edubart/riv)
+Obs: you can find the sources for rivemu [here](https://github.com/rives-io/riv)
