@@ -2,7 +2,7 @@
 import re
 import pickle
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from dagster import sensor, op, job, define_asset_job, asset, run_status_sensor, asset_sensor, multi_asset_sensor,\
     RunRequest, Config, RunConfig, SensorEvaluationContext, SkipReason, OpExecutionContext, AssetExecutionContext, \
     Definitions, DagsterRunStatus, Output, DynamicPartitionsDefinition, SensorResult, AssetSelection, SensorEvaluationContext, \
@@ -72,9 +72,23 @@ class DeactivateRuleConfig(Config):
 class ExternalVerificationOutputsConfig(Config):
     outputs: str
 
-class ExternalVerificationOutputList(BaseModel):
-    output_list: List[ExternalVerificationOutput]
+class ExternalVerificationOutputSerializable(ExternalVerificationOutput):
+    class Config:
+        json_encoders = {
+            bytes: lambda v: v.hex(),
+        }
+    @validator('outcard', pre=True)
+    def convert2bytes(cls, v):
+        if isinstance(v, str):
+            return bytes.fromhex(v)
+        return v
 
+class ExternalVerificationOutputList(BaseModel):
+    output_list: List[ExternalVerificationOutputSerializable]
+    class Config:
+        json_encoders = {
+            bytes: lambda v: v.hex(),
+        }
 
 ###
 # Jobs and Ops
