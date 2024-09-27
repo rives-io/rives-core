@@ -175,7 +175,7 @@ class HashMap:
         return cls
     @classmethod
     def set(cls,k1,val):
-        cls.db[k1] = val
+        cls.db[k1] = val.encode('utf-8') if type(val) == type('') else val
     @classmethod
     def get(cls,k1):
         return cls.db.get(k1)
@@ -185,7 +185,7 @@ class HashMap:
     @classmethod
     def hset(cls,k1,k2,val):
         if cls.db.get(k1) is None: cls.db[k1] = cls.manager.dict()
-        cls.db[k1][k2] = val
+        cls.db[k1][k2] = val.encode('utf-8') if type(val) == type('') else val
     @classmethod
     def hget(cls,k1,k2):
         if cls.db.get(k1) is None: return None
@@ -196,7 +196,7 @@ class HashMap:
     @classmethod
     def lpush(cls,k1,val):
         if cls.db.get(k1) is None: cls.db[k1] = cls.manager.list()
-        cls.db[k1].insert(0,val)
+        cls.db[k1].insert(0,val.encode('utf-8') if type(val) == type('') else val)
     @classmethod
     def rpoplpush(cls,k1,k2):
         if cls.db.get(k1) is None or len(cls.db[k1]) == 0: return None
