@@ -12,10 +12,8 @@ For now, this is not a final product and should not be used as one.
 
 ## Requirements
 
-- [npm](https://docs.npmjs.com/cli/v9/configuring-npm/install) to install dependencies and run the frontend
 - [cartesi-cli](https://github.com/cartesi/cli) to build and run the DApp backend
-- [Metamask](https://metamask.io/) to sign transactions in the frontend
-- [json-schema-to-typescript](https://www.npmjs.com/package/json-schema-to-typescript) to generate typescript interfaces`npm install -g json-schema-to-typescript --save`
+- [npm](https://docs.npmjs.com/cli/v9/configuring-npm/install) and [json-schema-to-typescript](https://www.npmjs.com/package/json-schema-to-typescript) to generate typescript interfaces`npm install -g json-schema-to-typescript --save`
 - [cartesi-client](https://github.com/prototyp3-dev/cartesi-client/), an interface to cartesi rollups framework
 - [cartesapp](https://github.com/prototyp3-dev/cartesapp/), an high level framwork for python cartesi rollup app
 
@@ -31,14 +29,6 @@ make toolchain
 
 ```shell
 make cartesi-riv
-```
-
-You should also install the frontend dependencies. First install [cartesi client](https://github.com/prototyp3-dev/cartesi-client), then run:
-
-```shell
-cd frontend
-yarn
-npm link cartesi-client
 ```
 
 ## Building
@@ -69,20 +59,10 @@ Run the DApp environment with (this command runs `cartesi run`):
 make run
 ```
 
-Then run the externa
-
-Run the frontend
+Then run the external verifier
 
 ```shell
-cd frontend
-yarn dev
-```
-
-Finally, you should also run the gif server
-
-```shell
-cd frontend
-yarn dev
+make run-external-verifier
 ```
 
 ### Running Backend in the host
@@ -95,4 +75,4 @@ make run-dev
 
 Obs: you should define the following variables in `.env` file: RIVEMU_PATH, OPERATOR_ADDRESS, and ROLLUP_HTTP_SERVER_URL
 
-Obs: you can find the sources for rivemu [here](https://github.com/edubart/riv)
+Obs: you can find the sources for rivemu [here](https://github.com/rives-io/riv)
