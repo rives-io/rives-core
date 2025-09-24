@@ -1,4 +1,4 @@
-
+import os
 import re
 import pickle
 from typing import List
@@ -15,6 +15,8 @@ from cartesapp.utils import hex2bytes, str2bytes, bytes2hex, bytes2str
 from common import ExtendedVerifyPayload, Storage, Rule, DbType, VerificationSender, InputFinder, InputType, ExternalVerificationOutput, \
     tape_verification, add_cartridge, remove_cartridge, set_operator, add_rule, initialize_storage_with_genesis_data, generate_cartridge_id, \
     set_unlocked_cartridges, add_locked_cartridge, deactivate_rule, VERIFICATIONS_BATCH_SIZE
+
+RIVES_POLLING_INTERVAL = int(os.environ.get("RIVES_POLLING_INTERVAL", "300"))
 
 
 ###
@@ -281,7 +283,10 @@ def initialization_sensor(context: SensorEvaluationContext):
     )
     context.update_cursor(run_key)
 
-@sensor(jobs=[verify_asset_job,add_cartridge_job,add_rule_job,remove_cartridge_job,set_operator_job,set_cartridge_unlocks_job,deactivate_rule_job])
+@sensor(
+    jobs=[verify_asset_job,add_cartridge_job,add_rule_job,remove_cartridge_job,set_operator_job,set_cartridge_unlocks_job,deactivate_rule_job],
+    minimum_interval_seconds=RIVES_POLLING_INTERVAL,
+)
 def inputs_sensor(context: SensorEvaluationContext):
     cursor = context.cursor or None
     if cursor is not None: cursor = int(cursor) + 1
